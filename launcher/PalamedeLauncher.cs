@@ -41,6 +41,7 @@ namespace PalamedeLauncher
         Button _openBtn;
         Button _stopBtn;
         bool _autoOpen = true;
+        bool _stopped = false;
 
         static readonly Color Ink   = Color.FromArgb(20, 16, 11);
         static readonly Color Ink2  = Color.FromArgb(28, 23, 16);
@@ -97,6 +98,16 @@ namespace PalamedeLauncher
 
             Controls.AddRange(new Control[] { title, sub, _log, _openBtn, _stopBtn });
             Shown += async (s, e) => await StartAll();
+
+            // Chiudendo la finestra si ferma TUTTO: i modelli escono dalla
+            // VRAM (llama-server, modello server, sd-server, hub). Lo script
+            // gira detached, poi aspettiamo qualche secondo perché le GPU
+            // vengano davvero liberate prima che l'exe esca.
+            FormClosing += (s, e) =>
+            {
+                StopAll();
+                System.Threading.Thread.Sleep(2500);
+            };
         }
 
         void Log(string msg)
@@ -277,8 +288,10 @@ namespace PalamedeLauncher
 
         void StopAll()
         {
+            if (_stopped) return;
+            _stopped = true;
             SpawnPs(Root + "\\scripts\\stop-all.ps1");
-            Log("fermati: modello server, hub e chat");
+            Log("fermati: modello server, hub e chat (VRAM liberata)");
             _openBtn.Enabled = false;
         }
     }

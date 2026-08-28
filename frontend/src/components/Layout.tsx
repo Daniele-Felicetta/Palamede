@@ -1,5 +1,5 @@
-import { ReactNode, useEffect, useState } from 'react'
-import { getHealth, getMetrics, getModels, Health, Metrics, ModelsStatus } from '../api'
+import { ReactNode, useState } from 'react'
+import { useStore } from '../store'
 import { useHashRoute } from '../router'
 
 const NAV = [
@@ -11,11 +11,6 @@ const NAV = [
   { path: '/rag', label: 'RAG', live: false },
   { path: '/mcp', label: 'MCP', live: false },
 ]
-
-const MODEL_LABEL: Record<string, string> = {
-  bonsai: 'Bonsai 4B T',
-  zimage: 'Z-Image Q4',
-}
 
 function Meter({ label, value, max, unit }: { label: string; value: number; max: number; unit: string }) {
   const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0
@@ -32,25 +27,12 @@ function Meter({ label, value, max, unit }: { label: string; value: number; max:
 
 export function Layout({ children }: { children: ReactNode }) {
   const [route, navigate] = useHashRoute()
-  const [health, setHealth] = useState<Health | null>(null)
-  const [models, setModels] = useState<ModelsStatus | null>(null)
-  const [metrics, setMetrics] = useState<Metrics | null>(null)
+  const { health, metrics, current, modelLabel } = useStore()
   const [sidebar, setSidebar] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth >= 1200 : true)
 
-  useEffect(() => {
-    const tick = async () => {
-      try { setHealth(await getHealth()) } catch { setHealth(null) }
-      try { setModels(await getModels()) } catch { setModels(null) }
-      try { setMetrics(await getMetrics()) } catch { setMetrics(null) }
-    }
-    tick()
-    const id = setInterval(tick, 3000)
-    return () => clearInterval(id)
-  }, [])
-
   const gpuOk = metrics?.gpu.ok
-  const loaded = models?.current ?? null
+  const loaded = current
 
   return (
     <div className={sidebar ? 'shell shell-sidebar' : 'shell'}>
@@ -74,7 +56,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="beacon">
           <span className="led-row" title="Modello caricato sulla GPU">
             <span className={`led ${health?.ok ? 'on' : 'off'}`} aria-hidden />
-            {loaded ? MODEL_LABEL[loaded] ?? loaded : 'GPU idle'}
+            {loaded ? modelLabel(loaded) : 'GPU idle'}
           </span>
         </div>
         <button
@@ -113,7 +95,7 @@ export function Layout({ children }: { children: ReactNode }) {
             <div className="side-title">Modello</div>
             <div className={`loaded-model ${loaded ? 'on' : ''}`}>
               <span className="led on" aria-hidden />
-              {loaded ? MODEL_LABEL[loaded] ?? loaded : 'nessuno'}
+              {loaded ? modelLabel(loaded) : 'nessuno'}
             </div>
           </div>
           {(metrics?.gpu.procs?.length ?? 0) > 0 && (

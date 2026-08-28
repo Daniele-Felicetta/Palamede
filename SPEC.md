@@ -148,8 +148,14 @@ il modello corrente e libera la VRAM prima di caricare il nuovo).
            "procs": [ { "name": "python.exe", "mem": "5432MiB" } ] } }
 ```
 
-Cache nel hub (~2.5 s): `nvidia-smi` per GPU/VRAM/proc, contatore Windows
-per la CPU, API `os` di Node per la RAM.
+Cache nel hub (~2.5 s): `nvidia-smi` per GPU/VRAM/proc, `Get-CimInstance
+Win32_Processor` per la CPU (rapido, niente counter lento da ~1s), API `os`
+di Node per la RAM.
+
+Robustezza: ogni valore passa per un parse "safe" — i campi `N/A` di
+nvidia-smi (tipico `power.draw` a riposo) diventano `0` invece di `NaN`, che
+avrebbe rotto il JSON (la sidebar mostrava `nullW`/`NaN°C`). Se la CPU esce a
+`0` a riposo si tiene l'ultimo valore noto, senza buchi in UI.
 
 ### Parametri nativi dei backend
 
@@ -183,11 +189,18 @@ CSS vanilla con design system "officina a inchiostro": sumi-ink scuro, carta
 invecchiata, accenti ocra/vermiglio, Fraunces (display) + IBM Plex
 (Sans/Mono). `npm run dev` proxya `/api` al hub :4600.
 
+**Stato condiviso** in `frontend/src/store.ts`: un solo poller per tutta
+l'app (health + modelli + metriche ogni 3 s) esposto via `useStore()`, così
+sidebar, home e pagina immagini mostrano sempre lo stesso stato. Il cambio
+modello è un solo punto (`switchModel(id)`): il server scarica il precedente
+e carica il nuovo su `/select` — **non serve mai premere un "eject" prima di
+cambiare modello**.
+
 Pagine:
 
 | Rotta | Contenuto |
 |---|---|
-| `/` | Home hub: stato backend, card sezioni (Immagini attiva; Testo/Video/3D/RAG/MCP bozze) |
+| `/` | Home hub: eroe con **registro di bordo live** (stato backend, modello in VRAM, barra GPU) · card **Applicazioni** (Immagini attiva; Testo/Video/3D/RAG/MCP bozze) · sotto, **Misure sul banco** con i tempi misurati |
 | `/images` | Generatore funzionante (due modelli) + gallery locale + wiki dei due modelli con esempi reali |
 | `/text`, `/video`, `/3d`, `/rag`, `/mcp` | Bozze: wiki del tipo di modello + checklist requisiti + stato non installato |
 
@@ -201,6 +214,11 @@ Pagine:
 | `scripts/start-backend.ps1` | UNICO modello server :8000 (caricamento dinamico bonsai/zimage) |
 | `scripts/start-hub.ps1` | node hub/server.mjs :4600 (statici+proxy+metriche) |
 | `scripts/stop-all.ps1` + `stop.bat` | ferma hub e modello server (e subprocess sd-server) |
+
+Avvio nascosto: backend e hub partono **senza finestre console** (switch
+`-Hidden`; launcher con `WindowStyle Hidden`) e scrivono i log in
+`outputs/backend.log` e `outputs/hub.log`. `scripts/start.ps1 -Visible`
+ripristina le console per il debug.
 
 ## Decisioni prese
 
@@ -216,7 +234,11 @@ Pagine:
   `hashchange` basta (YAGNI).
 - **La coda è nel hub e nel server** (lock + catena di promise): il vincolo
   di esclusività GPU è una regola di prodotto, non un'abitudine di avvio.
-- **Metriche di sistema nel hub** (nvidia-smi + contatore Windows + os):
-  la sidebar della UI le mostra senza dipendenze esterne.
+- **Metriche di sistema nel hub** (nvidia-smi + Win32_Processor + os):
+  la sidebar della UI le mostra senza dipendenze esterne; parse "safe"
+  contro i `N/A` di nvidia-smi.
+- **Un solo poller frontend** (`store.ts`): niente stati locali desincronizzati
+  tra sidebar e pagine; il cambio modello è one-click, il server scarica il
+  precedente da sé (nessun tasto "eject").
 - I dati della wiki sono **misurati su questa macchina**, non copiati dai
   model card (le cifre ufficiali "sub-second" si intendono su H800).

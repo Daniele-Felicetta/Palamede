@@ -1,5 +1,6 @@
-import { FormEvent, useEffect, useState } from 'react'
-import { generateImage, getModels, selectModel, GenImage, ModelsStatus } from '../api'
+import { FormEvent, useState } from 'react'
+import { generateImage, GenImage } from '../api'
+import { refreshModels, switchModel, useStore } from '../store'
 import { IMAGE_MODELS } from '../data/wiki'
 import { WikiEntry } from '../components/WikiEntry'
 
@@ -22,9 +23,8 @@ interface Shot extends GenImage {
 }
 
 export function Images() {
+  const { current, selecting } = useStore()
   const [model, setModel] = useState<ModelId>('bonsai')
-  const [loaded, setLoaded] = useState<string | null>(null)
-  const [selecting, setSelecting] = useState<ModelId | null>(null)
   const [prompt, setPrompt] = useState(
     'An icy bonsai tree in a rainy forest with a snowy mountain in the background, photo realistic')
   const [size, setSize] = useState<string>('512x512')
@@ -36,26 +36,20 @@ export function Images() {
   const [error, setError] = useState(false)
   const [shots, setShots] = useState<Shot[]>([])
 
-  useEffect(() => {
-    getModels().then((m: ModelsStatus) => setLoaded(m.current)).catch(() => {})
-  }, [])
-
-  // selezione modello → carica dinamico sul server (un modello alla volta)
+  // selezione modello → un colpo solo: il server scarica il precedente e
+  // carica il nuovo (niente eject). Stato condiviso con sidebar/home.
   const pickModel = async (m: ModelId) => {
+    if (selecting) return
     setModel(m)
     setSteps(DEFAULT_STEPS[m])
-    if (loaded === m) return
-    setSelecting(m)
+    if (current === m) return
     setHint(`caricamento ${m === 'bonsai' ? 'Bonsai' : 'Z-Image'} sulla GPU…`)
     try {
-      const st = await selectModel(m)
-      setLoaded(st.current)
+      await switchModel(m)
       setHint('')
     } catch (err) {
       setHint(String(err instanceof Error ? err.message : err))
       setError(true)
-    } finally {
-      setSelecting(null)
     }
   }
 
@@ -65,11 +59,10 @@ export function Images() {
     setBusy(true); setError(false); setHint('in coda sulla GPU…')
     const [w, h] = size.split('x').map(Number)
     try {
-      // assicura che il modello giusto sia caricato
-      if (loaded !== model) {
-        setHint(`caricamento ${model}…`)
-        const st = await selectModel(model)
-        setLoaded(st.current)
+      // il modello giusto deve essere caricato prima di generare
+      if (current !== model) {
+        setHint(`caricamento ${model} sulla GPU…`)
+        await switchModel(model)
       }
       const t0 = performance.now()
       const imgs = await generateImage({ model, prompt: prompt.trim(), steps, seed, width: w, height: h, count })
@@ -79,6 +72,7 @@ export function Images() {
       ])
       const secs = ((performance.now() - t0) / 1000).toFixed(1)
       setHint(`fatto: ${imgs.length}×${size} in ${secs} s (attesa coda inclusa)`)
+      refreshModels()
     } catch (err) {
       setHint(String(err instanceof Error ? err.message : err))
       setError(true)
@@ -89,7 +83,7 @@ export function Images() {
 
   const plateState = (id: ModelId) => {
     if (selecting === id) return '…carico'
-    if (loaded === id) return 'attivo'
+    if (current === id) return 'attivo'
     return 'a riposo'
   }
 
@@ -116,7 +110,7 @@ export function Images() {
                   onClick={() => pickModel(m.id as ModelId)}
                 >
                   <span className="pname">
-                    <span className={`led ${loaded === m.id ? 'on' : selecting === m.id ? 'busy' : 'off'}`} aria-hidden />
+                    <span className={`led ${current === m.id ? 'on' : selecting === m.id ? 'busy' : 'off'}`} aria-hidden />
                     {m.name}
                   </span>
                   <span className="pstamps">

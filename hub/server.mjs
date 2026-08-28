@@ -72,15 +72,26 @@ let metrics = {
   gpu: { ok: false, utilPct: 0, vramUsedGB: 0, vramTotalGB: 0, vramPct: 0, tempC: 0, powerW: 0, procs: [] },
 }
 
+function num(s) {
+  const v = parseFloat(s)
+  return Number.isFinite(v) ? v : 0
+}
+
+// CPU: Win32_Processor.LoadPercentage è rapido e non richiede il counter
+// lento di Get-Counter (~1s a chiamata). Se esce 0 (spesso a riposo) usa
+// l'ultimo valore noto per non avere strani "buchi" nella sidebar.
+let lastCpu = 0
 async function psCpu() {
   try {
     const { stdout } = await execFileP('powershell',
       ['-NoProfile', '-NonInteractive', '-Command',
-       '(Get-Counter \'\\Processor(_Total)\\% Processor Time\' -SampleInterval 1 -MaxSamples 1).CounterSamples.CookedValue'],
+       '(Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average'],
       { timeout: 5000, windowsHide: true })
-    return Math.round(Number(stdout.trim()) * 10) / 10
+    const v = num(stdout)
+    if (v > 0) lastCpu = v
+    return Math.round((v > 0 ? v : lastCpu) * 10) / 10
   } catch {
-    return 0
+    return lastCpu
   }
 }
 
@@ -90,20 +101,22 @@ async function gpuStats() {
       ['--query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw',
        '--format=csv,noheader,nounits'],
       { timeout: 5000, windowsHide: true })
-    const [util, vused, vtot, temp, power] = smi.trim().split(',').map((s) => parseFloat(s.trim()))
+    const [util, vused, vtot, temp, power] = smi.trim().split(',').map(num)
     let procs = []
     try {
       const { stdout: pl } = await execFileP('nvidia-smi',
         ['--query-compute-apps=process_name,used_memory', '--format=csv,noheader'],
         { timeout: 5000, windowsHide: true })
-      procs = pl.split(/\r?\n/).filter(Boolean).map((line) => {
-        const i = line.lastIndexOf(',')
-        return { name: line.slice(0, i).trim(), mem: line.slice(i + 1).trim() }
-      })
+      procs = pl.split(/\r?\n/)
+        .filter((line) => line && !line.includes('[N/A]'))
+        .map((line) => {
+          const i = line.lastIndexOf(',')
+          return { name: line.slice(0, i).trim(), mem: line.slice(i + 1).trim() }
+        })
     } catch { /* nessun processo */ }
     const vramUsedGB = vused / 1024, vramTotalGB = vtot / 1024
     return {
-      ok: true, utilPct: util, vramUsedGB, vramTotalGB,
+      ok: vtot > 0, utilPct: util, vramUsedGB, vramTotalGB,
       vramPct: vtot ? Math.round((vused / vtot) * 100) : 0,
       tempC: temp, powerW: power, procs,
     }

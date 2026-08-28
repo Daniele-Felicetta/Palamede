@@ -216,6 +216,13 @@ namespace PalamedeLauncher
             return Directory.Exists(full) && Directory.GetFiles(full, "*.gguf", SearchOption.AllDirectories).Length > 0;
         }
 
+        // bonsai è in formato Diffusers (qmodel.pt / safetensors / model_index.json),
+        // NON è un GGUF: il marker valido è il model_index.json della cartella.
+        bool HasBonsai()
+        {
+            return File.Exists(Path.Combine(Root, @"models\bonsai-image-4B-ternary-gemlite\model_index.json"));
+        }
+
         void EnsureModels()
         {
             string root = Root;
@@ -235,7 +242,7 @@ namespace PalamedeLauncher
                 }
             }
 
-            if (!HasModel(@"models\bonsai-image-4B-ternary-gemlite"))
+            if (!HasBonsai())
                 Log("  ATTENZIONE: modelli immagini mancanti (bonsai) — esegui scripts\\copy-models.ps1");
             if (!Directory.Exists(root + "\\reference\\bonsai\\.venv"))
                 Log("  ATTENZIONE: reference\\bonsai\\.venv mancante — il backend immagini non partira'");

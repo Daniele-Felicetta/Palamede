@@ -340,8 +340,22 @@ section { margin-top: 56px; }
 }
 
 /* ── Chat (Ornith / llama.cpp) ── */
-.chat-wrap { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
-.chat-panel { display: flex; flex-direction: column; gap: 14px; }
+/* a schermo intero: l'app diventa un flex column alto quanto il viewport */
+.chat-shell { height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+.chat-shell main {
+  flex: 1; min-height: 0; max-width: none; width: 100%;
+  margin: 0; padding: 0; overflow-y: auto;
+  display: flex; flex-direction: column;
+}
+.chat-shell footer { flex: none; }
+
+.chat-page-head { padding: 18px 28px 0; }
+.chat-page-head h1 { font-size: 26px; margin-bottom: 0; }
+
+.chat-stage { flex: 1 0 62vh; min-height: 0; display: flex; padding: 14px 28px; }
+.chat-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.chat-log { flex: 1; min-height: 0; max-height: none; }
+.chat-shell .wiki { padding: 0 28px 40px; }
 
 .chat-toolbar { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; justify-content: space-between; }
 .chat-plates { margin: 0; flex: 1 1 420px; }

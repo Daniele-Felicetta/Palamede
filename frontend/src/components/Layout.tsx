@@ -33,9 +33,10 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const gpuOk = metrics?.gpu.ok
   const loaded = current
+  const shellCls = (sidebar ? 'shell shell-sidebar' : 'shell') + (route === '/chat' ? ' chat-shell' : '')
 
   return (
-    <div className={sidebar ? 'shell shell-sidebar' : 'shell'}>
+    <div className={shellCls}>
       <header className="masthead">
         <a className="brand" href="#/" onClick={(e) => { e.preventDefault(); navigate('/') }}>
           <span className="seal">P</span>

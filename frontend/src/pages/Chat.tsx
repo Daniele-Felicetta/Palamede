@@ -138,12 +138,13 @@ export function Chat() {
 
   return (
     <>
-      <p className="eyebrow">Sezione chat</p>
-      <h1>Ornith, <em>in casa</em>.</h1>
+      <header className="chat-page-head">
+        <p className="eyebrow">Sezione chat</p>
+        <h1>Ornith, <em>in casa</em>.</h1>
+      </header>
 
-      <section>
-        <div className="chat-wrap">
-          <form className="panel chat-panel" onSubmit={send}>
+      <section className="chat-stage">
+        <form className="panel chat-panel" onSubmit={send}>
             {/* modello + impostazioni */}
             <div className="chat-toolbar">
               <div className="plates chat-plates">
@@ -280,7 +281,6 @@ export function Chat() {
             </div>
             <p className={`hintline ${err ? 'err' : ''}`} role="status">{err}</p>
           </form>
-        </div>
       </section>
 
       <section className="wiki">

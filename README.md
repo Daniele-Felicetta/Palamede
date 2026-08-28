@@ -63,10 +63,16 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 .\scripts\start.ps1
 ```
 
-Lo script controlla cosa è già attivo, avvia ciò che manca in finestre
-minimizzate e apre il browser su **http://127.0.0.1:4600**.
+**Oppure con il launcher**: doppio clic su **`Palamede.exe`** (alla radice) —
+una piccola finestra mostra l'avvio, apre il browser da sola e ha il pulsante
+"Ferma tutto". Si rigenera con `.\scripts\build-launcher.ps1` (usa il
+compilatore .NET Framework già presente in Windows, ~12 KB, niente install).
 
-Per fermare tutto: `.\scripts\stop-all.ps1` (o `stop.bat`).
+Lo script/launcher controlla cosa è già attivo, avvia ciò che manca in
+finestre minimizzate e apre il browser su **http://127.0.0.1:4600**.
+
+Per fermare tutto: `.\scripts\stop-all.ps1` (o `stop.bat`, o il pulsante
+nel launcher).
 
 > Vuoi che parta all'accesso? Metti un collegamento a `start.bat` nella
 > cartella avvio (`Win+R` → `shell:startup`).

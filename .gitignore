@@ -9,6 +9,9 @@ reference/
 # ── Engine binari scaricati (stable-diffusion.cpp) ─────────────
 tools/
 
+# ── Launcher compilato (rigenerabile con scripts/build-launcher.ps1) ──
+*.exe
+
 # ── Dipendenze / build ──────────────────────────────────────────
 node_modules/
 frontend/dist/

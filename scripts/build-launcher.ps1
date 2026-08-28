@@ -1,4 +1,4 @@
-# Compila il launcher Palamede.exe (root) con csc.exe del .NET Framework
+﻿# Compila il launcher Palamede.exe (root) con csc.exe del .NET Framework
 # incluso in Windows: nessuna dipendenza esterna, nessun install.
 # Rilanciare dopo eventuali modifiche a launcher/PalamedeLauncher.cs.
 $ErrorActionPreference = 'Stop'

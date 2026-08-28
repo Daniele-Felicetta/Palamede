@@ -1,7 +1,8 @@
 ﻿# Avvia l'UNICO modello server dinamico (:8000).
+# -Hidden: nessuna console visibile, log in outputs/backend.log
 # Carica Bonsai (gemlite in-process) o Z-Image (spawna sd-server come
 # subprocess) alla selezione: POST /select {model}. Un modello alla volta.
-param([int]$Port = 8000)
+param([int]$Port = 8000, [switch]$Hidden)
 $ErrorActionPreference = 'Stop'
 $Root = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
 
@@ -22,7 +23,23 @@ $env:MFLUX_STUDIO_GPU_BINARY_TRANSFORMER_PATH  = Join-Path $model 'transformer-g
 $env:PYTHONIOENCODING = 'utf-8'
 $env:PYTHONUTF8       = '1'
 
-Write-Host "Palamede modello server su :$Port (caricamento dinamico: bonsai / zimage)" -ForegroundColor Cyan
-Push-Location $Root
-& $py -m uvicorn backends.modelserver:app --port $Port
-Pop-Location
+$uvicornArgs = @('-m', 'uvicorn', 'backends.modelserver:app', '--port', "$Port")
+
+# I processi nativi (python/uvicorn) scrivono warning su stderr: con
+# $ErrorActionPreference='Stop' un semplice warning diverrebbe un
+# NativeCommandError e ucciderebbe lo script. Qui deve essere 'Continue'.
+$ErrorActionPreference = 'Continue'
+
+if ($Hidden) {
+    $log = Join-Path $Root 'outputs\backend.log'
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $log) | Out-Null
+    Write-Host "Palamede modello server :$Port - log: $log"
+    Push-Location $Root
+    & $py @uvicornArgs *> $log
+    Pop-Location
+} else {
+    Write-Host 'Palamede modello server (caricamento dinamico: bonsai / zimage)' -ForegroundColor Cyan
+    Push-Location $Root
+    & $py @uvicornArgs
+    Pop-Location
+}

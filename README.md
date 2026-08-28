@@ -68,8 +68,12 @@ una piccola finestra mostra l'avvio, apre il browser da sola e ha il pulsante
 "Ferma tutto". Si rigenera con `.\scripts\build-launcher.ps1` (usa il
 compilatore .NET Framework già presente in Windows, ~12 KB, niente install).
 
-Lo script/launcher controlla cosa è già attivo, avvia ciò che manca in
-finestre minimizzate e apre il browser su **http://127.0.0.1:4600**.
+Backend e hub girano **senza finestre visibili** e scrivono i log in
+`outputs/backend.log` e `outputs/hub.log` (per vedere la console: avvia gli
+script senza `-Hidden`, es. `.\scripts\start-backend.ps1`).
+
+Lo script/launcher controlla cosa è già attivo, avvia ciò che manca e apre
+il browser su **http://127.0.0.1:4600**.
 
 Per fermare tutto: `.\scripts\stop-all.ps1` (o `stop.bat`, o il pulsante
 nel launcher).

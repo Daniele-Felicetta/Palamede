@@ -1,4 +1,4 @@
-// Palamede launcher — piccola finestra di avvio/controllo dell'officina.
+﻿// Palamede launcher — piccola finestra di avvio/controllo dell'officina.
 // Compilato con csc.exe del .NET Framework (già presente in Windows),
 // nessuna dipendenza esterna. Il lavoro vero resta negli script .ps1:
 // l'exe li lancia in finestre minimizzate, aspetta che le porte siano
@@ -108,10 +108,12 @@ namespace PalamedeLauncher
 
         void SpawnPs(string script)
         {
+            // Finestra nascosta: nessuna console visibile, i log vanno su
+            // file (outputs/backend.log, outputs/hub.log) grazie a -Hidden.
             var psi = new ProcessStartInfo {
                 FileName = "powershell.exe",
-                Arguments = "-NoProfile -ExecutionPolicy Bypass -File \"" + script + "\"",
-                WindowStyle = ProcessWindowStyle.Minimized,
+                Arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"" + script + "\" -Hidden",
+                WindowStyle = ProcessWindowStyle.Hidden,
                 UseShellExecute = true,
             };
             Process.Start(psi);
@@ -155,10 +157,11 @@ namespace PalamedeLauncher
             else
             {
                 Log("  ERRORE: non pronto (backend=" + b + " hub=" + h + ")");
-                Log("  controlla le finestre minimizzate di PowerShell");
+                Log("  guarda i log in outputs\\backend.log e outputs\\hub.log");
                 MessageBox.Show(
-                    "Palamede non è riuscita ad avviarsi.\n" +
-                    "Controlla le finestre minimizzate e i prerequisiti (scripts/setup.ps1).",
+                    "Palamede non e' riuscita ad avviarsi.\n" +
+                    "Guarda i log in outputs\\backend.log e outputs\\hub.log\n" +
+                    "e verifica i prerequisiti (scripts/setup.ps1).",
                     "Palamede");
             }
         }

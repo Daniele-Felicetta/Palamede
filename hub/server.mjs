@@ -113,32 +113,49 @@ async function psCpu() {
   }
 }
 
+// Ultimo sample GPU valido: se nvidia-smi va in timeout (sotto carico) o
+// fallisce, continuiamo a servire l'ultimo valore invece di far comparire
+// "nvidia-smi non disponibile" a ogni refresh.
+let lastGoodGpu = null
+
 async function gpuStats() {
   try {
     const { stdout: smi } = await execFileP('nvidia-smi',
       ['--query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw',
        '--format=csv,noheader,nounits'],
-      { timeout: 5000, windowsHide: true })
+      { timeout: 10000, windowsHide: true })
     const [util, vused, vtot, temp, power] = smi.trim().split(',').map(num)
     let procs = []
     try {
       const { stdout: pl } = await execFileP('nvidia-smi',
         ['--query-compute-apps=process_name,used_memory', '--format=csv,noheader'],
-        { timeout: 5000, windowsHide: true })
+        { timeout: 10000, windowsHide: true })
+      // i processi senza memoria riportata (desktop compositing, [N/A]) si
+      // mostrano comunque con '?': la lista dice "la GPU è viva".
+      const interesting = /llama|python|sd-server|node|LM Studio|uv|Palamede/i
       procs = pl.split(/\r?\n/)
-        .filter((line) => line && !line.includes('[N/A]'))
+        .filter((line) => line && line.includes(','))
         .map((line) => {
           const i = line.lastIndexOf(',')
-          return { name: line.slice(0, i).trim(), mem: line.slice(i + 1).trim() }
+          const name = line.slice(0, i).trim()
+          let mem = line.slice(i + 1).trim()
+          if (mem.includes('[N/A]') || mem === '') mem = '?'
+          return { name, mem, hot: interesting.test(name) }
         })
+        .sort((a, b) => (b.hot ? 1 : 0) - (a.hot ? 1 : 0))
+        .slice(0, 8)
+        .map(({ name, mem }) => ({ name, mem }))
     } catch { /* nessun processo */ }
     const vramUsedGB = vused / 1024, vramTotalGB = vtot / 1024
-    return {
+    lastGoodGpu = {
       ok: vtot > 0, utilPct: util, vramUsedGB, vramTotalGB,
       vramPct: vtot ? Math.round((vused / vtot) * 100) : 0,
       tempC: temp, powerW: power, procs,
     }
+    return lastGoodGpu
   } catch {
+    // sample fallito: se prima è andato, serviamo lo stale (mai "non disponibile")
+    if (lastGoodGpu) return { ...lastGoodGpu }
     return { ok: false, utilPct: 0, vramUsedGB: 0, vramTotalGB: 0, vramPct: 0, tempC: 0, powerW: 0, procs: [] }
   }
 }

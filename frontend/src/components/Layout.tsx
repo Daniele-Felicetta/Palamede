@@ -87,8 +87,10 @@ export function Layout({ children }: { children: ReactNode }) {
                   <span>power {metrics!.gpu.powerW}W</span>
                 </div>
               </>
-            ) : (
+            ) : metrics ? (
               <div className="side-mini off">nvidia-smi non disponibile</div>
+            ) : (
+              <div className="side-mini">lettura…</div>
             )}
           </div>
           <div className="side-sec">
@@ -103,7 +105,7 @@ export function Layout({ children }: { children: ReactNode }) {
               <div className="side-title">Processi GPU</div>
               {metrics!.gpu.procs.map((p, i) => (
                 <div className="side-mini" key={i}>
-                  <span>{p.name}</span>
+                  <span title={p.name}>{p.name.split(/[\\/]/).pop()}</span>
                   <span>{p.mem}</span>
                 </div>
               ))}

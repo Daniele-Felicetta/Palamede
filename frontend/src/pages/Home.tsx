@@ -64,7 +64,7 @@ export function Home() {
             <span className="log-bar" aria-hidden>
               <span className="log-fill" style={{ width: `${Math.min(100, gpuPct)}%` }} />
             </span>
-            GPU {gpuOk ? `${gpuPct}%` : 'n/d'}
+            GPU {gpuOk ? `${gpuPct}%` : metrics ? 'n/d' : '…'}
           </span>
         </div>
       </header>

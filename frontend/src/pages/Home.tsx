@@ -51,17 +51,6 @@ export function Home() {
       <header className="home-hero">
         <p className="eyebrow">Officina locale di generazione</p>
         <h1>I modelli stanno qui.<br />Sulla tua <em>GPU</em>, non nel cloud.</h1>
-        <p className="lede">
-          Palamede raccoglie i generatori che giri in casa: un hub, una coda, una
-          wiki per tipo di modello — come funziona, quanto pesa, quanto
-          ci mette, quanto rende, con esempi prodotti dai modelli stessi.
-        </p>
-
-        <div className="hero-chips" aria-label="Fatti dell'officina">
-          <span>RTX 5060 Ti · 16 GB</span>
-          <span>un modello alla volta</span>
-          <span>tutto offline</span>
-        </div>
 
         <div className="log-strip" role="status" aria-label="Stato dell'officina">
           <span className="log-led">
@@ -80,12 +69,7 @@ export function Home() {
         </div>
       </header>
 
-      <section aria-label="Applicazioni" className="apps">
-        <h2 className="sec-title">Le applicazioni</h2>
-        <p className="sec-sub">
-          Sei banchi di lavoro; uno è già acceso. Le bozze portano la loro wiki e
-          la lista di cosa serve per metterle in moto.
-        </p>
+      <section className="apps" aria-label="Applicazioni">
         <div className="grid-cards">
           {SECTIONS.map((s) => (
             <a
@@ -99,9 +83,40 @@ export function Home() {
               </span>
               <span className="glyph">{s.glyph}</span>
               <h3>{s.title}</h3>
-              <p>{s.text}</p>
               <span className="app-foot">{s.foot}</span>
             </a>
+          ))}
+        </div>
+      </section>
+
+      <section className="app-detail" aria-label="Le applicazioni nel dettaglio">
+        <h2 className="sec-title">Le applicazioni, nel dettaglio</h2>
+        <p className="sec-sub">
+          Palamede raccoglie i generatori che giri in casa: un hub, una coda,
+          una wiki per tipo di modello — come funziona, quanto pesa, quanto ci
+          mette, quanto rende, con esempi prodotti dai modelli stessi.
+        </p>
+        <div className="app-list">
+          {SECTIONS.map((s) => (
+            <div className="app-item" key={s.path}>
+              <span className="glyph">{s.glyph}</span>
+              <div className="app-body">
+                <h3>
+                  {s.title}
+                  <span className={`stamp ${s.live ? 'ok' : ''}`}>
+                    {s.live ? 'attiva' : 'bozza'}
+                  </span>
+                </h3>
+                <p>{s.text}</p>
+                <a
+                  className="app-go"
+                  href={'#' + s.path}
+                  onClick={(e) => { e.preventDefault(); navigate(s.path) }}
+                >
+                  {s.live ? 'apri la sezione →' : 'vedi la wiki →'}
+                </a>
+              </div>
+            </div>
           ))}
         </div>
       </section>

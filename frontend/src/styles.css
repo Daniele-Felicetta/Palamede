@@ -168,12 +168,7 @@ section { margin-top: 56px; }
   pointer-events: none; z-index: -1;
 }
 
-.hero-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
-.hero-chips span {
-  font-family: var(--mono); font-size: 11px; letter-spacing: 1px;
-  color: var(--paper-dim); border: 1px solid var(--line);
-  border-radius: 3px; padding: 4px 10px; text-transform: uppercase;
-}
+.apps { margin-top: 40px; }
 
 .log-strip {
   margin-top: 26px;
@@ -200,6 +195,31 @@ section { margin-top: 56px; }
   font-family: var(--mono); font-size: 10.5px; letter-spacing: 1px;
   text-transform: uppercase; color: var(--paper-faint);
 }
+
+/* ── Home: dettaglio applicazioni ── */
+.app-list { border-top: 1px solid var(--line); }
+.app-item {
+  display: flex; gap: 18px; align-items: flex-start;
+  padding: 22px 4px; border-bottom: 1px solid var(--line);
+}
+.app-item .glyph {
+  font-family: var(--mono); font-size: 13px; font-weight: 600;
+  color: var(--ochre); letter-spacing: 1px;
+  min-width: 46px; padding-top: 5px;
+}
+.app-body h3 {
+  font-family: var(--serif); font-size: 20px; font-weight: 600;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.app-body p { color: var(--paper-dim); font-size: 14.5px; margin-top: 6px; max-width: 72ch; }
+.app-go {
+  display: inline-block; margin-top: 12px;
+  font-family: var(--mono); font-size: 11.5px; letter-spacing: 1px;
+  text-transform: uppercase; color: var(--ochre); text-decoration: none;
+  border: 1px solid var(--line); border-radius: 3px; padding: 5px 12px;
+  transition: border-color .15s;
+}
+.app-go:hover { border-color: var(--ochre); }
 
 /* ── Strip misure (signature: il nastro dell'officina coi dati misurati) ── */
 .gauge {

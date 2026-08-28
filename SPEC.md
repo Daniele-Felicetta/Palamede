@@ -200,7 +200,7 @@ Pagine:
 
 | Rotta | Contenuto |
 |---|---|
-| `/` | Home hub: eroe con **registro di bordo live** (stato backend, modello in VRAM, barra GPU) · card **Applicazioni** (Immagini attiva; Testo/Video/3D/RAG/MCP bozze) · sotto, **Misure sul banco** con i tempi misurati |
+| `/` | Home hub: eroe compatto (headline + **registro di bordo live**: backend, modello in VRAM, barra GPU) · **card Applicazioni subito visibili** · sotto, **Le applicazioni nel dettaglio** con le descrizioni · in coda **Misure sul banco** |
 | `/images` | Generatore funzionante (due modelli) + gallery locale + wiki dei due modelli con esempi reali |
 | `/text`, `/video`, `/3d`, `/rag`, `/mcp` | Bozze: wiki del tipo di modello + checklist requisiti + stato non installato |
 

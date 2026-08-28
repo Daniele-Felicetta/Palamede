@@ -195,11 +195,12 @@ Pagine:
 
 | Script | Ruolo |
 |---|---|
+| `scripts/start.ps1` + `start.bat` | **avvio a un comando**: controlla cosa è attivo, avvia il resto, apre il browser |
 | `scripts/setup.ps1` | one-time: npm install, build frontend, scarica tools/sd-cpp |
 | `scripts/copy-models.ps1` | ricopia i pesi da `reference/` in `models/` |
 | `scripts/start-backend.ps1` | UNICO modello server :8000 (caricamento dinamico bonsai/zimage) |
 | `scripts/start-hub.ps1` | node hub/server.mjs :4600 (statici+proxy+metriche) |
-| `scripts/stop-all.ps1` | ferma hub e modello server (e subprocess sd-server) |
+| `scripts/stop-all.ps1` + `stop.bat` | ferma hub e modello server (e subprocess sd-server) |
 
 ## Decisioni prese
 

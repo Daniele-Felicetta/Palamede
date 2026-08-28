@@ -1,4 +1,4 @@
-# Avvia il hub Palamede (:4600): statici della UI + proxy + coda mutex GPU.
+﻿# Avvia il hub Palamede (:4600): statici della UI + proxy + coda mutex GPU.
 param([int]$Port = 4600)
 $ErrorActionPreference = 'Stop'
 $Root = Split-Path -Parent (Split-Path -Parent $PSCommandPath)

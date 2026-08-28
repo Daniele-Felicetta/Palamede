@@ -57,14 +57,26 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 
 ## Avvio
 
-Due finestre PowerShell (o due terminali):
+**Un comando solo** (o doppio clic su `start.bat` alla radice):
+
+```powershell
+.\scripts\start.ps1
+```
+
+Lo script controlla cosa è già attivo, avvia ciò che manca in finestre
+minimizzate e apre il browser su **http://127.0.0.1:4600**.
+
+Per fermare tutto: `.\scripts\stop-all.ps1` (o `stop.bat`).
+
+> Vuoi che parta all'accesso? Metti un collegamento a `start.bat` nella
+> cartella avvio (`Win+R` → `shell:startup`).
+
+Avvio manuale, se preferisci:
 
 ```powershell
 .\scripts\start-backend.ps1    # unico modello server :8000 (caricamento dinamico)
 .\scripts\start-hub.ps1        # hub web               :4600
 ```
-
-Poi apri **http://127.0.0.1:4600**.
 
 Alternativa rapida per la sola immagine senza UI:
 

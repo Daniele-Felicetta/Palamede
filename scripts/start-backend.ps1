@@ -1,4 +1,4 @@
-# Avvia l'UNICO modello server dinamico (:8000).
+﻿# Avvia l'UNICO modello server dinamico (:8000).
 # Carica Bonsai (gemlite in-process) o Z-Image (spawna sd-server come
 # subprocess) alla selezione: POST /select {model}. Un modello alla volta.
 param([int]$Port = 8000)

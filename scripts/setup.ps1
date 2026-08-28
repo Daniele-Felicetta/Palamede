@@ -1,4 +1,4 @@
-# Setup one-time: engine sd-cpp, dipendenze frontend, build UI.
+﻿# Setup one-time: engine sd-cpp, dipendenze frontend, build UI.
 # I pesi dei modelli stanno in models/ (riempiti da copy-models.ps1).
 param(
     # release di stable-diffusion.cpp (binari Windows CUDA 12)

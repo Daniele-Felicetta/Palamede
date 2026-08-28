@@ -1,4 +1,4 @@
-# Ricopia/ricrea i pesi del progetto in models/ (gitignored).
+﻿# Ricopia/ricrea i pesi del progetto in models/ (gitignored).
 # - bonsai ternary gemlite  ← reference/bonsai/models (robocopy, senza .cache)
 # - z-image Q4_K_M          ← reference/
 # - Qwen3-4B TE + VAE       ← HuggingFace (non sono in reference)

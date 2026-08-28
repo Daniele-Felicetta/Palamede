@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useRef, useState } from 'react'
 import { chatStream, ChatMessage, ChatStatus, getChatStatus, startChat, stopChat } from '../api'
 import { ORNITH_MODELS, ORNITH_WIKI } from '../data/wiki'
 import { WikiEntry } from '../components/WikiEntry'
+import { Markdown } from '../components/Markdown'
 
 const KV_OPTIONS = [
   ['q8_0', 'q8_0 · consigliato'],
@@ -252,7 +253,7 @@ export function Chat() {
                           {m.reason}
                         </div>
                       )}
-                      {m.content}
+                      <Markdown text={m.content} />
                       {m.pending && <span className="caret" aria-hidden />}
                     </div>
                   </div>

@@ -258,6 +258,14 @@ ripristina le console per il debug.
 
 ## Decisioni prese
 
+- **L'officina vive nell'eseguibile**: `Palamede.exe` incorpora
+  `palamede.bundle` (frontend dist + hub + backends + scripts + **llama.cpp**)
+  come risorsa; al primo avvio lo estrae nella propria cartella (lo script
+  `runtime.stamp` evita ri-estrazioni) e poi lancia i servizi nascosti.
+  Frontend e backend quindi "sono nell'exe"; i **pesi dei modelli** no:
+  vengono copiati da LM Studio (Ornith) se mancanti o segnalati. Il bundle si
+  rigenera con `scripts/build-bundle.ps1`, l'exe con `build-launcher.ps1`.
+
 - **Non tocca `reference/`**: è repo altrui, gitignored e volatile; il fix
   del bug bonsai vive nel loader condiviso di Palamede
   (`backends/gemlite_loader.py`).

@@ -12,6 +12,10 @@ tools/
 # ── Launcher compilato (rigenerabile con scripts/build-launcher.ps1) ──
 *.exe
 
+# ── Bundle incorporato nell'exe (contiene llama.cpp: rigenerabile) ──
+palamede.bundle
+runtime.stamp
+
 # ── Dipendenze / build ──────────────────────────────────────────
 node_modules/
 frontend/dist/

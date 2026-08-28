@@ -1,0 +1,33 @@
+# ── Modelli locali ──────────────────────────────────────────────
+# I modelli sono rigenerabili/ricopiabili da reference/ (scripts/copy-models.ps1)
+models/
+
+# ── Cartella di riferimento esterna ─────────────────────────────
+# Non fa parte del progetto: repo e pesi sorgente, mai toccata in scrittura.
+reference/
+
+# ── Engine binari scaricati (stable-diffusion.cpp) ─────────────
+tools/
+
+# ── Dipendenze / build ──────────────────────────────────────────
+node_modules/
+frontend/dist/
+.vite/
+*.tsbuildinfo
+
+# ── Ambienti Python ─────────────────────────────────────────────
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# ── Output di generazione (la UI salva qui) ─────────────────────
+# NB: gli esempi della wiki vivono in frontend/public/examples e SONNO
+# versionati: niente wildcard *.png globali.
+outputs/
+.serve-logs/
+
+# ── Varie ───────────────────────────────────────────────────────
+*.log
+.env
+.env.*

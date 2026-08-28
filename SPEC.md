@@ -131,7 +131,8 @@ il modello corrente e libera la VRAM prima di caricare il nuovo).
                 "timeMs": 1834, "seed": 42 } ] }
 ```
 
-- `seed: -1` → seed casuale generato dal hub e restituito in risposta.
+- `seed: -1` → seed casuale vero (SystemRandom) generato dal modello
+  server, restituito in risposta.
 - `count>1` → generazione seriale (seed incrementali), la coda è comunque
   one-shot per richiesta.
 - Auto-carica il modello se non è quello attivo (defensivo; la UI chiama
@@ -150,7 +151,9 @@ il modello corrente e libera la VRAM prima di caricare il nuovo).
 
 Cache nel hub (~2.5 s): `nvidia-smi` per GPU/VRAM/proc, `Get-CimInstance
 Win32_Processor` per la CPU (rapido, niente counter lento da ~1s), API `os`
-di Node per la RAM.
+di Node per la RAM. Tutte le risposte `/api` viaggiano con
+`Cache-Control: no-store` (mai metriche o stati stantii nel browser);
+`index.html` con `no-cache`.
 
 Robustezza: ogni valore passa per un parse "safe" — i campi `N/A` di
 nvidia-smi (tipico `power.draw` a riposo) diventano `0` invece di `NaN`, che

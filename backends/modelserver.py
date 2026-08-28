@@ -15,6 +15,7 @@ from __future__ import annotations
 import gc
 import logging
 import os
+import random
 import subprocess
 import sys
 import threading
@@ -195,8 +196,10 @@ class ModelManager:
                 else:
                     self._load_zimage()
             out = []
+            rng = random.SystemRandom()
             for i in range(count):
-                eff = seed if seed != -1 else seed  # il hub genera già il seed
+                # seed -1 → casuale vero qui (il hub inoltra il body tal quale).
+                eff = seed if seed != -1 else rng.randint(0, 2**31 - 1)
                 t0 = time.perf_counter()
                 if model == "bonsai":
                     data_url = self._gen_bonsai(prompt, eff + i, steps, width, height)

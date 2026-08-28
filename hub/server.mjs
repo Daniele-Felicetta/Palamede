@@ -47,6 +47,13 @@ function queued(fn) {
   return run
 }
 
+// Le risposte /api sono sempre fresche: mai in cache (niente metriche o
+// stati modello stantii nel browser).
+function json(res, status, obj) {
+  res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
+  res.end(JSON.stringify(obj))
+}
+
 async function proxyJson(req, res, targetPath, timeoutMs = 200_000) {
   let body = null
   if (req.method === 'POST') {
@@ -61,8 +68,13 @@ async function proxyJson(req, res, targetPath, timeoutMs = 200_000) {
     signal: AbortSignal.timeout(timeoutMs),
   })
   const text = await r.text()
-  res.writeHead(r.status, { 'Content-Type': 'application/json' })
-  res.end(text)
+  json(res, r.status, safeJson(text))
+}
+
+// Il body pass-through è già JSON: se per qualche motivo non lo fosse, non
+// rompiamo la risposta con un JSON.stringify di un testo non-json.
+function safeJson(text) {
+  try { return JSON.parse(text) } catch { return { raw: text } }
 }
 
 // ── metriche sistema (ASINCRONE: mai bloccare l'event loop) ──────────────
@@ -149,16 +161,14 @@ async function handleApi(req, res, path) {
     try {
       const r = await fetch(BACKEND + '/models', { signal: AbortSignal.timeout(4000) })
       const j = await r.json()
-      return res.writeHead(200, { 'Content-Type': 'application/json' })
-        .end(JSON.stringify({ ok: r.ok, current: j.current, zimage_process: j.zimage_process }))
+      return json(res, 200, { ok: r.ok, current: j.current, zimage_process: j.zimage_process })
     } catch {
-      return res.writeHead(200, { 'Content-Type': 'application/json' })
-        .end(JSON.stringify({ ok: false, current: null }))
+      return json(res, 200, { ok: false, current: null })
     }
   }
 
   if (path === '/api/metrics' && req.method === 'GET') {
-    return res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify(metrics))
+    return json(res, 200, metrics)
   }
 
   if (path === '/api/models' && req.method === 'GET') {
@@ -173,17 +183,17 @@ async function handleApi(req, res, path) {
     return queued(() => proxyJson(req, res, '/generate', 900_000))
   }
 
-  return res.writeHead(404, { 'Content-Type': 'application/json' })
-    .end(JSON.stringify({ error: { message: 'endpoint inesistente' } }))
+  return json(res, 404, { error: { message: 'endpoint inesistente' } })
 }
 
 // ── statici ──────────────────────────────────────────────────────────────
 async function serveStatic(res, path) {
   let file = normalize(decodeURIComponent(path)).replace(/^([/\\])+/, '')
   if (file === '') file = 'index.html'
+  const isHtml = extname(file).toLowerCase() === '.html'
   const abs = join(DIST, file)
   if (!abs.startsWith(DIST)) {
-    return res.writeHead(403, { 'Content-Type': 'application/json' }).end(JSON.stringify({ error: { message: 'forbidden' } }))
+    return json(res, 403, { error: { message: 'forbidden' } })
   }
   try {
     const s = await stat(abs)
@@ -192,16 +202,21 @@ async function serveStatic(res, path) {
     res.writeHead(200, {
       'Content-Type': MIME[extname(abs).toLowerCase()] || 'application/octet-stream',
       'Content-Length': data.length,
+      // index.html mai in cache: punta a bundle con hash, la shell va rivista
+      ...(isHtml ? { 'Cache-Control': 'no-cache' } : {}),
     })
     res.end(data)
   } catch {
     try {
       const idx = await readFile(join(DIST, 'index.html'))
-      res.writeHead(200, { 'Content-Type': MIME['.html'], 'Content-Length': idx.length })
+      res.writeHead(200, {
+        'Content-Type': MIME['.html'],
+        'Content-Length': idx.length,
+        'Cache-Control': 'no-cache',
+      })
       res.end(idx)
     } catch {
-      res.writeHead(404, { 'Content-Type': 'application/json' })
-        .end(JSON.stringify({ error: { message: 'frontend non costruito: npm run build in frontend/' } }))
+      json(res, 404, { error: { message: 'frontend non costruito: npm run build in frontend/' } })
     }
   }
 }

@@ -8,10 +8,15 @@ type ModelId = 'bonsai' | 'zimage'
 
 const SIZES = [
   ['512x512', 'quadrata 1:1'],
+  ['768x768', 'quadrata media'],
+  ['896x896', 'quadrata alta'],
   ['1024x1024', 'quadrata HD'],
   ['640x416', 'paesaggio 3:2'],
+  ['768x512', 'paesaggio 3:2 media'],
   ['1248x832', 'paesaggio 3:2 HD'],
   ['416x640', 'ritratto 2:3'],
+  ['512x768', 'ritratto 2:3 media'],
+  ['832x1248', 'ritratto 2:3 HD'],
 ] as const
 
 const DEFAULT_STEPS: Record<ModelId, number> = { bonsai: 4, zimage: 8 }
@@ -89,15 +94,6 @@ export function Images() {
 
   return (
     <>
-      <p className="eyebrow">Sezione immagini</p>
-      <h1>Due modelli, <em>una GPU</em>.</h1>
-      <p className="lede">
-        Bonsai (4B ternario, 4 step) e Z-Image Turbo (6B, 8 step) condividono la
-        scheda: selezioni un modello e viene <strong>caricato al momento</strong>,
-        liberando la VRAM quando passi all'altro. Sotto, la wiki dei due modelli
-        con esempi generati ora.
-      </p>
-
       <section>
         <div className="gen-wrap">
           <form className="panel" onSubmit={submit}>

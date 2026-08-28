@@ -1,6 +1,21 @@
-import { ReactNode, useState } from 'react'
+import { ReactNode, useEffect, useState } from 'react'
 import { useStore } from '../store'
 import { useHashRoute } from '../router'
+
+// Tema chiaro/scuro: salvato in localStorage, applicato come data-theme su
+// <html> (le variabili CSS in styles.css fanno il resto).
+type Theme = 'dark' | 'light'
+
+function useTheme(): [Theme, () => void] {
+  const [theme, setTheme] = useState<Theme>(() => {
+    try { return (localStorage.getItem('palamede-theme') as Theme) || 'dark' } catch { return 'dark' }
+  })
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    try { localStorage.setItem('palamede-theme', theme) } catch { /* no storage */ }
+  }, [theme])
+  return [theme, () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))]
+}
 
 const NAV = [
   { path: '/', label: 'Officina', live: true },
@@ -30,6 +45,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const { health, metrics, current, modelLabel } = useStore()
   const [sidebar, setSidebar] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth >= 1200 : true)
+  const [theme, toggleTheme] = useTheme()
 
   const gpuOk = metrics?.gpu.ok
   const loaded = current
@@ -60,6 +76,14 @@ export function Layout({ children }: { children: ReactNode }) {
             {loaded ? modelLabel(loaded) : 'GPU idle'}
           </span>
         </div>
+        <button
+          className="side-toggle"
+          onClick={toggleTheme}
+          title={theme === 'dark' ? 'Passa al tema chiaro' : 'Passa al tema scuro'}
+          aria-pressed={theme === 'light'}
+        >
+          {theme === 'dark' ? '☀ chiaro' : '☾ scuro'}
+        </button>
         <button
           className="side-toggle"
           onClick={() => setSidebar((s) => !s)}

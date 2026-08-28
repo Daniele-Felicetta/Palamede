@@ -68,6 +68,19 @@ function streamText(
 
 interface Msg extends ChatMessage { pending?: boolean; reason?: string }
 
+// Ragionamento pieghevole: resta aperto durante lo streaming, poi l'utente
+// decide (ogni messaggio con il proprio stato).
+function ReasonBlock({ text, streaming }: { text: string; streaming: boolean }) {
+  const [open, setOpen] = useState(false)
+  useEffect(() => { if (streaming) setOpen(true) }, [streaming])
+  return (
+    <details className="reason" open={open} onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}>
+      <summary>ragionamento</summary>
+      <div className="reason-text">{text}</div>
+    </details>
+  )
+}
+
 export function Chat() {
   const [status, setStatus] = useState<ChatStatus | null>(null)
   const [busy, setBusy] = useState(false)
@@ -75,6 +88,7 @@ export function Chat() {
 
   const [model, setModel] = useState('ornith-9b')
   const [settings, setSettings] = useState(DEFAULT)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const [messages, setMessages] = useState<Msg[]>([])
   const [input, setInput] = useState('')
@@ -85,7 +99,10 @@ export function Chat() {
   const genStart = useRef(0)
   const charsRef = useRef(0)
 
-  const bottomRef = useRef<HTMLDivElement>(null)
+  // autoscroll "intelligente": segue la generazione solo se l'utente è già
+  // in fondo, altrimenti resta dove sta (niente salti mentre legge).
+  const logRef = useRef<HTMLDivElement>(null)
+  const stickRef = useRef(true)
 
   const refresh = async () => {
     try { setStatus(await getChatStatus()) } catch { setStatus(null) }
@@ -97,8 +114,15 @@ export function Chat() {
   }, [])
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    const el = logRef.current
+    if (el && stickRef.current) el.scrollTop = el.scrollHeight
   }, [messages])
+
+  const onLogScroll = () => {
+    const el = logRef.current
+    if (!el) return
+    stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 140
+  }
 
   const selected = status?.models?.find((m) => m.id === model)
 
@@ -135,6 +159,7 @@ export function Chat() {
     setStats(null)
     genStart.current = performance.now()
     charsRef.current = 0
+    stickRef.current = true
     try {
       const stream = await chatStream(history, settings.temperature)
       streamText(
@@ -167,171 +192,177 @@ export function Chat() {
     }
   }
 
+  const pickModel = (id: string) => {
+    setModel(id)
+    const m = ORNITH_MODELS.find((x) => x.id === id)
+    setSettings((s) => ({ ...s, cpuMoe: m?.moe ? s.cpuMoe : 0 }))
+  }
+
   return (
     <>
       <header className="chat-page-head">
-        <p className="eyebrow">Sezione chat</p>
-        <h1>Ornith, <em>in casa</em>.</h1>
+        <div className="chat-head-titles">
+          <p className="eyebrow">Sezione chat</p>
+          <h1>Ornith, <em>in casa</em>.</h1>
+        </div>
+        <div className="chat-head-tools">
+          <label className="chat-model">
+            <span>modello</span>
+            <select value={model} onChange={(e) => pickModel(e.target.value)}>
+              {ORNITH_MODELS.map((m) => (
+                <option key={m.id} value={m.id}>{m.name} · {m.quant}</option>
+              ))}
+            </select>
+          </label>
+          <div className="chat-head-status">
+            <span className={`chat-state ${status?.ready ? 'on' : ''}`}>
+              <span className="led" aria-hidden />
+              {status?.running
+                ? (status.ready ? 'pronto' : 'in caricamento…')
+                : 'spento'}
+            </span>
+            {status?.running ? (
+              <button type="button" className="go ghost" onClick={stop} disabled={busy}>
+                ferma
+              </button>
+            ) : (
+              <button type="button" className="go" onClick={apply} disabled={busy}>
+                {busy ? 'avvio…' : 'avvia'}
+              </button>
+            )}
+          </div>
+          <button
+            type="button"
+            className={`side-toggle ${settingsOpen ? 'on' : ''}`}
+            onClick={() => setSettingsOpen((v) => !v)}
+            aria-expanded={settingsOpen}
+          >
+            impostazioni
+          </button>
+        </div>
       </header>
 
-      <section className="chat-stage">
-        <form className="panel chat-panel" onSubmit={send}>
-            {/* modello + impostazioni */}
-            <div className="chat-toolbar">
-              <div className="plates chat-plates">
-                {ORNITH_MODELS.map((m) => (
-                  <button
-                    type="button"
-                    key={m.id}
-                    className={`plate ${model === m.id ? 'sel' : ''}`}
-                    onClick={() => { setModel(m.id); setSettings((s) => ({ ...s, cpuMoe: m.moe ? s.cpuMoe : 0 })) }}
-                  >
-                    <span className="pname">
-                      <span className={`led ${status?.ready && status.model === m.id ? 'on' : 'off'}`} aria-hidden />
-                      {m.name}
-                    </span>
-                    <span className="pstamps">
-                      <span className="stamp">{m.family}</span>
-                      <span className="stamp hot">{m.quant}</span>
-                    </span>
-                  </button>
-                ))}
-              </div>
-
-              <div className="chat-actions">
-                {status?.running ? (
-                  <button type="button" className="go ghost" onClick={stop} disabled={busy}>
-                    ferma server
-                  </button>
-                ) : (
-                  <button type="button" className="go" onClick={apply} disabled={busy}>
-                    {busy ? 'avvio…' : 'avvia server'}
-                  </button>
-                )}
-                <span className={`chat-state ${status?.ready ? 'on' : ''}`}>
-                  <span className="led" aria-hidden />
-                  {status?.running
-                    ? (status.ready ? 'pronto' : 'in caricamento…')
-                    : 'spento'}
-                </span>
-              </div>
+      {settingsOpen && (
+        <div className="chat-settings-panel">
+          <div className="field-row">
+            <div className="field">
+              <label htmlFor="ctx">Contesto</label>
+              <input id="ctx" type="number" min={1024} max={65536} step={1024}
+                value={settings.context}
+                onChange={(e) => setSettings({ ...settings, context: Number(e.target.value) || 8192 })} />
             </div>
-
-            <details className="chat-settings" open={!status?.running}>
-              <summary>Impostazioni server</summary>
-              <div className="field-row">
-                <div className="field">
-                  <label htmlFor="ctx">Contesto</label>
-                  <input id="ctx" type="number" min={1024} max={65536} step={1024}
-                    value={settings.context}
-                    onChange={(e) => setSettings({ ...settings, context: Number(e.target.value) || 8192 })} />
-                </div>
-                <div className="field">
-                  <label htmlFor="kv">KV cache</label>
-                  <select id="kv" value={settings.kv}
-                    onChange={(e) => setSettings({ ...settings, kv: e.target.value })}>
-                    {KV_OPTIONS.map(([v, lab]) => <option key={v} value={v}>{lab}</option>)}
-                  </select>
-                </div>
-                <div className="field">
-                  <label htmlFor="temp">Temperatura</label>
-                  <input id="temp" type="number" min={0} max={2} step={0.1}
-                    value={settings.temperature}
-                    onChange={(e) => setSettings({ ...settings, temperature: Number(e.target.value) || 0 })} />
-                </div>
-                <div className="field">
-                  <label htmlFor="ngl">Layer GPU</label>
-                  <input id="ngl" type="number" min={-1} max={200}
-                    value={settings.gpuLayers}
-                    onChange={(e) => setSettings({ ...settings, gpuLayers: Number(e.target.value) || 99 })} />
-                </div>
-                {selected?.moe && (
-                  <div className="field">
-                    <label htmlFor="cmoe">Layer MoE su CPU</label>
-                    <input id="cmoe" type="number" min={0} max={64}
-                      value={settings.cpuMoe}
-                      onChange={(e) => setSettings({ ...settings, cpuMoe: Math.max(0, Number(e.target.value) || 0) })}
-                      title="Sposta i pesi degli esperti MoE dei primi N layer sulla CPU (libera VRAM)" />
-                  </div>
-                )}
-                <label className="field check">
-                  <input type="checkbox" checked={settings.mtp}
-                    onChange={(e) => setSettings({ ...settings, mtp: e.target.checked })} />
-                  <span>MTP (multi-token prediction)</span>
-                </label>
+            <div className="field">
+              <label htmlFor="kv">KV cache</label>
+              <select id="kv" value={settings.kv}
+                onChange={(e) => setSettings({ ...settings, kv: e.target.value })}>
+                {KV_OPTIONS.map(([v, lab]) => <option key={v} value={v}>{lab}</option>)}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="temp">Temperatura</label>
+              <input id="temp" type="number" min={0} max={2} step={0.1}
+                value={settings.temperature}
+                onChange={(e) => setSettings({ ...settings, temperature: Number(e.target.value) || 0 })} />
+            </div>
+            <div className="field">
+              <label htmlFor="ngl">Layer GPU</label>
+              <input id="ngl" type="number" min={-1} max={200}
+                value={settings.gpuLayers}
+                onChange={(e) => setSettings({ ...settings, gpuLayers: Number(e.target.value) || 99 })} />
+            </div>
+            {selected?.moe && (
+              <div className="field">
+                <label htmlFor="cmoe">Layer MoE su CPU</label>
+                <input id="cmoe" type="number" min={0} max={64}
+                  value={settings.cpuMoe}
+                  onChange={(e) => setSettings({ ...settings, cpuMoe: Math.max(0, Number(e.target.value) || 0) })}
+                  title="Sposta i pesi degli esperti MoE dei primi N layer sulla CPU (libera VRAM)" />
               </div>
-              {selected?.moe && settings.cpuMoe > 0 && (
-                <p className="chat-note">I pesi degli esperti dei primi {settings.cpuMoe} layer andranno su CPU: meno VRAM, più lento.</p>
-              )}
-              <p className="hintline">{status?.running
-                ? `modello attivo: ${status.model} · ctx ${status.params?.context} · KV ${status.params?.kv}${status.params?.cpuMoe ? ` · MoE cpu ${status.params.cpuMoe}` : ''}`
-                : 'Configura e premi "avvia server". Il cambio modello riavvia con i nuovi parametri.'}</p>
-            </details>
+            )}
+            <label className="field check">
+              <input type="checkbox" checked={settings.mtp}
+                onChange={(e) => setSettings({ ...settings, mtp: e.target.checked })} />
+              <span>MTP (multi-token prediction)</span>
+            </label>
+          </div>
+          {selected?.moe && settings.cpuMoe > 0 && (
+            <p className="chat-note">I pesi degli esperti dei primi {settings.cpuMoe} layer andranno su CPU: meno VRAM, più lento.</p>
+          )}
+          <p className="hintline">{status?.running
+            ? `modello attivo: ${status.model} · ctx ${status.params?.context} · KV ${status.params?.kv}${status.params?.cpuMoe ? ` · MoE cpu ${status.params.cpuMoe}` : ''}`
+            : 'Configura e premi "avvia". Il cambio modello riavvia con i nuovi parametri.'}</p>
+        </div>
+      )}
 
-            {/* conversazione */}
-            <div className="chat-log" aria-live="polite">
-              {messages.length === 0 ? (
-                <div className="empty chat-empty">
-                  Nessuna conversazione.<br />Scrivi sotto e premi Invio per parlare con Ornith.
-                </div>
+      <section className="chat-scroll">
+        <div className="chat-log" ref={logRef} onScroll={onLogScroll} aria-live="polite">
+          {messages.length === 0 ? (
+            <div className="empty chat-empty">
+              Nessuna conversazione.<br />Scrivi sotto e premi Invio per parlare con Ornith.
+            </div>
+          ) : (
+            messages.map((m, i) => (
+              m.role === 'user' ? (
+                <div className="bubble user" key={i}>{m.content}</div>
               ) : (
-                messages.map((m, i) => (
-                  <div className={`bubble ${m.role}`} key={i}>
-                    <span className="bubble-who">{m.role === 'user' ? 'tu' : 'Ornith'}</span>
-                    <div className="bubble-text">
-                      {m.reason && (
-                        <div className="bubble-reason">
-                          <span className="bubble-reason-label">ragionamento</span>
-                          {m.reason}
-                        </div>
-                      )}
+                <div className="msg assistant" key={i}>
+                  <span className="avatar" aria-hidden>O</span>
+                  <div className="msg-body">
+                    {m.reason && <ReasonBlock text={m.reason} streaming={!!m.pending} />}
+                    <div className="msg-text">
                       <Markdown text={m.content} />
                       {m.pending && <span className="caret" aria-hidden />}
                     </div>
                   </div>
-                ))
-              )}
-              <div ref={bottomRef} />
-            </div>
+                </div>
+              )
+            ))
+          )}
+        </div>
 
-            {stats && (
-              <p className={`chat-stats ${stats.live ? 'live' : ''}`} role="status">
-                {stats.live
-                  ? <>generazione… <strong>≈{stats.tps.toLocaleString('it-IT', { maximumFractionDigits: 1 })}</strong> tok/s</>
-                  : <><strong>{stats.tps.toLocaleString('it-IT', { maximumFractionDigits: 1 })}</strong> tok/s
-                      {stats.tokens != null && <> · {stats.tokens} token</>}</>}
-              </p>
-            )}
-
-            <div className="chat-input-row">
-              <textarea
-                className="prompt-box chat-input"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(e) }
-                }}
-                placeholder="Chiedi qualcosa a Ornith… (Invio invia, Shift+Invio a capo)"
-                aria-label="Messaggio"
-                rows={2}
-              />
-              <button className="go" type="submit" disabled={sending || !status?.ready || !input.trim()}>
-                {sending ? '…' : 'Invia'}
-              </button>
-            </div>
-            <p className={`hintline ${err ? 'err' : ''}`} role="status">{err}</p>
-          </form>
+        <section className="wiki">
+          <h2 className="sec-title">Wiki · modelli chat</h2>
+          <p className="sec-sub">
+            I due Ornith di casa: famiglia, quantizzazione, dimensioni e come
+            impostarli per non strozzare la VRAM (i numeri sono misurati su
+            questa macchina).
+          </p>
+          {ORNITH_WIKI.map((m) => <WikiEntry key={m.id} model={m} />)}
+        </section>
       </section>
 
-      <section className="wiki">
-        <h2 className="sec-title">Wiki · modelli chat</h2>
-        <p className="sec-sub">
-          I due Ornith di casa: famiglia, quantizzazione, dimensioni e come
-          impostarli per non strozzare la VRAM (i numeri sono misurati su
-          questa macchina).
-        </p>
-        {ORNITH_WIKI.map((m) => <WikiEntry key={m.id} model={m} />)}
-      </section>
+      <div className="chat-composer">
+        {stats && (
+          <p className={`chat-stats ${stats.live ? 'live' : ''}`} role="status">
+            {stats.live
+              ? <>generazione… <strong>≈{stats.tps.toLocaleString('it-IT', { maximumFractionDigits: 1 })}</strong> tok/s</>
+              : <><strong>{stats.tps.toLocaleString('it-IT', { maximumFractionDigits: 1 })}</strong> tok/s
+                  {stats.tokens != null && <> · {stats.tokens} token</>}</>}
+          </p>
+        )}
+        <form className="composer-box" onSubmit={send}>
+          <textarea
+            className="composer-input"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(e) }
+            }}
+            placeholder={status?.ready ? 'Chiedi qualcosa a Ornith… (Invio invia, Shift+Invio a capo)' : 'Server spento: premi "avvia" qui sopra.'}
+            aria-label="Messaggio"
+            rows={2}
+            disabled={!status?.ready}
+          />
+          <button className="send-btn" type="submit"
+            disabled={sending || !status?.ready || !input.trim()}
+            title="Invia" aria-label="Invia">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+              <path d="M2 8l11-5-3.5 9-2.2-3.6L2 8z" fill="currentColor" />
+            </svg>
+          </button>
+        </form>
+        <p className={`hintline ${err ? 'err' : ''}`} role="status">{err}</p>
+      </div>
     </>
   )
 }

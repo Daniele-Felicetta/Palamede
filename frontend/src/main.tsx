@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { Layout } from './components/Layout'
 import { Home } from './pages/Home'
 import { Images } from './pages/Images'
+import { Chat } from './pages/Chat'
 import { Draft } from './pages/Draft'
 import { DRAFTS } from './data/wiki'
 import { useHashRoute } from './router'
@@ -11,6 +12,7 @@ import './styles.css'
 function Page({ path }: { path: string }) {
   if (path === '/' ) return <Home />
   if (path === '/images') return <Images />
+  if (path === '/chat') return <Chat />
   const d = DRAFTS.find((x) => x.path === path)
   if (d) return <Draft draft={d} />
   return <Home />

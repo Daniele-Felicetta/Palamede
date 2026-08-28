@@ -339,6 +339,72 @@ section { margin-top: 56px; }
   font-family: var(--mono); font-size: 12.5px; letter-spacing: 1px;
 }
 
+/* ── Chat (Ornith / llama.cpp) ── */
+.chat-wrap { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
+.chat-panel { display: flex; flex-direction: column; gap: 14px; }
+
+.chat-toolbar { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; justify-content: space-between; }
+.chat-plates { margin: 0; flex: 1 1 420px; }
+.chat-actions { display: flex; align-items: center; gap: 12px; padding-top: 4px; }
+.go.ghost { background: transparent; color: var(--paper); border: 1px solid var(--line); }
+.go.ghost:hover { filter: none; border-color: var(--seal); color: var(--seal); }
+.chat-state {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-family: var(--mono); font-size: 11px; letter-spacing: 1px;
+  text-transform: uppercase; color: var(--paper-faint);
+}
+.chat-state .led { width: 8px; height: 8px; }
+.chat-state.on { color: var(--moss); }
+
+.chat-settings { border: 1px solid var(--line); border-radius: 6px; background: var(--ink-3); padding: 0 14px; }
+.chat-settings summary {
+  cursor: pointer; font-family: var(--mono); font-size: 11px; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--paper-dim);
+  padding: 10px 0; user-select: none;
+}
+.chat-settings summary:hover { color: var(--paper); }
+.chat-settings .field-row { margin: 4px 0 12px; }
+.field.check { flex-direction: row; align-items: center; gap: 8px; min-width: 200px; }
+.field.check input { width: auto; }
+.field.check span { font-family: var(--mono); font-size: 12px; text-transform: none; letter-spacing: .5px; color: var(--paper-dim); }
+.chat-note { font-size: 12.5px; color: var(--ochre); margin: 0 0 10px; }
+
+.chat-log {
+  min-height: 260px; max-height: 52vh; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 6px 2px;
+}
+.chat-empty { padding: 36px 20px; }
+.bubble {
+  max-width: 78%;
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 14.5px; line-height: 1.55;
+}
+.bubble.user { align-self: flex-end; background: var(--ink-3); border: 1px solid var(--line); }
+.bubble.assistant { align-self: flex-start; background: var(--ink-2); border: 1px solid var(--line); border-left: 2px solid var(--ochre); }
+.bubble-who {
+  display: block; font-family: var(--mono); font-size: 10px; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--ochre); margin-bottom: 4px;
+}
+.bubble-text { white-space: pre-wrap; word-break: break-word; color: var(--paper); }
+.bubble-reason {
+  color: var(--paper-faint); font-size: 13px; font-style: italic;
+  border-left: 2px solid var(--line); padding-left: 10px; margin: 0 0 8px;
+}
+.bubble-reason-label {
+  display: block; font-family: var(--mono); font-size: 9.5px; font-style: normal;
+  letter-spacing: 2px; text-transform: uppercase; color: var(--paper-faint); margin-bottom: 3px;
+}
+.caret {
+  display: inline-block; width: 7px; height: 14px; margin-left: 2px;
+  background: var(--ochre); vertical-align: text-bottom; animation: pulse 1s infinite;
+}
+
+.chat-input-row { display: flex; gap: 10px; align-items: stretch; }
+.chat-input { flex: 1; min-height: 0; resize: none; font-size: 14.5px; }
+.chat-input-row .go { margin-top: 0; width: auto; padding: 12px 24px; }
+
 /* ── Wiki ─ */
 .wiki { border-top: 1px solid var(--line); margin-top: 64px; padding-top: 40px; }
 .wiki-entry { margin-top: 34px; }

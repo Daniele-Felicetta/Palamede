@@ -5,7 +5,7 @@ import { useHashRoute } from '../router'
 const NAV = [
   { path: '/', label: 'Officina', live: true },
   { path: '/images', label: 'Immagini', live: true },
-  { path: '/text', label: 'Testo', live: false },
+  { path: '/chat', label: 'Chat', live: true },
   { path: '/video', label: 'Video', live: false },
   { path: '/3d', label: '3D', live: false },
   { path: '/rag', label: 'RAG', live: false },

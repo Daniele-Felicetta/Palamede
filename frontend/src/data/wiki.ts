@@ -87,6 +87,68 @@ export const ZIMAGE: ModelWiki = {
 
 export const IMAGE_MODELS = [BONSAI, ZIMAGE]
 
+// ── Modelli chat (Ornith, da LM Studio → models/) ─────────────────────────
+
+export const ORNITH_MODELS = [
+  { id: 'ornith-35b', name: 'Ornith 1.5 35B-A3B', family: 'Ornith-AI · MoE 3B attivi', quant: 'Q4_K_M · 20.2 GB', moe: true },
+  { id: 'ornith-9b', name: 'Ornith 1.5 9B', family: 'Ornith-AI', quant: 'Q4_K_M · 5.2 GB', moe: false },
+  { id: 'ornith-9b-q5', name: 'Ornith 1.5 9B', family: 'Ornith-AI', quant: 'Q5_K_M · 6.1 GB', moe: false },
+]
+
+export const ORNITH_WIKI: ModelWiki[] = [
+  {
+    id: 'ornith-35b',
+    name: 'Ornith 1.5 35B-A3B — Q4_K_M',
+    family: 'Ornith-AI · Mixture of Experts (3B attivi)',
+    how: [
+      'Un MoE da 35B totali con 3B attivi per token: la VRAM serve per gli esperti attivi, non per tutti i 35B. A Q4_K_M occupa ~12 GB di VRAM in full offload su questa RTX 5060 Ti 16 GB — ci sta, ma senza spazio per altro.',
+      'Se la VRAM non basta (o vuoi la chat accesa insieme alle immagini), usa "Layer MoE su CPU": sposta i pesi degli esperti dei primi N layer sulla RAM (64 GB qui), liberando GPU. Si paga in token/s, si guadagna in coesistenza.',
+      'MTP (multi-token prediction) può accelerare il decode se i pesi del predittore sono presenti accanto al GGUF; qui non ci sono, quindi resta disattivato per evitare errori di caricamento.',
+    ],
+    specs: {
+      'Parametri': '35B totali · 3B attivi (MoE A3B)',
+      'Peso disco': '20.2 GB (Q4_K_M)',
+      'VRAM (full GPU)': '≈ 12 GB con ctx 8k, KV q8_0',
+      'Full offload': 'si, sulla 16 GB (unico carico)',
+      'MoE su CPU': 'via --n-cpu-moe N (esperti dei primi N layer in RAM)',
+      'Context consigliato': '8192 (KV quantizzata q8_0/q4_0)',
+      'KV cache': 'q8_0 consigliato, q4_0 per risparmiare',
+      'MTP': 'non disponibile senza pesi dedicati',
+      'Engine': 'llama.cpp llama-server b10679 (CUDA 13.3)',
+    },
+    quality: [
+      'Ragionamento e coding da modello grosso: la qualità è la ragione per cui occupa 20 GB di disco.',
+      'Con 3B attivi è sorprendentemente reattivo, ma il full offload lascia 16 GB pieni: spegni le immagini quando lo usi.',
+    ],
+    examples: [],
+  },
+  {
+    id: 'ornith-9b',
+    name: 'Ornith 1.5 9B — Q4_K_M / Q5_K_M',
+    family: 'Ornith-AI · dense 9B',
+    how: [
+      'Il fratello piccolo, denso: 5.2 GB a Q4_K_M o 6.1 GB a Q5_K_M. Entra comodo in VRAM (≈ 6–7 GB) e lascia spazio al resto: ideale per usare la chat mentre le immagini sono attive.',
+      'Il Q5_K_M dà qualche punto di qualità in più sul Q4 a costo di ~1 GB: su questa macchina la differenza di velocità è minima.',
+      'Per i 9B il controllo "Layer MoE su CPU" è disabilitato: non è un MoE.',
+    ],
+    specs: {
+      'Parametri': '9B dense',
+      'Peso disco': '5.2 GB (Q4_K_M) / 6.1 GB (Q5_K_M)',
+      'VRAM (full GPU)': '≈ 6–7 GB con ctx 8k, KV q8_0',
+      'Coesistenza immagini': 'ok: resta ~9 GB liberi per i modelli immagine',
+      'Context consigliato': '8192',
+      'KV cache': 'q8_0 consigliato, q4_0 per risparmiare',
+      'MTP': 'non disponibile senza pesi dedicati',
+      'Engine': 'llama.cpp llama-server b10679 (CUDA 13.3)',
+    },
+    quality: [
+      'Ottimo equilibrio qualità/VRAM per chiacchiera, riassunti e piccoli compiti.',
+      'Il Q5_K_M è il consiglio se la qualità dei token è ciò che cerchi e la VRAM lo permette.',
+    ],
+    examples: [],
+  },
+]
+
 // ── Wiki delle sezioni "bozza" ────────────────────────────────────────────
 
 export interface DraftWiki {
@@ -100,28 +162,6 @@ export interface DraftWiki {
 }
 
 export const DRAFTS: DraftWiki[] = [
-  {
-    path: '/text',
-    title: 'Testo',
-    glyph: 'TXT',
-    tagline: 'Chat e completamento con LLM locali (Ollama / llama.cpp già presenti sulla macchina).',
-    how: [
-      'I modelli linguistici locali girano come server OpenAI-compatibili: llama.cpp llama-server espone /v1/chat/completions con sampling, context e function calling; Ollama è un pacchetto simile già installato su questa macchina.',
-      'Nel hub la pagina Testo diventerà un terminale a schede: selezione modello (GGUF o Ollama), parametri di campionamento, streaming dei token, cronologia chat. L\'integrazione MCP e il RAG si appoggeranno allo stesso server.',
-    ],
-    specs: {
-      'Engine previsto': 'llama.cpp llama-server (GGUF) + Ollama',
-      'Modelli': 'GGUF da models/ (es. Qwen3, DeepSeek) — nessuno installato',
-      'VRAM': 'da 1 GB (0.8B) a 14 GB (70B Q2)',
-      'Latenza': '0.1 s prefill + 10–80 tok/s decode (GPU)',
-      'Stato': 'bozza — nessun modello testo installato',
-    },
-    needs: [
-      'Scaricare 1–2 GGUF instruct (es. Qwen3-4B e un MoE più grande) in models/',
-      'Script start-text.ps1 che avvia llama-server --embedding (serve anche al RAG)',
-      'Pagina chat con streaming SSE',
-    ],
-  },
   {
     path: '/video',
     title: 'Video',

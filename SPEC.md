@@ -8,9 +8,10 @@ che parla con più backend locali; ogni sezione (Immagini, Testo, Video, 3D,
 RAG, MCP) ha la sua **wiki** con funzionamento, ingombri, tempi misurati,
 qualità ed esempi generati dai modelli stessi.
 
-Stato attuale: la sezione **Immagini è funzionante** con due modelli
-(Bonsai 4B ternary, Z-Image Turbo Q4_K_M). Le altre sezioni sono bozze con
-wiki, in attesa dei modelli.
+Stato attuale: **Immagini e Chat sono funzionanti** — due modelli immagine
+(Bonsai 4B ternary, Z-Image Turbo Q4_K_M) e chat locale con Ornith 1.5
+(35B-A3B e 9B) via llama.cpp. Le altre sezioni sono bozze con wiki, in attesa
+dei modelli.
 
 ## Hardware di riferimento
 
@@ -46,10 +47,17 @@ Browser ── http://127.0.0.1:4600 ── hub/server.mjs (Node, zero deps)
                                      ├─ POST /api/select     → carica/scarica modello (coda)
                                      ├─ POST /api/image      → generazione (coda)
                                      ├─ GET  /api/metrics    → CPU/RAM/GPU (cache ~2.5s)
+                                     ├─ GET  /api/chat/status → stato llama-server
+                                     ├─ POST /api/chat/start  → avvia llama-server (parametri)
+                                     ├─ POST /api/chat/stop   → ferma llama-server
+                                     ├─ POST /api/chat        → chat streaming (SSE)
                                      │
-                                     └─ UNICO backend: backends/modelserver.py :8000
-                                          ├─ bonsai → GpuPipeline gemlite in-process
-                                          └─ zimage → spawna/termina sd-server (:8123)
+                                     ├─ UNICO backend: backends/modelserver.py :8000
+                                     │    ├─ bonsai → GpuPipeline gemlite in-process
+                                     │    └─ zimage → spawna/termina sd-server (:8123)
+                                     │
+                                     └─ chat: tools/llama-cpp/llama-server.exe :8121
+                                          (Ornith 1.5 35B-A3B / 9B, start su richiesta)
 ```
 
 ### Un solo backend, caricamento dinamico
@@ -92,6 +100,30 @@ senza toccare `reference/`.
 | Z-Image Turbo Q4_K_M | `z-image-turbo-Q4_K_M.gguf` | 4.67 GB | DiT S3-DiT 6B |
 | Qwen3-4B TE (per Z-Image) | `Qwen3-4B-Instruct-2507-Q4_K_M.gguf` | 2.33 GB | text encoder |
 | Z-Image VAE | `z-image-vae.safetensors` | 0.16 GB | bf16 |
+| Ornith 1.5 35B-A3B | `ornith-1.5-35b/Ornith-1.5-35B-Q4_K_M.gguf` | 20.2 GB | MoE (3B attivi), chat |
+| Ornith 1.5 9B | `ornith-1.5-9b/Ornith-1.5-9B-Q4_K_M.gguf` | 5.2 GB | dense, chat |
+| Ornith 1.5 9B Q5 | `ornith-1.5-9b/Ornith-1.5-9B-Q5_K_M.gguf` | 6.1 GB | dense, chat (qualità) |
+
+### Chat locale (llama.cpp)
+
+`tools/llama-cpp/llama-server.exe` (release b10679, CUDA 13.3) serve Ornith
+con parametri scelti dalla UI:
+
+- **contesto** (`-c`) 1024–65536, default 8192;
+- **KV cache quantizzata** (`--cache-type-k/v`): `q8_0` consigliato, `q4_0`
+  aggressivo, `f16` off;
+- **MTP**: disattivato per default (`--spec-type` non impostato); l'opzione
+  richiederebbe pesi del predittore non presenti;
+- **layer MoE su CPU** (`--n-cpu-moe N`, solo per il 35B): sposta gli esperti
+  dei primi N layer in RAM (64 GB) per liberare VRAM;
+- **layer GPU** (`-ngl`), default 99 (full offload);
+- `--flash-attn on`, `--no-warmup`.
+
+Il server è **spento a default** e parte su `POST /api/chat/start` (porta
+:8121, log in `outputs/text-server.log`). La risposta è **streaming SSE**
+OpenAI-compatible; Ornith è un modello *reasoning*, quindi i token di pensiero
+arrivano in `delta.reasoning_content` e la risposta in `delta.content` (la UI
+mostra il ragionamento in un blocco a parte).
 
 ## Contratti API del hub
 
@@ -205,18 +237,19 @@ Pagine:
 |---|---|
 | `/` | Home hub: eroe compatto (headline + **registro di bordo live**: backend, modello in VRAM, barra GPU) · **card Applicazioni subito visibili** · sotto, **Le applicazioni nel dettaglio** con le descrizioni · in coda **Misure sul banco** |
 | `/images` | Generatore funzionante (due modelli) + gallery locale + wiki dei due modelli con esempi reali |
-| `/text`, `/video`, `/3d`, `/rag`, `/mcp` | Bozze: wiki del tipo di modello + checklist requisiti + stato non installato |
+| `/chat` | **Chat funzionante**: Ornith 35B-A3B / 9B / 9B-Q5, streaming con ragionamento mostrato, impostazioni (contesto, KV quant, MTP, layer MoE su CPU, layer GPU, temperatura), avvio/stop server |
+| `/video`, `/3d`, `/rag`, `/mcp` | Bozze: wiki del tipo di modello + checklist requisiti + stato non installato |
 
 ## Script
 
 | Script | Ruolo |
 |---|---|
 | `scripts/start.ps1` + `start.bat` | **avvio a un comando**: controlla cosa è attivo, avvia il resto, apre il browser |
-| `scripts/setup.ps1` | one-time: npm install, build frontend, scarica tools/sd-cpp |
+| `scripts/setup.ps1` | one-time: npm install, build frontend, scarica tools/sd-cpp **e tools/llama-cpp** |
 | `scripts/copy-models.ps1` | ricopia i pesi da `reference/` in `models/` |
 | `scripts/start-backend.ps1` | UNICO modello server :8000 (caricamento dinamico bonsai/zimage) |
-| `scripts/start-hub.ps1` | node hub/server.mjs :4600 (statici+proxy+metriche) |
-| `scripts/stop-all.ps1` + `stop.bat` | ferma hub e modello server (e subprocess sd-server) |
+| `scripts/start-hub.ps1` | node hub/server.mjs :4600 (statici+proxy+metriche+chat) |
+| `scripts/stop-all.ps1` + `stop.bat` | ferma hub, modello server (e subprocess sd-server) e llama-server |
 
 Avvio nascosto: backend e hub partono **senza finestre console** (switch
 `-Hidden`; launcher con `WindowStyle Hidden`) e scrivono i log in

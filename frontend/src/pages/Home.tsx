@@ -9,10 +9,10 @@ const SECTIONS = [
     foot: '2 modelli installati · Bonsai + Z-Image',
   },
   {
-    path: '/text', glyph: 'TXT', title: 'Testo',
-    text: 'Chat e completamento con LLM GGUF locali (llama.cpp / Ollama).',
-    live: false,
-    foot: 'nessun GGUF in models/',
+    path: '/chat', glyph: 'CHT', title: 'Chat',
+    text: 'Conversa con Ornith 1.5: 35B-A3B (MoE) e 9B, streaming locale con contesto e KV regolabili.',
+    live: true,
+    foot: '2 modelli ornith installati',
   },
   {
     path: '/video', glyph: 'VID', title: 'Video',

@@ -1,8 +1,10 @@
-﻿# Setup one-time: engine sd-cpp, dipendenze frontend, build UI.
+﻿# Setup one-time: engine sd-cpp, llama.cpp (chat), dipendenze frontend, build UI.
 # I pesi dei modelli stanno in models/ (riempiti da copy-models.ps1).
 param(
     # release di stable-diffusion.cpp (binari Windows CUDA 12)
-    [string]$SdTag = 'master-829-0a565f2'
+    [string]$SdTag = 'master-829-0a565f2',
+    # release di llama.cpp (binari Windows CUDA)
+    [string]$LlamaTag = 'b10679'
 )
 $ErrorActionPreference = 'Stop'
 $Root = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
@@ -20,6 +22,24 @@ if (-not (Test-Path $exe)) {
     Remove-Item $zip
 }
 Write-Host "sd-server: $(Test-Path $exe)"
+
+# ── 1b. llama.cpp (llama-server.exe per la chat) ──────────────────────────
+$lzip   = Join-Path $Root 'tools\llama-cpp\download\llama.zip'
+$lzip2  = Join-Path $Root 'tools\llama-cpp\download\cudart.zip'
+$ldst   = Join-Path $Root 'tools\llama-cpp'
+$lexe   = Join-Path $ldst 'llama-server.exe'
+if (-not (Test-Path $lexe)) {
+    New-Item -ItemType Directory -Force -Path (Join-Path $ldst 'download') | Out-Null
+    $url = "https://github.com/ggml-org/llama.cpp/releases/download/$LlamaTag/llama-$LlamaTag-bin-win-cuda-13.3-x64.zip"
+    $url2 = "https://github.com/ggml-org/llama.cpp/releases/download/$LlamaTag/cudart-llama-bin-win-cuda-13.3-x64.zip"
+    Write-Host "scarico llama.cpp (CUDA 13.3): $url" -ForegroundColor Cyan
+    curl.exe -L --fail --retry 3 -o $lzip $url
+    curl.exe -L --fail --retry 3 -o $lzip2 $url2
+    Expand-Archive -Path $lzip  -DestinationPath $ldst -Force
+    Expand-Archive -Path $lzip2 -DestinationPath $ldst -Force
+    Remove-Item (Join-Path $ldst 'download') -Recurse -Force
+}
+Write-Host "llama-server: $(Test-Path $lexe)"
 
 # ── 2. frontend ───────────────────────────────────────────────────────────
 Push-Location (Join-Path $Root 'frontend')
@@ -48,3 +68,4 @@ if (Test-Path $py) {
 Write-Host "`nSetup completo. Avvio tipico:" -ForegroundColor Green
 Write-Host "  .\scripts\start-backend.ps1  (modello server dinamico :8000, finestra 1)"
 Write-Host "  .\scripts\start-hub.ps1      (hub web :4600, finestra 2)  → http://127.0.0.1:4600"
+Write-Host "  (la chat si avvia dalla pagina /chat: llama-server + parametri)"

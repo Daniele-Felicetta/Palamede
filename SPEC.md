@@ -41,33 +41,48 @@ wiki, in attesa dei modelli.
 ```
 Browser ── http://127.0.0.1:4600 ── hub/server.mjs (Node, zero deps)
                                      ├─ statici: frontend/dist
-                                     ├─ GET  /api/health   → probe dei backend
-                                     ├─ POST /api/image    → coda mutex
-                                     │    ├─ bonsai → http://127.0.0.1:8000/generate   (PNG raw)
-                                     │    └─ zimage → http://127.0.0.1:8123/sdapi/v1/txt2img (b64 JSON)
-                                     └─ tutto il resto: 404 JSON
-
-Backend Bonsai  : uvicorn backends.bonsai_backend:app :8000  (Python, venv di reference/bonsai)
-Backend Z-Image : tools/sd-cpp/sd-server.exe :8123           (GGUF lumina2, --diffusion-fa)
+                                     ├─ GET  /api/health     → stato modello server
+                                     ├─ GET  /api/models     → cosa è caricato
+                                     ├─ POST /api/select     → carica/scarica modello (coda)
+                                     ├─ POST /api/image      → generazione (coda)
+                                     ├─ GET  /api/metrics    → CPU/RAM/GPU (cache ~2.5s)
+                                     │
+                                     └─ UNICO backend: backends/modelserver.py :8000
+                                          ├─ bonsai → GpuPipeline gemlite in-process
+                                          └─ zimage → spawna/termina sd-server (:8123)
 ```
 
-### Perchè `backends/bonsai_backend.py`
+### Un solo backend, caricamento dinamico
 
-Il repo `reference/bonsai` contiene un bug nel loader low-memory
-(`scripts/local_backend.py`): con `gemlite>=0.6` le chiavi gemlite dei moduli
-quantizzati risultano "missing" nel sanity-check post-carico → il server
-crashia all'avvio. Il wrapper Palamede reimplementa il loader con il filtro
-già presente nel loader upstream di `backend_gpu` (`pipeline_gpu.py`
-righe 227-234), senza toccare `reference/`.
+Invece di tre processi fissi, **`modelserver.py`** (FastAPI :8000) possiede
+entrambi i modelli e ne tiene **uno solo caricato**:
 
-### Perchè `sd-server` per Z-Image
+- `POST /select {"model":"bonsai"}` → scarica il corrente, carica la
+  `GpuPipeline` gemlite (in-process, ~6 GB VRAM) e prewarma i 5 artifact.
+- `POST /select {"model":"zimage"}` → scarica bonsai, **spawna sd-server**
+  come subprocess (log in `outputs/sd-server.log`), aspetta la readiness.
+- Deselezionare zimage **termina** sd-server → VRAM liberata.
+- `POST /generate` auto-carica se il modello richiesto non è quello attivo.
+- Un `threading.Lock` serializza tutto: mai due generazioni simultanee.
+
+### Perchè Z-Image gira su `sd-server`
 
 `z-image-turbo-Q4_K_M.gguf` è un GGUF architettura `lumina2` (solo il DiT).
 L'engine che lo supporta ufficialmente è **stable-diffusion.cpp**
 (riferimento nel README del progetto Z-Image di Tongyi Lab). Servono anche i
 suoi due satelliti: text encoder **Qwen3-4B** (GGUF) e **VAE** (Flux-style,
-presa dal repo ufficiale Z-Image-Turbo). API esposta: `POST /sdapi/v1/txt2img`
-(A1111-compatibile) e `/v1/...` (OpenAI-compatibile).
+presa dal repo ufficiale Z-Image-Turbo). API esposta internamente su
+`POST /sdapi/v1/txt2img` (:8123), visibile solo quando il modello è caricato.
+
+### Perchè il loader corretto vive in `backends/gemlite_loader.py`
+
+Il repo `reference/bonsai` contiene un bug nel loader low-memory
+(`scripts/local_backend.py`): con `gemlite>=0.6` le chiavi gemlite dei moduli
+quantizzati risultano "missing" nel sanity-check post-carico → il server
+crashia all'avvio. Il loader condiviso di Palamede reimplementa la versione
+low-mem col filtro già presente nel loader upstream di `backend_gpu`
+(`pipeline_gpu.py` righe 227-234), e viene applicato da `modelserver.py`
+senza toccare `reference/`.
 
 ## Modelli installati (in `models/`, gitignored)
 
@@ -83,8 +98,25 @@ presa dal repo ufficiale Z-Image-Turbo). API esposta: `POST /sdapi/v1/txt2img`
 ### `GET /api/health`
 
 ```json
-{ "bonsai": { "ok": true, "family": "bonsai-ternary" },
-  "zimage": { "ok": true } }
+{ "ok": true, "current": "bonsai", "zimage_process": false }
+```
+
+### `GET /api/models` — stato dei modelli
+
+```json
+{ "current": "bonsai",
+  "models": [ { "id": "bonsai", "name": "…", "engine": "…", "loaded": true },
+              { "id": "zimage", "name": "…", "engine": "…", "loaded": false } ] }
+```
+
+### `POST /api/select`
+
+Carica/scarica il modello (bloccante finché non è pronto; il server scarica
+il modello corrente e libera la VRAM prima di caricare il nuovo).
+
+```json
+// request                  // response (= GET /api/models)
+{ "model": "bonsai" }  →    { "current": "bonsai", "models": […] }
 ```
 
 ### `POST /api/image`
@@ -96,25 +128,37 @@ presa dal repo ufficiale Z-Image-Turbo). API esposta: `POST /sdapi/v1/txt2img`
   "width": 512, "height": 512, "count": 1 }
 // response
 { "images": [ { "dataUrl": "data:image/png;base64,…",
-                "timeMs": 1834, "seed": 42,
-                "params": { …eco della richiesta… } } ] }
+                "timeMs": 1834, "seed": 42 } ] }
 ```
 
-- `seed: -1` → seed casuale generato dal backend e restituito in risposta.
+- `seed: -1` → seed casuale generato dal hub e restituito in risposta.
 - `count>1` → generazione seriale (seed incrementali), la coda è comunque
   one-shot per richiesta.
-- Errori: `400` parametri non validi / `502` backend giù o crash.
+- Auto-carica il modello se non è quello attivo (defensivo; la UI chiama
+  `/select` esplicitamente per mostrare lo stato di caricamento).
+- Errori: `400` parametri non validi / `500` modello server o crash.
+
+### `GET /api/metrics` — CPU/RAM/GPU
+
+```json
+{ "ts": 1690000000000, "cpu": 23.5,
+  "ram": { "usedGB": 21.4, "totalGB": 63.7, "pct": 33.6 },
+  "gpu": { "ok": true, "utilPct": 12, "vramUsedGB": 5.6, "vramTotalGB": 16.0,
+           "vramPct": 35, "tempC": 52, "powerW": 88,
+           "procs": [ { "name": "python.exe", "mem": "5432MiB" } ] } }
+```
+
+Cache nel hub (~2.5 s): `nvidia-smi` per GPU/VRAM/proc, contatore Windows
+per la CPU, API `os` di Node per la RAM.
 
 ### Parametri nativi dei backend
 
-| | Bonsai (FastAPI :8000) | Z-Image (sd-server :8123) |
+| | Bonsai (gemlite in-process) | Z-Image (sd-server :8123) |
 |---|---|---|
-| endpoint | `POST /generate` → PNG binario | `POST /sdapi/v1/txt2img` → `{images:[b64]}` |
-| prompt | `prompt` | `prompt` |
-| steps | `steps` (default 4) | `steps` (default 8, distilled) |
-| cfg | n/d (distilled) | `cfg_scale` (1.0 = effettivo 0) |
-| seed | `seed` | `seed` |
-| modello | `backend: "bonsai-ternary-gemlite"` | fisso al boot |
+| chiamata interna | `GpuPipeline.generate_png(prompt, seed, steps, width, height)` | `POST /sdapi/v1/txt2img` → `{images:[b64]}` |
+| steps | default 4 | default 8 (distilled) |
+| cfg | n/d (distilled) | `cfg_scale` 1.0 (= effettivo 0) |
+| seed | esplicito (il hub genera se -1) | esplicito |
 
 ## Dati di performance MISURATI (RTX 5060 Ti)
 
@@ -153,20 +197,25 @@ Pagine:
 |---|---|
 | `scripts/setup.ps1` | one-time: npm install, build frontend, scarica tools/sd-cpp |
 | `scripts/copy-models.ps1` | ricopia i pesi da `reference/` in `models/` |
-| `scripts/start-bonsai.ps1` | uvicorn :8000 col wrapper corretto |
-| `scripts/start-zimage.ps1` | sd-server :8123 |
-| `scripts/start-hub.ps1` | node hub/server.mjs :4600 (statici+proxy) |
-| `scripts/start-all.ps1` / `stop-all.ps1` | orchestrazione con coda mutex nel hub |
+| `scripts/start-backend.ps1` | UNICO modello server :8000 (caricamento dinamico bonsai/zimage) |
+| `scripts/start-hub.ps1` | node hub/server.mjs :4600 (statici+proxy+metriche) |
+| `scripts/stop-all.ps1` | ferma hub e modello server (e subprocess sd-server) |
 
 ## Decisioni prese
 
 - **Non tocca `reference/`**: è repo altrui, gitignored e volatile; il fix
-  del bug bonsai vive nel wrapper di Palamede.
+  del bug bonsai vive nel loader condiviso di Palamede
+  (`backends/gemlite_loader.py`).
+- **Un solo backend**: `modelserver.py` possiede i modelli e li carica/scarica
+  su `/select`, così la VRAM non è mai condivisa tra modelli e non servono
+  tre processi da avviare a mano.
 - **Zero dipendenze runtime nel hub** (`node:http`) e **zero dipendenze
   frontend extra** oltre Vite/React: un `npm install` e via.
 - **Hash-routing** invece di react-router: 6 pagine, un listener
   `hashchange` basta (YAGNI).
-- **La coda è nel hub**, non negli script: il vincolo di esclusività GPU è
-  una regola di prodotto, non un'abitudine di avvio.
+- **La coda è nel hub e nel server** (lock + catena di promise): il vincolo
+  di esclusività GPU è una regola di prodotto, non un'abitudine di avvio.
+- **Metriche di sistema nel hub** (nvidia-smi + contatore Windows + os):
+  la sidebar della UI le mostra senza dipendenze esterne.
 - I dati della wiki sono **misurati su questa macchina**, non copiati dai
   model card (le cifre ufficiali "sub-second" si intendono su H800).

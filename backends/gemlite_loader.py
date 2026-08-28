@@ -1,26 +1,17 @@
-"""Palamede — backend HTTP per Bonsai Image (ternary gemlite).
+"""Loader low-memory condiviso per il transformer gemlite di Bonsai.
 
-Wrapper FastAPI attorno a ``reference/bonsai/scripts/local_backend:app`` con
-un fix al loader low-memory del transformer gemlite.
-
-Perche' serve: il loader low-mem originale in ``local_backend.py`` verifica
-``missing`` SENZA filtrare le chiavi gemlite (``W_q/scales/zeros/...``) che
-gemlite>=0.6 registra come ``nn.Parameter`` sui moduli dopo il caricamento
-per-layer. Quelle chiavi risultano quindi "mancanti" anche se sono gia'
-caricate -> ``RuntimeError: missing non-gemlite state_dict keys``. Il loader
-upstream di ``backend_gpu`` applica il filtro (``pipeline_gpu.py`` righe
-227-234); qui lo riapplichiamo alla versione low-memory.
-
-Avvio (vedi anche scripts/start-bonsai.ps1):
-    $env:MFLUX_STUDIO_GPU_* = ...  # path ai componenti in models/
-    python -m uvicorn backends.bonsai_backend:app --port 8000
+Riepilogo del bug che questo modulo risolve: il loader low-mem di
+reference/bonsai/scripts/local_backend.py verifica ``missing`` senza filtrare
+le chiavi gemlite (``W_q/scales/zeros/...``) che gemlite>=0.6 registra come
+``nn.Parameter`` dopo il caricamento per-layer. Quelle chiavi risultano
+"mancanti" anche se sono già caricate -> crash all'avvio. Il loader upstream
+di ``backend_gpu`` applica il filtro (pipeline_gpu.py righe 227-234); qui lo
+riapplichiamo alla versione low-memory, senza toccare reference/.
 """
 from __future__ import annotations
 
 import json
 import logging
-import os
-import sys
 from pathlib import Path
 
 import torch
@@ -28,27 +19,14 @@ from accelerate import init_empty_weights
 from diffusers import Flux2Transformer2DModel
 from gemlite.core import DType, GemLiteLinearTriton, set_packing_bitwidth
 
-# reference/bonsai deve stare su sys.path per importare backend_gpu e scripts
-_BONSAI_REPO = Path(os.environ.get(
-    "BONSAI_REPO",
-    str(Path(__file__).resolve().parents[1] / "reference" / "bonsai"),
-))
-sys.path.insert(0, str(_BONSAI_REPO))
-
-from backend_gpu import pipeline_gpu as _pg  # noqa: E402
-
-log = logging.getLogger("palamede.bonsai")
+log = logging.getLogger("palamede.gemlite")
 
 # stesse chiavi gemlite riconosciute da backend_gpu.pipeline_gpu
 _GEMLITE_LAYER_KEYS = ("W_q", "bias", "scales", "zeros", "metadata", "orig_shape", "meta_scale")
 
 
-def _fixed_low_mem_load_gemlite_transformer(path, *, device: str = _pg.DEFAULT_DEVICE):
-    """Loader low-memory (meta device) con filtro chiavi gemlite in ``missing``.
-
-    Copia di ``scripts.local_backend._low_mem_load_gemlite_transformer`` con
-    il fix: le chiavi gemlite gia' caricate per-layer non sono "mancanti".
-    """
+def fixed_low_mem_load_gemlite_transformer(path, *, device: str = "cuda"):
+    """Carica il transformer gemlite con picco di RAM basso (meta device)."""
     path = Path(path)
     if not path.is_dir():
         raise FileNotFoundError(f"Gemlite transformer artifact not found at {path}")
@@ -86,6 +64,9 @@ def _fixed_low_mem_load_gemlite_transformer(path, *, device: str = _pg.DEFAULT_D
             state[k] = v.to(torch.float16)
             del v
 
+    # import ritardato: il modulo pipeline_gpu deve già essere su sys.path
+    from backend_gpu import pipeline_gpu as _pg
+
     _, remainder = _pg._load_gemlite_layers_from_state(
         model, state,
         bits=bits, group_size=group_size, device=device,
@@ -96,7 +77,7 @@ def _fixed_low_mem_load_gemlite_transformer(path, *, device: str = _pg.DEFAULT_D
     missing, unexpected = model.load_state_dict(remainder, strict=False, assign=True)
     if unexpected:
         raise RuntimeError(f"unexpected non-gemlite state_dict keys: {unexpected[:8]}")
-    # FIX: le chiavi gemlite sono gia' state caricate per-layer; non contano
+    # FIX: le chiavi gemlite sono già state caricate per-layer; non contano
     # come "missing". (stesso filtro del loader upstream)
     gemlite_suffixed = lambda ks: [k for k in ks if k.rpartition(".")[2] in _GEMLITE_LAYER_KEYS]
     missing = [k for k in missing if k not in gemlite_suffixed(missing)]
@@ -108,11 +89,7 @@ def _fixed_low_mem_load_gemlite_transformer(path, *, device: str = _pg.DEFAULT_D
     return model.to(device).eval()
 
 
-# Il modulo scripts.local_backend al suo import fa gia' il suo monkeypatch
-# (con la versione buggata); lo sovrascriviamo subito dopo con la nostra.
-import scripts.local_backend as _local_backend  # noqa: E402
-_pg._load_gemlite_transformer = _fixed_low_mem_load_gemlite_transformer
-log.info("monkeypatched backend_gpu.pipeline_gpu._load_gemlite_transformer (fixed low-mem)")
-
-app = _local_backend.app
-__all__ = ["app"]
+def apply_fixed_loader(pipeline_gpu_module) -> None:
+    """Monkeypatcha ``_load_gemlite_transformer`` sul modulo pipeline_gpu."""
+    pipeline_gpu_module._load_gemlite_transformer = fixed_low_mem_load_gemlite_transformer
+    log.info("monkeypatched backend_gpu.pipeline_gpu._load_gemlite_transformer (fixed low-mem)")

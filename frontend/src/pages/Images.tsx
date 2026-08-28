@@ -1,5 +1,5 @@
-import { FormEvent, useState } from 'react'
-import { generateImage, GenImage } from '../api'
+import { FormEvent, useEffect, useState } from 'react'
+import { generateImage, getModels, selectModel, GenImage, ModelsStatus } from '../api'
 import { IMAGE_MODELS } from '../data/wiki'
 import { WikiEntry } from '../components/WikiEntry'
 
@@ -23,6 +23,8 @@ interface Shot extends GenImage {
 
 export function Images() {
   const [model, setModel] = useState<ModelId>('bonsai')
+  const [loaded, setLoaded] = useState<string | null>(null)
+  const [selecting, setSelecting] = useState<ModelId | null>(null)
   const [prompt, setPrompt] = useState(
     'An icy bonsai tree in a rainy forest with a snowy mountain in the background, photo realistic')
   const [size, setSize] = useState<string>('512x512')
@@ -34,17 +36,41 @@ export function Images() {
   const [error, setError] = useState(false)
   const [shots, setShots] = useState<Shot[]>([])
 
-  const pickModel = (m: ModelId) => {
+  useEffect(() => {
+    getModels().then((m: ModelsStatus) => setLoaded(m.current)).catch(() => {})
+  }, [])
+
+  // selezione modello → carica dinamico sul server (un modello alla volta)
+  const pickModel = async (m: ModelId) => {
     setModel(m)
     setSteps(DEFAULT_STEPS[m])
+    if (loaded === m) return
+    setSelecting(m)
+    setHint(`caricamento ${m === 'bonsai' ? 'Bonsai' : 'Z-Image'} sulla GPU…`)
+    try {
+      const st = await selectModel(m)
+      setLoaded(st.current)
+      setHint('')
+    } catch (err) {
+      setHint(String(err instanceof Error ? err.message : err))
+      setError(true)
+    } finally {
+      setSelecting(null)
+    }
   }
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
-    if (!prompt.trim() || busy) return
+    if (!prompt.trim() || busy || selecting) return
     setBusy(true); setError(false); setHint('in coda sulla GPU…')
     const [w, h] = size.split('x').map(Number)
     try {
+      // assicura che il modello giusto sia caricato
+      if (loaded !== model) {
+        setHint(`caricamento ${model}…`)
+        const st = await selectModel(model)
+        setLoaded(st.current)
+      }
       const t0 = performance.now()
       const imgs = await generateImage({ model, prompt: prompt.trim(), steps, seed, width: w, height: h, count })
       setShots((prev) => [
@@ -61,14 +87,21 @@ export function Images() {
     }
   }
 
+  const plateState = (id: ModelId) => {
+    if (selecting === id) return '…carico'
+    if (loaded === id) return 'attivo'
+    return 'a riposo'
+  }
+
   return (
     <>
       <p className="eyebrow">Sezione immagini</p>
-      <h1>Due modelli, <em>una coda</em>.</h1>
+      <h1>Due modelli, <em>una GPU</em>.</h1>
       <p className="lede">
-        Bonsai (4B ternario, 4 step) e Z-Image Turbo (6B, 8 step) condividono
-        la GPU: il hub serve un solo modello per volta, gli altri restano in
-        coda. Sotto, la wiki dei due modelli con esempi generati ora.
+        Bonsai (4B ternario, 4 step) e Z-Image Turbo (6B, 8 step) condividono la
+        scheda: selezioni un modello e viene <strong>caricato al momento</strong>,
+        liberando la VRAM quando passi all'altro. Sotto, la wiki dei due modelli
+        con esempi generati ora.
       </p>
 
       <section>
@@ -83,16 +116,18 @@ export function Images() {
                   onClick={() => pickModel(m.id as ModelId)}
                 >
                   <span className="pname">
-                    <span className="led on" aria-hidden /> {m.name}
+                    <span className={`led ${loaded === m.id ? 'on' : selecting === m.id ? 'busy' : 'off'}`} aria-hidden />
+                    {m.name}
                   </span>
                   <span className="pstamps">
                     <span className="stamp">{m.family}</span>
                     <span className="stamp hot">{m.id === 'bonsai' ? '4 step · 1.58-bit' : '8 step · Q4_K_M'}</span>
                   </span>
                   <span className="pdown">
+                    {plateState(m.id as ModelId)} ·
                     {m.id === 'bonsai'
-                      ? '512² in 1.8 s — il più veloce'
-                      : 'testo nell\'immagine, fotorealismo spinto'}
+                      ? ' 512² in 1.8 s — il più veloce'
+                      : ' testo nell\'immagine, fotorealismo spinto'}
                   </span>
                 </button>
               ))}
@@ -132,8 +167,8 @@ export function Images() {
               </div>
             </div>
 
-            <button className="go" type="submit" disabled={busy || !prompt.trim()}>
-              {busy ? 'in lavorazione…' : 'Genera'}
+            <button className="go" type="submit" disabled={busy || !!selecting || !prompt.trim()}>
+              {selecting ? 'caricamento…' : busy ? 'in lavorazione…' : 'Genera'}
             </button>
             <p className={`hintline ${error ? 'err' : ''}`} role="status">{hint}</p>
           </form>

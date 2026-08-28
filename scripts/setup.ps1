@@ -46,6 +46,5 @@ if (Test-Path $py) {
 }
 
 Write-Host "`nSetup completo. Avvio tipico:" -ForegroundColor Green
-Write-Host "  .\scripts\start-bonsai.ps1   (finestra 1)"
-Write-Host "  .\scripts\start-zimage.ps1   (finestra 2)"
-Write-Host "  .\scripts\start-hub.ps1      (finestra 3)  → http://127.0.0.1:4600"
+Write-Host "  .\scripts\start-backend.ps1  (modello server dinamico :8000, finestra 1)"
+Write-Host "  .\scripts\start-hub.ps1      (hub web :4600, finestra 2)  → http://127.0.0.1:4600"

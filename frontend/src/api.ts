@@ -18,15 +18,63 @@ export interface GenImage {
   params: Record<string, unknown>
 }
 
+export interface ModelInfo {
+  id: string
+  name: string
+  engine: string
+  loaded: boolean
+}
+
+export interface ModelsStatus {
+  current: string | null
+  models: ModelInfo[]
+  zimage_process: boolean
+}
+
+export interface Metrics {
+  ts: number
+  cpu: number
+  ram: { usedGB: number; totalGB: number; pct: number }
+  gpu: {
+    ok: boolean
+    utilPct: number
+    vramUsedGB: number
+    vramTotalGB: number
+    vramPct: number
+    tempC: number
+    powerW: number
+    procs: { name: string; mem: string }[]
+  }
+}
+
 export interface Health {
-  bonsai: { ok: boolean; family?: string | null }
-  zimage: { ok: boolean }
+  ok: boolean
+  current: string | null
+}
+
+async function j<T>(r: Response): Promise<T> {
+  if (!r.ok) throw new Error(`HTTP ${r.status}`)
+  return r.json() as Promise<T>
 }
 
 export async function getHealth(): Promise<Health> {
-  const r = await fetch('/api/health')
-  if (!r.ok) throw new Error('hub non raggiungibile')
-  return r.json()
+  return j(await fetch('/api/health'))
+}
+
+export async function getModels(): Promise<ModelsStatus> {
+  return j(await fetch('/api/models'))
+}
+
+export async function selectModel(model: string): Promise<ModelsStatus> {
+  return j(await fetch('/api/select', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model }),
+  }))
+}
+
+export async function getMetrics(): Promise<Metrics> {
+  return j(await fetch('/api/metrics'))
 }
 
 export async function generateImage(req: GenRequest): Promise<GenImage[]> {
@@ -37,8 +85,8 @@ export async function generateImage(req: GenRequest): Promise<GenImage[]> {
   })
   const data = await r.json().catch(() => ({}))
   if (!r.ok) {
-    const msg = data?.error?.message || `HTTP ${r.status}`
-    throw new Error(msg)
+    const msg = data?.error?.message || data?.detail || `HTTP ${r.status}`
+    throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg))
   }
   return data.images as GenImage[]
 }

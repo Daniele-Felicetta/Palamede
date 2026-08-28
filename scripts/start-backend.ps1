@@ -1,16 +1,16 @@
-# Avvia il backend Bonsai (FastAPI :8000) usando il wrapper con fix loader.
-# Richiede: reference/bonsai con venv già installato (setup.ps1 del repo
-# sorgente) e models/bonsai-image-4B-ternary-gemlite presente.
+# Avvia l'UNICO modello server dinamico (:8000).
+# Carica Bonsai (gemlite in-process) o Z-Image (spawna sd-server come
+# subprocess) alla selezione: POST /select {model}. Un modello alla volta.
 param([int]$Port = 8000)
 $ErrorActionPreference = 'Stop'
 $Root = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
 
-$repo  = Join-Path $Root 'reference\bonsai'
-$py    = Join-Path $repo  '.venv\Scripts\python.exe'
-$model = Join-Path $Root  'models\bonsai-image-4B-ternary-gemlite'
+$py    = Join-Path $Root 'reference\bonsai\.venv\Scripts\python.exe'
+$model = Join-Path $Root 'models\bonsai-image-4B-ternary-gemlite'
+$zexe  = Join-Path $Root 'tools\sd-cpp\sd-server.exe'
 
-foreach ($p in @($py, $model)) {
-    if (-not (Test-Path $p)) { throw "manca: $p" }
+foreach ($p in @($py, $model, $zexe)) {
+    if (-not (Test-Path $p)) { throw "manca: $p (vedi scripts/setup.ps1 e scripts/copy-models.ps1)" }
 }
 
 $env:MFLUX_STUDIO_GPU_DEFAULT_BACKEND      = 'bonsai-ternary-gemlite'
@@ -22,7 +22,7 @@ $env:MFLUX_STUDIO_GPU_BINARY_TRANSFORMER_PATH  = Join-Path $model 'transformer-g
 $env:PYTHONIOENCODING = 'utf-8'
 $env:PYTHONUTF8       = '1'
 
-Write-Host "Bonsai su :$Port (warmup al primo uso di ogni risoluzione)" -ForegroundColor Cyan
+Write-Host "Palamede modello server su :$Port (caricamento dinamico: bonsai / zimage)" -ForegroundColor Cyan
 Push-Location $Root
-& $py -m uvicorn backends.bonsai_backend:app --port $Port
+& $py -m uvicorn backends.modelserver:app --port $Port
 Pop-Location

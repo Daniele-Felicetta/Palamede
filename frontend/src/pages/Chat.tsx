@@ -19,7 +19,14 @@ const DEFAULT = {
   temperature: 0.7,
 }
 
-function streamText(body: ReadableStream<Uint8Array>, onDelta: (type: 'reason' | 'content', t: string) => void, onDone: () => void, onErr: (e: Error) => void) {
+interface StreamStats { tps: number; tokens: number }
+
+function streamText(
+  body: ReadableStream<Uint8Array>,
+  onDelta: (type: 'reason' | 'content', t: string) => void,
+  onDone: (stats?: StreamStats) => void,
+  onErr: (e: Error) => void,
+) {
   const reader = body.getReader()
   const decoder = new TextDecoder()
   let buf = ''
@@ -38,11 +45,19 @@ function streamText(body: ReadableStream<Uint8Array>, onDelta: (type: 'reason' |
         try {
           const j = JSON.parse(data)
           const d = j?.choices?.[0]?.delta
-          if (!d) continue
-          // Ornith è un modello reasoning: prima i token di pensiero,
-          // poi la risposta vera.
-          if (typeof d.reasoning_content === 'string' && d.reasoning_content) onDelta('reason', d.reasoning_content)
-          else if (typeof d.content === 'string' && d.content) onDelta('content', d.content)
+          if (d) {
+            // Ornith è un modello reasoning: prima i token di pensiero,
+            // poi la risposta vera.
+            if (typeof d.reasoning_content === 'string' && d.reasoning_content) onDelta('reason', d.reasoning_content)
+            else if (typeof d.content === 'string' && d.content) onDelta('content', d.content)
+            continue
+          }
+          // chunk finale: llama-server ci dà i timings precisi
+          const t = j?.timings
+          if (t && typeof t.predicted_per_second === 'number') {
+            onDone({ tps: t.predicted_per_second, tokens: t.predicted_n ?? 0 })
+            return
+          }
         } catch { /* eventi non JSON ignorati */ }
       }
       pump()
@@ -64,6 +79,11 @@ export function Chat() {
   const [messages, setMessages] = useState<Msg[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
+
+  // contatore tok/s: stima live durante la generazione, preciso a fine stream
+  const [stats, setStats] = useState<{ tps: number; tokens: number | null; live: boolean } | null>(null)
+  const genStart = useRef(0)
+  const charsRef = useRef(0)
 
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -112,20 +132,31 @@ export function Chat() {
     ]
     setMessages([...messages, { role: 'user', content: text }, { role: 'assistant', content: '', pending: true }])
     setSending(true)
+    setStats(null)
+    genStart.current = performance.now()
+    charsRef.current = 0
     try {
       const stream = await chatStream(history, settings.temperature)
       streamText(
         stream,
-        (type, t) => setMessages((prev) => {
-          const next = [...prev]
-          const last = next[next.length - 1]
-          if (!last?.pending) return prev
-          next[next.length - 1] = type === 'reason'
-            ? { role: 'assistant', content: last.content, reason: (last.reason ?? '') + t, pending: true }
-            : { role: 'assistant', content: last.content + t, reason: last.reason, pending: true }
-          return next
-        }),
-        () => setMessages((prev) => prev.map((m) => (m.pending ? { ...m, pending: false } : m))),
+        (type, t) => {
+          charsRef.current += t.length
+          const el = (performance.now() - genStart.current) / 1000
+          if (el > 0.4) setStats({ tps: (charsRef.current / 4) / el, tokens: null, live: true })
+          setMessages((prev) => {
+            const next = [...prev]
+            const last = next[next.length - 1]
+            if (!last?.pending) return prev
+            next[next.length - 1] = type === 'reason'
+              ? { role: 'assistant', content: last.content, reason: (last.reason ?? '') + t, pending: true }
+              : { role: 'assistant', content: last.content + t, reason: last.reason, pending: true }
+            return next
+          })
+        },
+        (st) => {
+          if (st) setStats({ tps: st.tps, tokens: st.tokens, live: false })
+          setMessages((prev) => prev.map((m) => (m.pending ? { ...m, pending: false } : m)))
+        },
         (er) => { setErr(er.message); setMessages((prev) => prev.map((m) => (m.pending ? { ...m, pending: false } : m))) },
       )
     } catch (er) {
@@ -262,6 +293,15 @@ export function Chat() {
               )}
               <div ref={bottomRef} />
             </div>
+
+            {stats && (
+              <p className={`chat-stats ${stats.live ? 'live' : ''}`} role="status">
+                {stats.live
+                  ? <>generazione… <strong>≈{stats.tps.toLocaleString('it-IT', { maximumFractionDigits: 1 })}</strong> tok/s</>
+                  : <><strong>{stats.tps.toLocaleString('it-IT', { maximumFractionDigits: 1 })}</strong> tok/s
+                      {stats.tokens != null && <> · {stats.tokens} token</>}</>}
+              </p>
+            )}
 
             <div className="chat-input-row">
               <textarea

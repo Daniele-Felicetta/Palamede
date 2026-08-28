@@ -463,6 +463,13 @@ section { margin-top: 56px; }
 .chat-input { flex: 1; min-height: 0; resize: none; font-size: 14.5px; }
 .chat-input-row .go { margin-top: 0; width: auto; padding: 12px 24px; }
 
+.chat-stats {
+  margin: 0; padding: 2px 0 6px; text-align: right;
+  font-size: 11.5px; color: var(--paper-faint);
+}
+.chat-stats strong { color: var(--ochre); font-family: var(--mono); font-size: 12.5px; }
+.chat-stats.live strong { color: var(--paper-dim); }
+
 /* ── Wiki ─ */
 .wiki { border-top: 1px solid var(--line); margin-top: 64px; padding-top: 40px; }
 .wiki-entry { margin-top: 34px; }

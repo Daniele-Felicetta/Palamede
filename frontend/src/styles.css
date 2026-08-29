@@ -65,6 +65,7 @@ button { font: inherit; cursor: pointer; }
   padding: 14px 28px;
   border-bottom: 1px solid var(--line);
   position: sticky; top: 0; z-index: 20;
+  flex-wrap: wrap; row-gap: 6px;
   background: var(--glass);
   backdrop-filter: blur(6px);
 }
@@ -90,10 +91,10 @@ button { font: inherit; cursor: pointer; }
 
 .nav a {
   text-decoration: none;
-  font-family: var(--mono); font-size: 12px; font-weight: 500;
-  letter-spacing: 1px; text-transform: uppercase;
+  font-family: var(--mono); font-size: 11px; font-weight: 500;
+  letter-spacing: .8px; text-transform: uppercase;
   color: var(--paper-dim);
-  padding: 6px 12px; border-radius: 3px;
+  padding: 5px 9px; border-radius: 3px;
   border: 1px solid transparent;
   transition: color .15s, border-color .15s;
 }
@@ -101,10 +102,16 @@ button { font: inherit; cursor: pointer; }
 .nav a.active { color: var(--ochre); border-color: var(--line); }
 .nav a.disabled { color: var(--paper-faint); }
 
-.beacon { display: flex; gap: 16px; flex-wrap: wrap; }
+.beacon {
+  /* riga di stato a tutta larghezza, sotto la navigazione */
+  flex-basis: 100%;
+  display: flex; justify-content: flex-end; gap: 16px; flex-wrap: wrap;
+  border-top: 1px solid var(--line);
+  margin-top: 4px; padding-top: 9px;
+}
 .beacon .led-row {
   display: flex; align-items: center; gap: 7px;
-  font-family: var(--mono); font-size: 11px; letter-spacing: .5px;
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .5px;
   color: var(--paper-dim); white-space: nowrap;
 }
 .beacon .log-bar { width: 46px; height: 4px; }

@@ -270,7 +270,9 @@ section { margin-top: 56px; }
 }
 
 /* ── Page Immagini ── */
-.gen-wrap { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: 24px; align-items: start; }
+/* su schermi larghi (21:9) la pagina sfrutta tutta la larghezza disponibile */
+.route-images main { max-width: none; }
+.gen-wrap { display: grid; grid-template-columns: minmax(300px, 400px) minmax(0, 1fr); gap: 24px; align-items: start; }
 @media (max-width: 1000px) { .gen-wrap { grid-template-columns: 1fr; } }
 
 .panel {
@@ -355,8 +357,8 @@ section { margin-top: 56px; }
 .hist-head .sec-title { margin-bottom: 0; font-size: 22px; }
 .hist-head .side-toggle { margin: 0; }
 
-/* Gallery */
-.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
+/* Gallery: tile piu' grandi, che su ultrawide diventano piu' colonne */
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
 .shot {
   border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
   background: var(--ink-3); animation: reveal .4s ease;

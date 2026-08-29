@@ -4,7 +4,7 @@ import { useHashRoute } from '../router'
 
 // Marcatore di build: compare nel footer, cosi' si capisce subito se il
 // browser sta servendo un bundle vecchio (in tal caso: Ctrl+F5).
-export const BUILD = 'v0.13'
+export const BUILD = 'v0.14'
 
 // Tema chiaro/scuro: salvato in localStorage, applicato come data-theme su
 // <html> (le variabili CSS in styles.css fanno il resto).
@@ -53,7 +53,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const gpuOk = metrics?.gpu.ok
   const loaded = current
-  const shellCls = (sidebar ? 'shell shell-sidebar' : 'shell') + (route === '/chat' ? ' chat-shell' : '')
+  const shellCls = (sidebar ? 'shell shell-sidebar' : 'shell') + (route === '/chat' ? ' chat-shell' : '') + (route === '/images' ? ' route-images' : '')
 
   return (
     <div className={shellCls}>

@@ -2,13 +2,15 @@
 // quindi una chiamata = un posto in coda.
 
 export interface GenRequest {
-  model: 'bonsai' | 'zimage'
+  model: 'bonsai' | 'zimage' | 'klein'
   prompt: string
   steps: number
   seed: number // -1 = casuale
   width: number
   height: number
   count: number
+  image?: string // dataUrl: image-to-image (modelli sd-server)
+  strength?: number // forza del denoise in img2img (0.05–1)
 }
 
 export interface GenImage {

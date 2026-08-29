@@ -56,9 +56,20 @@ SD_PORT = int(os.environ.get("PALAMEDE_SD_PORT", "8123"))
 SD_EXE = os.environ.get("PALAMEDE_SD_EXE", str(ROOT / "tools" / "sd-cpp" / "sd-server.exe"))
 SD_LOG = os.environ.get("PALAMEDE_SD_LOG", str(ROOT / "outputs" / "sd-server.log"))
 
+# Klein 4B (FLUX.2) — GGUF Q4 in download; VAE flux2 e text encoder Qwen3
+# riusati dal lavoro gia' fatto in reference/bonsai.
+KLEIN_DIFFUSION = os.environ.get(
+    "PALAMEDE_KLEIN_DIFFUSION", str(ROOT / "models" / "flux-2-klein-4b-q4.gguf"))
+KLEIN_VAE = os.environ.get(
+    "PALAMEDE_KLEIN_VAE",
+    str(BONSAI_REPO / "models" / "FLUX.2-klein-4B" / "vae" / "diffusion_pytorch_model.safetensors"))
+KLEIN_LLM = os.environ.get(
+    "PALAMEDE_KLEIN_LLM", str(ROOT / "models" / "Qwen3-4B-Instruct-2507-Q4_K_M.gguf"))
+
 MODELS = {
     "bonsai": {"name": "Bonsai 4B ternary", "engine": "gemlite (in-process)"},
     "zimage": {"name": "Z-Image Turbo Q4_K_M", "engine": "stable-diffusion.cpp (sd-server)"},
+    "klein": {"name": "Klein 4B Q4 (FLUX.2)", "engine": "stable-diffusion.cpp (sd-server, flux2)"},
 }
 
 
@@ -68,6 +79,7 @@ class ModelManager:
         self._current: str | None = None
         self._pipeline: GpuPipeline | None = None
         self._sd: subprocess.Popen | None = None
+        self._sd_model: str | None = None
 
     # ── stato ──
     def status(self) -> dict:
@@ -90,10 +102,11 @@ class ModelManager:
             gc.collect()
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-        if self._current == "zimage" and self._sd is not None:
+        if self._current in ("zimage", "klein") and self._sd is not None:
             proc = self._sd
             self._sd = None
-            log.info("unload zimage: terminazione sd-server (pid=%s)", proc.pid)
+            self._sd_model = None
+            log.info("unload %s: terminazione sd-server (pid=%s)", self._current, proc.pid)
             try:
                 proc.terminate()
                 proc.wait(timeout=15)
@@ -135,37 +148,67 @@ class ModelManager:
                 time.sleep(1.0)
         raise RuntimeError(f"sd-server non pronto entro {timeout}s")
 
-    def _load_zimage(self) -> None:
-        if self._sd is not None and self._sd.poll() is None:
-            self._current = "zimage"
+    def _sd_files(self, model: str) -> tuple[str, str, str, str]:
+        """(diffusion, vae, text-encoder, vae-format) per un modello sd-server."""
+        if model == "zimage":
+            return (str(ROOT / "models" / "z-image-turbo-Q4_K_M.gguf"),
+                    str(ROOT / "models" / "z-image-vae.safetensors"),
+                    str(ROOT / "models" / "Qwen3-4B-Instruct-2507-Q4_K_M.gguf"),
+                    "auto")
+        if model == "klein":
+            return (KLEIN_DIFFUSION, KLEIN_VAE, KLEIN_LLM, "flux2")
+        raise ValueError(f"modello sconosciuto: {model}")
+
+    def _load_sd(self, model: str) -> None:
+        # server gia' attivo con QUESTO modello: riusa (niente doppio carico)
+        if self._sd is not None and self._sd.poll() is None and self._sd_model == model:
+            self._current = model
             return
-        for p in (SD_EXE, str(ROOT / "models" / "z-image-turbo-Q4_K_M.gguf"),
-                  str(ROOT / "models" / "z-image-vae.safetensors"),
-                  str(ROOT / "models" / "Qwen3-4B-Instruct-2507-Q4_K_M.gguf")):
-            if not Path(p).exists():
-                raise RuntimeError(f"manca {p} (vedi scripts/copy-models.ps1)")
+        # cambio modello: termina il server precedente (libera VRAM)
+        if self._sd is not None:
+            proc = self._sd
+            self._sd = None
+            self._sd_model = None
+            try:
+                proc.terminate()
+                proc.wait(timeout=15)
+            except Exception:
+                try:
+                    proc.kill()
+                    proc.wait(timeout=5)
+                except Exception:
+                    log.warning("sd-server precedente non terminato pulitamente")
+        diffusion, vae, llm, vae_format = self._sd_files(model)
+        missing = [p for p in (diffusion, vae, llm) if not Path(p).exists()]
+        if missing:
+            raise RuntimeError(
+                f"mancano file per {model}: {', '.join(missing)} — "
+                "completa il download (vedi scripts/copy-models.ps1)")
         Path(SD_LOG).parent.mkdir(parents=True, exist_ok=True)
+        cmd = [SD_EXE,
+               "--diffusion-model", diffusion,
+               "--vae", vae,
+               "--llm", llm,
+               "--diffusion-fa",
+               "--listen-port", str(SD_PORT)]
+        if vae_format != "auto":
+            cmd += ["--vae-format", vae_format]
         t0 = time.perf_counter()
         stdout = open(SD_LOG, "ab", buffering=0)
         self._sd = subprocess.Popen(
-            [SD_EXE,
-             "--diffusion-model", str(ROOT / "models" / "z-image-turbo-Q4_K_M.gguf"),
-             "--vae", str(ROOT / "models" / "z-image-vae.safetensors"),
-             "--llm", str(ROOT / "models" / "Qwen3-4B-Instruct-2507-Q4_K_M.gguf"),
-             "--diffusion-fa",
-             "--listen-port", str(SD_PORT)],
-            stdout=stdout, stderr=subprocess.STDOUT,
+            cmd, stdout=stdout, stderr=subprocess.STDOUT,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             cwd=str(ROOT),
         )
-        log.info("sd-server avviato (pid=%s), attendo readiness…", self._sd.pid)
+        log.info("sd-server (%s) avviato (pid=%s), attendo readiness…", model, self._sd.pid)
         try:
             self._wait_sd_ready()
         except Exception:
             self._unload()
             raise
-        log.info("sd-server pronto in %.1fs", time.perf_counter() - t0)
-        self._current = "zimage"
+        self._sd_model = model
+        self._current = model
+        log.info("sd-server (%s) pronto in %.1fs", model, time.perf_counter() - t0)
 
     # ── API pubbliche ──
     def select(self, model: str) -> dict:
@@ -174,19 +217,22 @@ class ModelManager:
         with self._lock:
             if self._current == model and model == "bonsai" and self._pipeline is not None:
                 return self.status()
-            if self._current == model and model == "zimage" and self._sd is not None:
+            if self._current == model and self._sd is not None and self._sd_model == model:
                 return self.status()
             self._unload()
             if model == "bonsai":
                 self._load_bonsai()
             else:
-                self._load_zimage()
+                self._load_sd(model)
             return self.status()
 
     def generate(self, model: str, prompt: str, steps: int, seed: int,
-                 width: int, height: int, count: int) -> list[dict]:
+                 width: int, height: int, count: int,
+                 image: str | None = None, strength: float = 0.6) -> list[dict]:
         if model not in MODELS:
             raise ValueError(f"modello sconosciuto: {model}")
+        if image and model == "bonsai":
+            raise ValueError("bonsai non supporta image-to-image (usa zimage o klein)")
         with self._lock:
             # auto-carica se il modello non è quello attivo
             if self._current != model:
@@ -194,7 +240,7 @@ class ModelManager:
                 if model == "bonsai":
                     self._load_bonsai()
                 else:
-                    self._load_zimage()
+                    self._load_sd(model)
             out = []
             rng = random.SystemRandom()
             for i in range(count):
@@ -204,13 +250,15 @@ class ModelManager:
                 if model == "bonsai":
                     data_url = self._gen_bonsai(prompt, eff + i, steps, width, height)
                 else:
-                    data_url = self._gen_zimage(prompt, eff + i, steps, width, height)
+                    data_url = self._gen_sd(model, prompt, eff + i, steps, width, height,
+                                            image, strength)
                 out.append({
                     "dataUrl": data_url,
                     "timeMs": int((time.perf_counter() - t0) * 1000),
                     "seed": eff + i,
                     "params": {"model": model, "prompt": prompt, "steps": steps,
-                               "width": width, "height": height},
+                               "width": width, "height": height,
+                               "img2img": bool(image), "strength": strength},
                 })
             return out
 
@@ -227,15 +275,24 @@ class ModelManager:
         import base64
         return "data:image/png;base64," + base64.b64encode(png).decode("ascii")
 
-    def _gen_zimage(self, prompt: str, seed: int, steps: int, width: int, height: int) -> str:
+    def _gen_sd(self, model: str, prompt: str, seed: int, steps: int,
+                width: int, height: int,
+                image: str | None, strength: float) -> str:
         import json
-        body = json.dumps({
+        body = {
             "prompt": prompt, "width": width, "height": height,
             "steps": steps, "cfg_scale": 1.0, "seed": seed,
-        }).encode()
+        }
+        url = f"http://127.0.0.1:{SD_PORT}/sdapi/v1/txt2img"
+        if image:
+            # img2img: dataUrl → base64 nudo, con la forza di denoise richiesta
+            b64 = image.split(",", 1)[1] if image.startswith("data:") else image
+            body["init_images"] = [b64]
+            body["denoising_strength"] = strength
+            url = f"http://127.0.0.1:{SD_PORT}/sdapi/v1/img2img"
         req = urllib.request.Request(
-            f"http://127.0.0.1:{SD_PORT}/sdapi/v1/txt2img",
-            data=body, headers={"Content-Type": "application/json"},
+            url, data=json.dumps(body).encode(),
+            headers={"Content-Type": "application/json"},
         )
         try:
             with urllib.request.urlopen(req, timeout=600) as r:
@@ -263,6 +320,8 @@ class GenerateRequest(BaseModel):
     width: int = Field(default=512, ge=16)
     height: int = Field(default=512, ge=16)
     count: int = Field(default=1, ge=1, le=4)
+    image: str | None = None  # dataUrl: img2img (modelli sd-server)
+    strength: float = Field(default=0.6, ge=0.05, le=1.0)
 
 
 @app.get("/healthz")
@@ -290,7 +349,8 @@ def select(req: SelectRequest) -> dict:
 def generate(req: GenerateRequest) -> dict:
     try:
         images = manager.generate(req.model, req.prompt, req.steps, req.seed,
-                                  req.width, req.height, req.count)
+                                  req.width, req.height, req.count,
+                                  req.image, req.strength)
         return {"images": images}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e

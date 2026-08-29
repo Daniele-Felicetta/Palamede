@@ -4,7 +4,7 @@ import { useHashRoute } from '../router'
 
 // Marcatore di build: compare nel footer, cosi' si capisce subito se il
 // browser sta servendo un bundle vecchio (in tal caso: Ctrl+F5).
-export const BUILD = 'v0.15'
+export const BUILD = 'v0.16'
 
 // Tema chiaro/scuro: salvato in localStorage, applicato come data-theme su
 // <html> (le variabili CSS in styles.css fanno il resto).

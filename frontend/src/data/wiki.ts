@@ -85,7 +85,33 @@ export const ZIMAGE: ModelWiki = {
   ],
 }
 
-export const IMAGE_MODELS = [BONSAI, ZIMAGE]
+export const KLEIN: ModelWiki = {
+  id: 'klein',
+  name: 'Klein 4B — Q4',
+  family: 'FLUX.2-klein · GGUF',
+  how: [
+    'La versione GGUF Q4 del transformer FLUX.2-klein da 4B (lo stesso dietro Bonsai): gira in stable-diffusion.cpp come modello standalone, con la VAE FLUX.2 di reference/bonsai e il text encoder Qwen3-4B in GGUF.',
+    'È il modello scelto per l\'image-to-image: nell\'API sd.cpp l\'img2img è nativo (init image + denoising strength), quindi da questa pagina puoi caricare un\'immagine, regolare quanto deve cambiare (forza) e riformularla.',
+    'I pesi Q4 sono in download in models/; finché non ci sono, la selezione dà errore con l\'elenco dei file mancanti.',
+  ],
+  specs: {
+    'Parametri': '4B (FLUX.2-klein) quantizzato Q4',
+    'Peso disco': 'GGUF in download (~3 GB)',
+    'VRAM prevista': '≈ 6–7 GB (come Bonsai, in sd-server)',
+    'Text encoder': 'Qwen3-4B (GGUF) — riusato da Z-Image',
+    'VAE': 'FLUX.2 (da reference/bonsai)',
+    'Step': '4–8 (distillato)',
+    'CFG': '1.0',
+    'Endpoint': 'POST /generate con "image" + "strength" (img2img)',
+  },
+  quality: [
+    'Qualità di famiglia FLUX.2-klein: scenari naturali e composizione solida già a pochi step.',
+    'Per img2img: leva il denoise per ritocchi lievi (0.3–0.5), alzalo per re-immaginare la scena (0.7–0.9).',
+  ],
+  examples: [],
+}
+
+export const IMAGE_MODELS = [BONSAI, ZIMAGE, KLEIN]
 
 // ── Modelli chat (Ornith, da LM Studio → models/) ─────────────────────────
 

@@ -4,7 +4,7 @@ import { refreshModels, switchModel, useStore } from '../store'
 import { IMAGE_MODELS } from '../data/wiki'
 import { WikiEntry } from '../components/WikiEntry'
 
-type ModelId = 'bonsai' | 'zimage'
+type ModelId = 'bonsai' | 'zimage' | 'klein'
 
 const SIZES = [
   ['512x512', 'quadrata 1:1'],
@@ -19,7 +19,7 @@ const SIZES = [
   ['832x1248', 'ritratto 2:3 HD'],
 ] as const
 
-const DEFAULT_STEPS: Record<ModelId, number> = { bonsai: 4, zimage: 8 }
+const DEFAULT_STEPS: Record<ModelId, number> = { bonsai: 4, zimage: 8, klein: 4 }
 
 export function Images() {
   const { current, selecting } = useStore()
@@ -33,6 +33,8 @@ export function Images() {
   const [busy, setBusy] = useState(false)
   const [hint, setHint] = useState('')
   const [error, setError] = useState(false)
+  const [initImg, setInitImg] = useState<string | null>(null) // img2img
+  const [strength, setStrength] = useState(0.6)
   const [history, setHistory] = useState<HistoryEntry[]>([])
   const [clearing, setClearing] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
@@ -61,10 +63,29 @@ export function Images() {
     }
   }
 
+  const loadFile = (f: File) => {
+    if (!f.type.startsWith('image/')) {
+      setHint('il file non è un\'immagine'); setError(true); return
+    }
+    const r = new FileReader()
+    r.onload = () => {
+      setInitImg(r.result as string)
+      setError(false)
+      setHint(model === 'bonsai' ? 'Bonsai non fa img2img: scegli Z-Image o Klein' : 'immagine caricata — img2img pronto')
+    }
+    r.onerror = () => { setHint('lettura dell\'immagine fallita'); setError(true) }
+    r.readAsDataURL(f)
+  }
+
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     if (!prompt.trim() || busy || selecting) return
-    setBusy(true); setError(false); setHint('in coda sulla GPU…')
+    if (initImg && model === 'bonsai') {
+      setHint('Bonsai non supporta image-to-image: scegli Z-Image o Klein')
+      setError(true)
+      return
+    }
+    setBusy(true); setError(false); setHint(initImg ? 'in coda sulla GPU (img2img)…' : 'in coda sulla GPU…')
     const [w, h] = size.split('x').map(Number)
     try {
       if (current !== model) {
@@ -72,7 +93,10 @@ export function Images() {
         await switchModel(model)
       }
       const t0 = performance.now()
-      const imgs = await generateImage({ model, prompt: prompt.trim(), steps, seed, width: w, height: h, count })
+      const imgs = await generateImage({
+        model, prompt: prompt.trim(), steps, seed, width: w, height: h, count,
+        image: initImg ?? undefined, strength,
+      })
       // salva in cronologia (un file per immagine) e rilegge la lista
       for (const im of imgs) {
         try {
@@ -158,19 +182,47 @@ export function Images() {
                   <span className={`led ${current === m.id ? 'on' : selecting === m.id ? 'busy' : 'off'}`} aria-hidden />
                   {m.name}
                 </span>
-                <span className="pstamps">
-                  <span className="stamp">{m.family}</span>
-                  <span className="stamp hot">{m.id === 'bonsai' ? '4 step · 1.58-bit' : '8 step · Q4_K_M'}</span>
-                </span>
-                <span className="pdown">
-                  {plateState(m.id as ModelId)} ·
-                  {m.id === 'bonsai'
-                    ? ' 512² in 1.8 s — il più veloce'
-                    : ' testo nell\'immagine, fotorealismo spinto'}
-                </span>
+<span className="pstamps">
+                    <span className="stamp">{m.family}</span>
+                    <span className="stamp hot">{m.id === 'bonsai' ? '4 step · 1.58-bit' : m.id === 'klein' ? '4 step · Q4' : '8 step · Q4_K_M'}</span>
+                  </span>
+                  <span className="pdown">
+                    {plateState(m.id as ModelId)} ·
+                    {m.id === 'bonsai'
+                      ? ' 512² in 1.8 s — il più veloce'
+                      : m.id === 'klein'
+                        ? ' img2img nativo · pesi in download'
+                        : ' testo nell\'immagine, fotorealismo spinto'}
+                  </span>
               </button>
             ))}
           </div>
+
+          {initImg ? (
+            <div className="img2img-prep">
+              <img src={initImg} alt="immagine di partenza" />
+              <div className="img2img-meta">
+                <label htmlFor="strength">Forza del cambiamento</label>
+                <div className="img2img-row">
+                  <input id="strength" type="range" min={0.05} max={1} step={0.05}
+                    value={strength} onChange={(e) => setStrength(Number(e.target.value))} />
+                  <span className="img2img-val">{strength.toFixed(2)}</span>
+                </div>
+                <button type="button" className="side-toggle"
+                  onClick={() => { setInitImg(null); setHint(''); setError(false) }}>
+                  rimuovi immagine
+                </button>
+              </div>
+            </div>
+          ) : (
+            <label className="dropzone"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) loadFile(f) }}>
+              <input type="file" accept="image/*" hidden
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) loadFile(f); e.target.value = '' }} />
+              <span>+ Trascina un'immagine qui per <em>image-to-image</em><br />o clicca per sceglierne una</span>
+            </label>
+          )}
 
           <textarea
             className="prompt-box"

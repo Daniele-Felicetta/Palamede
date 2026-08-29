@@ -4,7 +4,7 @@ import { useHashRoute } from '../router'
 
 // Marcatore di build: compare nel footer, cosi' si capisce subito se il
 // browser sta servendo un bundle vecchio (in tal caso: Ctrl+F5).
-export const BUILD = 'v0.8'
+export const BUILD = 'v0.9'
 
 // Tema chiaro/scuro: salvato in localStorage, applicato come data-theme su
 // <html> (le variabili CSS in styles.css fanno il resto).
@@ -129,6 +129,8 @@ export function Layout({ children }: { children: ReactNode }) {
                   <span>power {metrics!.gpu.powerW}W</span>
                 </div>
               </>
+            ) : health === null ? (
+              <div className="side-mini off">hub non raggiungibile — apri Palamede.exe</div>
             ) : metrics ? (
               <div className="side-mini off">nvidia-smi non disponibile</div>
             ) : (

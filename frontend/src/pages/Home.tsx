@@ -1,4 +1,3 @@
-import { useStore } from '../store'
 import { useHashRoute } from '../router'
 
 const SECTIONS = [
@@ -42,33 +41,9 @@ const SECTIONS = [
 
 export function Home() {
   const [, navigate] = useHashRoute()
-  const { health, current, modelLabel, metrics } = useStore()
-  const gpuOk = metrics?.gpu.ok
-  const gpuPct = gpuOk ? metrics!.gpu.utilPct : 0
 
   return (
     <>
-      <header className="home-hero">
-        <p className="eyebrow">Officina locale di generazione</p>
-        <h1>I modelli stanno qui.<br />Sulla tua <em>GPU</em>, non nel cloud.</h1>
-
-        <div className="log-strip" role="status" aria-label="Stato dell'officina">
-          <span className="log-led">
-            <span className={`led ${health?.ok ? 'on' : 'off'}`} aria-hidden />
-            {health?.ok ? 'officina accesa' : 'officina spenta'}
-          </span>
-          <span className="log-model">
-            in VRAM: {current ? modelLabel(current) : 'nessuno'}
-          </span>
-          <span className="log-gpu">
-            <span className="log-bar" aria-hidden>
-              <span className="log-fill" style={{ width: `${Math.min(100, gpuPct)}%` }} />
-            </span>
-            GPU {gpuOk ? `${gpuPct}%` : metrics ? 'n/d' : '…'}
-          </span>
-        </div>
-      </header>
-
       <section className="apps" aria-label="Applicazioni">
         <div className="grid-cards">
           {SECTIONS.map((s) => (

@@ -295,6 +295,18 @@ export function Chat() {
       )}
 
       <div className="chat-area">
+        <aside className="chat-wiki">
+          <div className="wiki-head">
+            <p className="eyebrow">Wiki</p>
+            <h2 className="sec-title">I modelli, in breve</h2>
+          </div>
+          <p className="sec-sub">
+            Ornith 1.5 in casa: famiglia, quantizzazione, VRAM e come
+            impostarli senza strozzare la GPU.
+          </p>
+          {ORNITH_WIKI.map((m) => <WikiEntry key={m.id} model={m} />)}
+        </aside>
+
         <div className="chat-col">
           <section className="chat-scroll">
             <div className="chat-log" ref={logRef} onScroll={onLogScroll} aria-live="polite">
@@ -357,16 +369,6 @@ export function Chat() {
             <p className={`hintline ${err ? 'err' : ''}`} role="status">{err}</p>
           </div>
         </div>
-
-        <aside className="chat-wiki">
-          <h2 className="sec-title">Wiki · modelli chat</h2>
-          <p className="sec-sub">
-            I due Ornith di casa: famiglia, quantizzazione, dimensioni e come
-            impostarli per non strozzare la VRAM (i numeri sono misurati su
-            questa macchina).
-          </p>
-          {ORNITH_WIKI.map((m) => <WikiEntry key={m.id} model={m} />)}
-        </aside>
       </div>
     </>
   )

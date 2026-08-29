@@ -70,10 +70,23 @@ export function Layout({ children }: { children: ReactNode }) {
             </a>
           ))}
         </nav>
-        <div className="beacon">
-          <span className="led-row" title="Modello caricato sulla GPU">
+        <div className="beacon" role="status" aria-label="Stato dell'officina">
+          <span className="led-row" title="Modello server attivo">
             <span className={`led ${health?.ok ? 'on' : 'off'}`} aria-hidden />
-            {loaded ? modelLabel(loaded) : 'GPU idle'}
+            {health?.ok ? 'officina accesa' : 'officina spenta'}
+          </span>
+          <span className="led-row" title="Modello caricato in VRAM">
+            <span className="led on" aria-hidden />
+            {loaded ? modelLabel(loaded) : 'VRAM vuota'}
+          </span>
+          <span className="led-row" title="Uso della GPU">
+            <span className="log-bar" aria-hidden>
+              <span className="log-fill" style={{ width: `${Math.min(100, gpuOk ? metrics!.gpu.utilPct : 0)}%` }} />
+            </span>
+            GPU {gpuOk ? `${Math.round(metrics!.gpu.utilPct)}%` : metrics ? 'n/d' : '…'}
+          </span>
+          <span className="led-row" title="CPU e RAM">
+            CPU {metrics ? `${Math.round(metrics.cpu)}%` : '…'} · RAM {metrics ? `${metrics.ram.pct}%` : '…'}
           </span>
         </div>
         <button

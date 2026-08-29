@@ -595,10 +595,34 @@ section { margin-top: 56px; }
 .send-btn:hover:not(:disabled) { filter: brightness(1.1); }
 .send-btn:disabled { opacity: .35; cursor: not-allowed; }
 
-.chat-scroll .wiki {
-  width: 100%; max-width: 820px; margin: 0 auto;
-  padding: 40px 0;
+/* area chat: colonna conversazione (scroll + composer) + wiki in sidebar */
+.chat-area { flex: 1; min-height: 0; display: flex; }
+.chat-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.chat-scroll {
+  flex: 1; min-height: 0; overflow-y: auto;
+  display: flex; flex-direction: column;
+  padding: 0 28px;
 }
+
+/* wiki in sidebar fissa a destra, scorre da sola */
+.chat-wiki {
+  flex: none; width: 320px; min-height: 0;
+  overflow-y: auto;
+  border-left: 1px solid var(--line);
+  background: var(--ink-2);
+  padding: 18px 22px 32px;
+}
+.chat-wiki .sec-title { font-size: 19px; margin-top: 8px; }
+.chat-wiki .sec-sub { font-size: 13px; margin-bottom: 14px; }
+.chat-wiki .wiki-entry { margin-top: 24px; }
+.chat-wiki .wiki-entry h3 { font-size: 17px; }
+.chat-wiki .wiki-entry h3 .tag { font-size: 10px; }
+.chat-wiki .wiki-body { font-size: 13px; }
+.chat-wiki .spec-table { font-size: 12.5px; margin-top: 14px; }
+.chat-wiki .spec-table th { width: auto; padding: 6px 8px; }
+.chat-wiki .ex-row { grid-template-columns: 1fr; gap: 10px; margin-top: 14px; }
+.chat-wiki .ex .cap { font-size: 11px; }
+@media (max-width: 1100px) { .chat-wiki { display: none; } }
 
 /* ── Wiki ─ */
 .wiki { border-top: 1px solid var(--line); margin-top: 64px; padding-top: 40px; }

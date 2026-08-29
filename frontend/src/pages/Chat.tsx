@@ -294,8 +294,10 @@ export function Chat() {
         </div>
       )}
 
-      <section className="chat-scroll">
-        <div className="chat-log" ref={logRef} onScroll={onLogScroll} aria-live="polite">
+      <div className="chat-area">
+        <div className="chat-col">
+          <section className="chat-scroll">
+            <div className="chat-log" ref={logRef} onScroll={onLogScroll} aria-live="polite">
           {messages.length === 0 ? (
             <div className="empty chat-empty">
               Nessuna conversazione.<br />Scrivi sotto e premi Invio per parlare con Ornith.
@@ -320,7 +322,43 @@ export function Chat() {
           )}
         </div>
 
-        <section className="wiki">
+        </section>
+
+          <div className="chat-composer">
+            {stats && (
+              <p className={`chat-stats ${stats.live ? 'live' : ''}`} role="status">
+                {stats.live
+                  ? <>generazione… <strong>≈{stats.tps.toLocaleString('it-IT', { maximumFractionDigits: 1 })}</strong> tok/s</>
+                  : <><strong>{stats.tps.toLocaleString('it-IT', { maximumFractionDigits: 1 })}</strong> tok/s
+                      {stats.tokens != null && <> · {stats.tokens} token</>}</>}
+              </p>
+            )}
+            <form className="composer-box" onSubmit={send}>
+              <textarea
+                className="composer-input"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(e) }
+                }}
+                placeholder={status?.ready ? 'Chiedi qualcosa a Ornith… (Invio invia, Shift+Invio a capo)' : 'Server spento: premi "avvia" qui sopra.'}
+                aria-label="Messaggio"
+                rows={2}
+                disabled={!status?.ready}
+              />
+              <button className="send-btn" type="submit"
+                disabled={sending || !status?.ready || !input.trim()}
+                title="Invia" aria-label="Invia">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+                  <path d="M2 8l11-5-3.5 9-2.2-3.6L2 8z" fill="currentColor" />
+                </svg>
+              </button>
+            </form>
+            <p className={`hintline ${err ? 'err' : ''}`} role="status">{err}</p>
+          </div>
+        </div>
+
+        <aside className="chat-wiki">
           <h2 className="sec-title">Wiki · modelli chat</h2>
           <p className="sec-sub">
             I due Ornith di casa: famiglia, quantizzazione, dimensioni e come
@@ -328,40 +366,7 @@ export function Chat() {
             questa macchina).
           </p>
           {ORNITH_WIKI.map((m) => <WikiEntry key={m.id} model={m} />)}
-        </section>
-      </section>
-
-      <div className="chat-composer">
-        {stats && (
-          <p className={`chat-stats ${stats.live ? 'live' : ''}`} role="status">
-            {stats.live
-              ? <>generazione… <strong>≈{stats.tps.toLocaleString('it-IT', { maximumFractionDigits: 1 })}</strong> tok/s</>
-              : <><strong>{stats.tps.toLocaleString('it-IT', { maximumFractionDigits: 1 })}</strong> tok/s
-                  {stats.tokens != null && <> · {stats.tokens} token</>}</>}
-          </p>
-        )}
-        <form className="composer-box" onSubmit={send}>
-          <textarea
-            className="composer-input"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(e) }
-            }}
-            placeholder={status?.ready ? 'Chiedi qualcosa a Ornith… (Invio invia, Shift+Invio a capo)' : 'Server spento: premi "avvia" qui sopra.'}
-            aria-label="Messaggio"
-            rows={2}
-            disabled={!status?.ready}
-          />
-          <button className="send-btn" type="submit"
-            disabled={sending || !status?.ready || !input.trim()}
-            title="Invia" aria-label="Invia">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-              <path d="M2 8l11-5-3.5 9-2.2-3.6L2 8z" fill="currentColor" />
-            </svg>
-          </button>
-        </form>
-        <p className={`hintline ${err ? 'err' : ''}`} role="status">{err}</p>
+        </aside>
       </div>
     </>
   )

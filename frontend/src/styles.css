@@ -758,6 +758,9 @@ footer {
 }
 .side-mini.off { color: var(--paper-faint); }
 
+.procs-mem { color: var(--paper-dim); }
+.procs-mem.na { color: var(--paper-faint); opacity: .7; }
+
 .loaded-model {
   display: flex; align-items: center; gap: 8px;
   font-family: var(--mono); font-size: 12px; letter-spacing: 1px;

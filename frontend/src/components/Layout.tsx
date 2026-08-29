@@ -4,7 +4,7 @@ import { useHashRoute } from '../router'
 
 // Marcatore di build: compare nel footer, cosi' si capisce subito se il
 // browser sta servendo un bundle vecchio (in tal caso: Ctrl+F5).
-export const BUILD = 'v0.12'
+export const BUILD = 'v0.13'
 
 // Tema chiaro/scuro: salvato in localStorage, applicato come data-theme su
 // <html> (le variabili CSS in styles.css fanno il resto).
@@ -151,7 +151,12 @@ export function Layout({ children }: { children: ReactNode }) {
               {metrics!.gpu.procs.map((p, i) => (
                 <div className="side-mini" key={i}>
                   <span title={p.name}>{p.name.split(/[\\/]/).pop()}</span>
-                  <span>{p.mem}</span>
+                  <span
+                    className={p.mem === '?' ? 'procs-mem na' : 'procs-mem'}
+                    title={p.mem === '?' ? 'VRAM non riportata da nvidia-smi' : p.mem}
+                  >
+                    {p.mem === '?' ? '—' : p.mem}
+                  </span>
                 </div>
               ))}
             </div>

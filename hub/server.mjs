@@ -499,6 +499,15 @@ async function serveStatic(res, path) {
 }
 
 createServer(async (req, res) => {
+  const start = Date.now()
+  res.on('finish', () => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} -> ${res.statusCode} (${Date.now() - start}ms)`)
+  })
+  // richieste interrotte dal client (es. estensione che le blocca a meta'):
+  // se /api/metrics appare qui, il browser la INVIA ma la interrompe.
+  req.on('aborted', () => {
+    console.log(`[${new Date().toISOString()}] ABORTED ${req.method} ${req.url} (${Date.now() - start}ms)`)
+  })
   const path = new URL(req.url, 'http://localhost').pathname
   try {
     if (path.startsWith('/api/')) return await handleApi(req, res, path)

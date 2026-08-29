@@ -21,6 +21,8 @@ const SIZES = [
 
 const DEFAULT_STEPS: Record<ModelId, number> = { bonsai: 4, zimage: 8, klein: 4 }
 
+const modelName = (id: string) => (id === 'bonsai' ? 'Bonsai' : id === 'klein' ? 'Klein' : 'Z-Image')
+
 export function Images() {
   const { current, selecting } = useStore()
   const [model, setModel] = useState<ModelId>('bonsai')
@@ -53,7 +55,7 @@ export function Images() {
     setModel(m)
     setSteps(DEFAULT_STEPS[m])
     if (current === m) return
-    setHint(`caricamento ${m === 'bonsai' ? 'Bonsai' : 'Z-Image'} sulla GPU…`)
+    setHint(`caricamento ${modelName(m)} sulla GPU…`)
     try {
       await switchModel(m)
       setHint('')
@@ -306,7 +308,7 @@ export function Images() {
                     </button>
                   </div>
                   <figcaption className="meta">
-                    <div className="who">{s.model === 'bonsai' ? 'Bonsai' : 'Z-Image'} · {s.size}</div>
+                    <div className="who">{modelName(s.model)} · {s.size}</div>
                     <p title={s.prompt}>“{s.prompt}”</p>
                     <div className="nums">
                       {(s.timeMs / 1000).toFixed(1)} s · seed {s.seed} · {s.steps} step

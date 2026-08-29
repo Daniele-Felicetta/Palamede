@@ -17,15 +17,18 @@ let health: Health | null = null
 let models: ModelsStatus | null = null
 let metrics: Metrics | null = null
 let selecting: string | null = null
+let lastError: string | null = null
 let started = false
 const listeners = new Set<() => void>()
 
 function emit() { listeners.forEach((l) => l()) }
 
 async function tick() {
-  try { health = await getHealth() } catch { health = null }
-  try { models = await getModels() } catch { models = null }
-  try { metrics = await getMetrics() } catch { metrics = null }
+  let errs: string[] = []
+  try { health = await getHealth() } catch (e) { errs.push('health: ' + (e instanceof Error ? e.message : String(e))) }
+  try { models = await getModels() } catch (e) { errs.push('models: ' + (e instanceof Error ? e.message : String(e))) }
+  try { metrics = await getMetrics() } catch (e) { errs.push('metrics: ' + (e instanceof Error ? e.message : String(e))) }
+  lastError = errs.length ? errs.join(' · ') : null
   emit()
 }
 
@@ -46,6 +49,7 @@ export function useStore() {
     health,
     models,
     metrics,
+    lastError,
     selecting,
     current: models?.current ?? null,
     modelLabel: (id: string) => MODEL_LABEL[id] ?? id,

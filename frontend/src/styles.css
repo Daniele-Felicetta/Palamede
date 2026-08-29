@@ -688,6 +688,13 @@ footer {
   border: 1px solid var(--line); border-radius: 3px;
   padding: 1px 6px; font-size: 10px; letter-spacing: 1px;
 }
+.hub-err {
+  color: var(--seal);
+  font-size: 10.5px;
+  border: 1px solid rgba(178, 63, 39, .4); border-radius: 3px;
+  padding: 1px 6px; max-width: 260px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
 /* ── Sidebar metriche ── */
 .shell-sidebar main, .shell-sidebar footer { margin-right: 236px; }

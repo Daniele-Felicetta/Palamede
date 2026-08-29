@@ -4,7 +4,7 @@ import { useHashRoute } from '../router'
 
 // Marcatore di build: compare nel footer, cosi' si capisce subito se il
 // browser sta servendo un bundle vecchio (in tal caso: Ctrl+F5).
-export const BUILD = 'v0.9'
+export const BUILD = 'v0.10'
 
 // Tema chiaro/scuro: salvato in localStorage, applicato come data-theme su
 // <html> (le variabili CSS in styles.css fanno il resto).
@@ -46,7 +46,7 @@ function Meter({ label, value, max, unit }: { label: string; value: number; max:
 
 export function Layout({ children }: { children: ReactNode }) {
   const [route, navigate] = useHashRoute()
-  const { health, metrics, current, modelLabel } = useStore()
+  const { health, metrics, current, modelLabel, lastError } = useStore()
   const [sidebar, setSidebar] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth >= 1200 : true)
   const [theme, toggleTheme] = useTheme()
@@ -91,6 +91,7 @@ export function Layout({ children }: { children: ReactNode }) {
           </span>
           <span className="led-row" title="CPU e RAM">
             CPU {metrics ? `${Math.round(metrics.cpu)}%` : '…'} · RAM {metrics ? `${metrics.ram.pct}%` : '…'}
+            {lastError && <span className="hub-err" title={lastError}>⚠ {lastError}</span>}
           </span>
         </div>
         <button

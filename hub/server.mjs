@@ -346,6 +346,23 @@ async function handleHistory(req, res, path) {
     }
   }
 
+  // elimina una singola voce (file + indice)
+  const dm = path.match(/^\/api\/history\/delete\/([^/]+)$/)
+  if (dm && req.method === 'POST') {
+    const id = dm[1]
+    if (!/^[a-zA-Z0-9._-]+$/.test(id) || !id.endsWith('.png')) {
+      return json(res, 400, { error: { message: 'id non valido' } })
+    }
+    const list = histIndex()
+    const next = list.filter((e) => e.id !== id)
+    if (next.length === list.length) {
+      return json(res, 404, { error: { message: 'voce non trovata' } })
+    }
+    try { unlinkSync(join(HIST_DIR, id)) } catch { /* già sparito */ }
+    histSave(next)
+    return json(res, 200, { ok: true })
+  }
+
   // salva una generazione
   if (path === '/api/history/save' && req.method === 'POST') {
     return queued(async () => {

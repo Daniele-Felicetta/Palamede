@@ -366,6 +366,20 @@ section { margin-top: 56px; }
 }
 @keyframes reveal { from { opacity: 0; transform: translateY(6px); } }
 .shot > a { display: block; }
+.shot-thumb { position: relative; }
+.shot-thumb > a { display: block; }
+.shot-del {
+  position: absolute; top: 8px; right: 8px;
+  width: 28px; height: 28px;
+  border: none; border-radius: 50%;
+  background: rgba(20, 16, 11, .72); color: var(--paper-dim);
+  display: grid; place-items: center;
+  opacity: 0; transition: opacity .15s, color .15s, background .15s;
+}
+.shot:hover .shot-del, .shot-del:focus-visible { opacity: 1; }
+.shot-del:hover { background: var(--seal); color: var(--paper); }
+.shot-del.busy { opacity: .5; pointer-events: none; }
+.shot-del svg { display: block; }
 .shot img { width: 100%; display: block; aspect-ratio: 1; object-fit: cover; transition: transform .2s ease; }
 .shot > a:hover img { transform: scale(1.02); }
 .shot .meta { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 4px; flex: 1; }

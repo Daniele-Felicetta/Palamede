@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react'
-import { generateImage, getHistory, saveHistory, clearHistory, historyImgUrl, HistoryEntry } from '../api'
+import { generateImage, getHistory, saveHistory, clearHistory, deleteHistory, historyImgUrl, HistoryEntry } from '../api'
 import { refreshModels, switchModel, useStore } from '../store'
 import { IMAGE_MODELS } from '../data/wiki'
 import { WikiEntry } from '../components/WikiEntry'
@@ -35,6 +35,7 @@ export function Images() {
   const [error, setError] = useState(false)
   const [history, setHistory] = useState<HistoryEntry[]>([])
   const [clearing, setClearing] = useState(false)
+  const [deleting, setDeleting] = useState<string | null>(null)
 
   // cronologia persistente su disco (outputs/history) tramite hub
   useEffect(() => {
@@ -117,6 +118,21 @@ export function Images() {
       setError(true)
     } finally {
       setClearing(false)
+    }
+  }
+
+  const removeShot = async (id: string) => {
+    if (deleting) return
+    setDeleting(id)
+    try {
+      await deleteHistory(id)
+      setHistory((prev) => prev.filter((h) => h.id !== id))
+      setHint('immagine eliminata')
+    } catch (err) {
+      setHint(String(err instanceof Error ? err.message : err))
+      setError(true)
+    } finally {
+      setDeleting(null)
     }
   }
 
@@ -217,9 +233,26 @@ export function Images() {
             <div className="gallery">
               {history.map((s) => (
                 <figure className="shot" key={s.id}>
-                  <a href={historyImgUrl(s.id)} target="_blank" rel="noreferrer" title="apri a schermo intero">
-                    <img src={historyImgUrl(s.id)} alt={s.prompt} loading="lazy" />
-                  </a>
+                  <div className="shot-thumb">
+                    <a href={historyImgUrl(s.id)} target="_blank" rel="noreferrer" title="apri a schermo intero">
+                      <img src={historyImgUrl(s.id)} alt={s.prompt} loading="lazy" />
+                    </a>
+                    <button
+                      type="button"
+                      className={`shot-del ${deleting === s.id ? 'busy' : ''}`}
+                      onClick={() => removeShot(s.id)}
+                      title="Elimina immagine"
+                      aria-label="Elimina immagine"
+                      disabled={!!deleting}
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <path d="M3 6h18" />
+                        <path d="M8 6V4h8v2" />
+                        <path d="M6 6l1 14h10l1-14" />
+                        <path d="M10 11v6M14 11v6" />
+                      </svg>
+                    </button>
+                  </div>
                   <figcaption className="meta">
                     <div className="who">{s.model === 'bonsai' ? 'Bonsai' : 'Z-Image'} · {s.size}</div>
                     <p title={s.prompt}>“{s.prompt}”</p>

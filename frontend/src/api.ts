@@ -199,3 +199,11 @@ export async function clearHistory(): Promise<void> {
   const r = await fetch('/api/history/clear', { method: 'POST' })
   if (!r.ok) throw new Error(`HTTP ${r.status}`)
 }
+
+export async function deleteHistory(id: string): Promise<void> {
+  const r = await fetch(`/api/history/delete/${encodeURIComponent(id)}`, { method: 'POST' })
+  if (!r.ok) {
+    const d = await r.json().catch(() => ({}))
+    throw new Error(d?.error?.message || `HTTP ${r.status}`)
+  }
+}

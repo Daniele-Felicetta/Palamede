@@ -66,6 +66,19 @@ KLEIN_VAE = os.environ.get(
 KLEIN_LLM = os.environ.get(
     "PALAMEDE_KLEIN_LLM", str(ROOT / "models" / "Qwen3-4B-Instruct-2507-Q4_K_M.gguf"))
 
+
+def _resolve_klein_diffusion() -> str:
+    """GGUF di klein: il nome del download puo' variare (Q4_K_M, q4, ...):
+    usa il path esatto se esiste, altrimenti trova qualsiasi *klein*.gguf."""
+    exact = os.environ.get(
+        "PALAMEDE_KLEIN_DIFFUSION", str(ROOT / "models" / "flux-2-klein-4b-q4.gguf"))
+    if Path(exact).exists():
+        return exact
+    cands = sorted((ROOT / "models").glob("*klein*.gguf"))
+    if cands:
+        return str(cands[0])
+    return exact
+
 MODELS = {
     "bonsai": {"name": "Bonsai 4B ternary", "engine": "gemlite (in-process)"},
     "zimage": {"name": "Z-Image Turbo Q4_K_M", "engine": "stable-diffusion.cpp (sd-server)"},
@@ -156,7 +169,7 @@ class ModelManager:
                     str(ROOT / "models" / "Qwen3-4B-Instruct-2507-Q4_K_M.gguf"),
                     "auto")
         if model == "klein":
-            return (KLEIN_DIFFUSION, KLEIN_VAE, KLEIN_LLM, "flux2")
+            return (_resolve_klein_diffusion(), KLEIN_VAE, KLEIN_LLM, "flux2")
         raise ValueError(f"modello sconosciuto: {model}")
 
     def _load_sd(self, model: str) -> None:

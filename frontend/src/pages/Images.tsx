@@ -191,7 +191,7 @@ export function Images() {
                     {m.id === 'bonsai'
                       ? ' 512² in 1.8 s — il più veloce'
                       : m.id === 'klein'
-                        ? ' img2img nativo · pesi in download'
+                        ? ' img2img nativo · 2,5 GB · ~1.8 s'
                         : ' testo nell\'immagine, fotorealismo spinto'}
                   </span>
               </button>

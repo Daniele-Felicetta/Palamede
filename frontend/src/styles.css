@@ -683,6 +683,11 @@ footer {
   color: var(--paper-faint); letter-spacing: .5px;
   display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
 }
+.build-tag {
+  color: var(--ochre);
+  border: 1px solid var(--line); border-radius: 3px;
+  padding: 1px 6px; font-size: 10px; letter-spacing: 1px;
+}
 
 /* ── Sidebar metriche ── */
 .shell-sidebar main, .shell-sidebar footer { margin-right: 236px; }

@@ -2,6 +2,10 @@ import { ReactNode, useEffect, useState } from 'react'
 import { useStore } from '../store'
 import { useHashRoute } from '../router'
 
+// Marcatore di build: compare nel footer, cosi' si capisce subito se il
+// browser sta servendo un bundle vecchio (in tal caso: Ctrl+F5).
+export const BUILD = 'v0.8'
+
 // Tema chiaro/scuro: salvato in localStorage, applicato come data-theme su
 // <html> (le variabili CSS in styles.css fanno il resto).
 type Theme = 'dark' | 'light'
@@ -155,7 +159,7 @@ export function Layout({ children }: { children: ReactNode }) {
       <main>{children}</main>
       <footer>
         <span>Palamede — officina locale · RTX 5060 Ti 16GB</span>
-        <span>modello server :8000 · hub :4600</span>
+        <span>modello server :8000 · hub :4600 · <span className="build-tag">{BUILD}</span></span>
       </footer>
     </div>
   )

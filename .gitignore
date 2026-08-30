@@ -9,12 +9,20 @@ reference/
 # ── Engine binari scaricati (stable-diffusion.cpp) ─────────────
 tools/
 
-# ── Launcher compilato (rigenerabile con scripts/build-launcher.ps1) ──
+# ── Launcher compilato (rigenerabile con scripts/build.ps1) ──
 *.exe
 
-# ── Bundle incorporato nell'exe (contiene llama.cpp: rigenerabile) ──
-palamede.bundle
-runtime.stamp
+# ── Build Tauri (app desktop nativa) ───────────────────────────
+src-tauri/target/
+src-tauri/gen/
+
+# ── Flusso legacy .NET (archiviato in legacy/) ──────────────────
+# Vecchio launcher WinForms + bundle incorporato. Sostituito da Tauri v2,
+# mantenuto solo come riferimento storico.
+legacy/palamede.bundle
+legacy/runtime.stamp
+# generato da legacy/scripts/build-launcher.ps1 dal PNG palamede_icon.png
+palamede_icon.ico
 
 # ── Dipendenze / build ──────────────────────────────────────────
 node_modules/
@@ -33,6 +41,10 @@ __pycache__/
 # versionati: niente wildcard *.png globali.
 outputs/
 .serve-logs/
+
+# ── Knowledge base dell'utente (llm-wiki) ───────────────────────
+# Fonti raw + wiki compilata dal modello: contenuto personale, non versionato.
+knowledge/
 
 # ── Varie ───────────────────────────────────────────────────────
 *.log

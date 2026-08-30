@@ -8,10 +8,13 @@ che parla con più backend locali; ogni sezione (Immagini, Testo, Video, 3D,
 RAG, MCP) ha la sua **wiki** con funzionamento, ingombri, tempi misurati,
 qualità ed esempi generati dai modelli stessi.
 
-Stato attuale: **Immagini e Chat sono funzionanti** — due modelli immagine
-(Bonsai 4B ternary, Z-Image Turbo Q4_K_M) e chat locale con Ornith 1.5
-(35B-A3B e 9B) via llama.cpp. Le altre sezioni sono bozze con wiki, in attesa
-dei modelli.
+Stato attuale: **Immagini, Chat, RAG e Video sono funzionanti** — due modelli
+immagine (Bonsai 4B ternary, Z-Image Turbo Q4_K_M), chat locale con Ornith
+1.5 (35B-A3B e 9B) via llama.cpp, **video con Wan 2.1 T2V 1.3B** via sd.cpp
+(`vid_gen`), e una **knowledge base llm-wiki** (pattern Karpathy) in
+`knowledge/` con fonti raw/ compilate dal modello in pagine interconnesse,
+usate come contesto nella chat. 3D e MCP sono bozze con wiki, in attesa dei
+modelli.
 
 ## Hardware di riferimento
 
@@ -51,13 +54,16 @@ Browser ── http://127.0.0.1:4600 ── hub/server.mjs (Node, zero deps)
                                      ├─ POST /api/chat/start  → avvia llama-server (parametri)
                                      ├─ POST /api/chat/stop   → ferma llama-server
                                      ├─ POST /api/chat        → chat streaming (SSE)
+                                     ├─ GET/POST /api/kb/*    → knowledge base llm-wiki
                                      │
                                      ├─ UNICO backend: backends/modelserver.py :8000
                                      │    ├─ bonsai → GpuPipeline gemlite in-process
                                      │    └─ zimage → spawna/termina sd-server (:8123)
                                      │
-                                     └─ chat: tools/llama-cpp/llama-server.exe :8121
-                                          (Ornith 1.5 35B-A3B / 9B, start su richiesta)
+                                     ├─ chat: tools/llama-cpp/llama-server.exe :8121
+                                     │    (Ornith 1.5 35B-A3B / 9B, start su richiesta)
+                                     │
+                                     └─ knowledge/ (gitignored): raw/ + wiki/ + index/log
 ```
 
 ### Un solo backend, caricamento dinamico
@@ -100,6 +106,9 @@ senza toccare `reference/`.
 | Z-Image Turbo Q4_K_M | `z-image-turbo-Q4_K_M.gguf` | 4.67 GB | DiT S3-DiT 6B |
 | Qwen3-4B TE (per Z-Image) | `Qwen3-4B-Instruct-2507-Q4_K_M.gguf` | 2.33 GB | text encoder |
 | Z-Image VAE | `z-image-vae.safetensors` | 0.16 GB | bf16 |
+| Wan 2.1 T2V 1.3B | `wan2.1-1.3b/diffusion_pytorch_model.safetensors` | 5.4 GB | DiT flow video, F32 |
+| UMT5-XXL FP8 (per Wan) | `wan2.1-1.3b/umt5_xxl_fp8_e4m3fn_scaled.safetensors` | 6.27 GB | text encoder (Comfy-Org, pesi ufficiali) |
+| Wan VAE | `wan_2.1_vae.safetensors` | 0.25 GB | VAE video 3D |
 | Ornith 1.5 35B-A3B | `ornith-1.5-35b/Ornith-1.5-35B-Q4_K_M.gguf` | 20.2 GB | MoE (3B attivi), chat |
 | Ornith 1.5 9B | `ornith-1.5-9b/Ornith-1.5-9B-Q4_K_M.gguf` | 5.2 GB | dense, chat |
 | Ornith 1.5 9B Q5 | `ornith-1.5-9b/Ornith-1.5-9B-Q5_K_M.gguf` | 6.1 GB | dense, chat (qualità) |
@@ -124,6 +133,30 @@ Il server è **spento a default** e parte su `POST /api/chat/start` (porta
 OpenAI-compatible; Ornith è un modello *reasoning*, quindi i token di pensiero
 arrivano in `delta.reasoning_content` e la risposta in `delta.content` (la UI
 mostra il ragionamento in un blocco a parte).
+
+### Knowledge base llm-wiki (sezione RAG, `knowledge/`)
+
+Pattern **LLM Wiki di Karpathy** invece del RAG vettoriale: le fonti grezze
+vivono in `knowledge/raw/`, il modello le **compila** in pagine markdown
+interconnesse in `knowledge/wiki/` con `index.md` (indice) e `log.md`
+(registro append-only). La conoscenza è "compilata una volta" durante
+l'ingest, non re-derivata a ogni domanda.
+
+- La cartella `knowledge/` è gitignored (contenuto personale) e nasce al
+  primo accesso con uno `SCHEMA.md` seed che istruisce il modello su come
+  mantenere la wiki (stile pagine, formato di output a blocchi `<<<FILE>>>`).
+- **Ingest**: la pagina RAG invia una fonte a `POST /api/kb/ingest`, il hub
+  chiama llama-server (non-streaming) con system prompt = SCHEMA + fonte +
+  index attuale; il modello risponde con i blocchi `<<<FILE wiki/...>>>`,
+  `<<<INDEX>>>` e `<<<LOG>>>` che il hub scrive su disco.
+- **Query nella chat**: toggle "knowledge on" → ogni domanda cerca le pagine
+  wiki rilevanti (keyword search RAG-naive su `wiki/`, pesata per lunghezza
+  dei termini) e le inietta come system prompt con l'istruzione di citare.
+  L'`index.md` è il fallback quando nessuna pagina risulta rilevante.
+- **Embeddings**: su questa macchina `embeddinggemma` è già installato su
+  Ollama (`/api/embed`) — la UI lo segnala come "pronto per RAG vettoriale",
+  ma la ricerca corrente è keyword (zero dipendenze). L'upgrade vettoriale
+  è la strada quando la wiki cresce oltre ~centinaia di pagine.
 
 ## Contratti API del hub
 
@@ -194,12 +227,31 @@ avrebbe rotto il JSON (la sidebar mostrava `nullW`/`NaN°C`). Se la CPU esce a
 
 ### Parametri nativi dei backend
 
-| | Bonsai (gemlite in-process) | Z-Image (sd-server :8123) |
-|---|---|---|
-| chiamata interna | `GpuPipeline.generate_png(prompt, seed, steps, width, height)` | `POST /sdapi/v1/txt2img` → `{images:[b64]}` |
-| steps | default 4 | default 8 (distilled) |
-| cfg | n/d (distilled) | `cfg_scale` 1.0 (= effettivo 0) |
-| seed | esplicito (il hub genera se -1) | esplicito |
+### API knowledge base — `/api/kb/*`
+
+| Endpoint | Descrizione |
+|---|---|
+| `GET /api/kb/status` | stato: conteggi raw/wiki, contenuto index.md, log.md, SCHEMA.md, stato chat |
+| `GET /api/kb/files?area=raw\|wiki` | elenco file (ricorsivo, path relativi) |
+| `GET /api/kb/read?path=…` | contenuto di un file (solo dentro `knowledge/`, path traversal → 403) |
+| `POST /api/kb/save` | `{path, content}` — scrive in `raw/` o `wiki/` (solo .md/.txt) |
+| `POST /api/kb/delete` | `{path}` — elimina una fonte in `raw/` |
+| `GET /api/kb/search?q=…` | keyword search sulle pagine wiki → `{pages: [path…]}` |
+| `POST /api/kb/ingest` | `{source}` — compila una fonte raw/ nella wiki via llama-server |
+| `GET /api/kb/embeddings` | disponibilità Ollama (embeddinggemma) per il futuro RAG vettoriale |
+
+L'ingest richiede **llama-server attivo** (stesso modello della chat); la
+risposta del modello viene parsata sui blocchi `<<<FILE …>>>` / `<<<INDEX>>>` /
+`<<<LOG>>>` e scritta su disco; se il formato non è rispettato la risposta
+grezza finisce in `wiki/sources/<nome>-raw.md` con un errore esplicito.
+
+| | Bonsai (gemlite in-process) | Z-Image (sd-server :8123) | Wan 2.1 (sd-server :8123, video) |
+|---|---|---|---|
+| chiamata interna | `GpuPipeline.generate_png(prompt, seed, steps, width, height)` | `POST /sdapi/v1/txt2img` → `{images:[b64]}` | `POST /sdcpp/v1/vid_gen` (job async + polling) → `{result.b64_json}` (webm) |
+| steps | default 4 | default 8 (distilled) | default 20 |
+| cfg | n/d (distilled) | `cfg_scale` 1.0 (= effettivo 0) | `cfg_scale` 6.0 |
+| seed | esplicito (il hub genera se -1) | esplicito | esplicito |
+| extra | — | — | `video_frames` (4n+1), `fps`, text encoder in RAM |
 
 ## Dati di performance MISURATI (RTX 5060 Ti)
 
@@ -212,6 +264,7 @@ gia' scaldata (JIT/autotune in cache), cold = primo uso di una risoluzione.
 | Bonsai ternary (4 step) | 1024² | 19.4 s | **6.4 s** | ~6 GB |
 | Z-Image Q4 (8 step) | 512² | 5.6 s | **3.3 s** | ~8.5 GB |
 | Z-Image Q4 (8 step) | 1024² | 17.1 s | **17.8 s** | ~8.5 GB |
+| Wan 2.1 T2V 1.3B (20 step) | 9 frame @ 480×320 | — | **≈ 50 s** | ~5.6 GB (TE in RAM) |
 
 Nota JIT: la prima generazione a una nuova risoluzione paga Triton
 JIT/autotune (cache persistite in `outputs/.triton_cache` e
@@ -237,8 +290,9 @@ Pagine:
 |---|---|
 | `/` | Home hub: eroe compatto (headline + **registro di bordo live**: backend, modello in VRAM, barra GPU) · **card Applicazioni subito visibili** · sotto, **Le applicazioni nel dettaglio** con le descrizioni · in coda **Misure sul banco** |
 | `/images` | Generatore funzionante (due modelli) + gallery locale + wiki dei due modelli con esempi reali |
-| `/chat` | **Chat funzionante**: Ornith 35B-A3B / 9B / 9B-Q5, streaming con ragionamento mostrato, impostazioni (contesto, KV quant, MTP, layer MoE su CPU, layer GPU, temperatura), avvio/stop server |
-| `/video`, `/3d`, `/rag`, `/mcp` | Bozze: wiki del tipo di modello + checklist requisiti + stato non installato |
+| `/chat` | **Chat funzionante**: Ornith 35B-A3B / 9B / 9B-Q5, streaming con ragionamento mostrato, impostazioni (contesto, KV quant, MTP, layer MoE su CPU, layer GPU, temperatura), avvio/stop server, **toggle knowledge on** per usare la wiki come contesto |
+| `/rag` | **Knowledge base llm-wiki funzionante**: aggiungi fonti in `knowledge/raw/`, compilale nella wiki col modello, ispeziona pagine/index/log/schema, cerca nelle pagine |
+| `/video`, `/3d`, `/mcp` | Bozze: wiki del tipo di modello + checklist requisiti + stato non installato |
 
 ## Script
 
@@ -258,20 +312,31 @@ ripristina le console per il debug.
 
 ## Decisioni prese
 
-- **L'officina vive nell'eseguibile**: `Palamede.exe` incorpora
-  `palamede.bundle` (frontend dist + hub + backends + scripts + **llama.cpp**)
-  come risorsa; al primo avvio lo estrae nella propria cartella (lo script
-  `runtime.stamp` evita ri-estrazioni) e poi lancia i servizi nascosti.
-  Frontend e backend quindi "sono nell'exe"; i **pesi dei modelli** no:
-  vengono copiati da LM Studio (Ornith) se mancanti o segnalati. Il bundle si
-  rigenera con `scripts/build-bundle.ps1`, l'exe con `build-launcher.ps1`.
+- **L'officina è un'app desktop nativa (Tauri v2)**: `Palamede.exe` (~6 MB)
+  è una webview WebView2 che avvia i servizi locali (hub node :4600 + modello
+  server :8000) come processi nascosti. Comportamento **tray** stile WhatsApp:
+  chiudere la finestra nasconde l'app e i servizi continuano; dal tray
+  "Ferma tutto ed esci" li termina. Un **Job Object Windows**
+  (JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE) termina automaticamente i figli se
+  l'app muore per qualsiasi motivo → niente RAM/VRAM lasciate per strada.
+  Il frontend è servito dall'hub (same-origin per `/api`), non incorporato
+  nel binario: zero CORS/proxy e zero cambi alle API.
 
 - **Non tocca `reference/`**: è repo altrui, gitignored e volatile; il fix
   del bug bonsai vive nel loader condiviso di Palamede
   (`backends/gemlite_loader.py`).
 - **Un solo backend**: `modelserver.py` possiede i modelli e li carica/scarica
   su `/select`, così la VRAM non è mai condivisa tra modelli e non servono
-  tre processi da avviare a mano.
+  tre processi da avviare a mano. Il modello **wan** (video) spawna sd-server
+  con `--t5xxl` e `--backend te=cpu`: il text encoder UMT5-XXL FP8 resta in
+  RAM (64 GB) e la VRAM ospita solo diffusion F32 + VAE (~5.6 GB).
+- **App desktop nativa Tauri v2**: `Palamede.exe` (~6 MB) sostituisce il
+  vecchio launcher .NET+browser (archiviato in legacy/). Avvia i servizi nascosti, mostra la UI in
+  una finestra WebView2 e resta nel **tray** (chiudere la finestra non ferma
+  i servizi; "Ferma tutto ed esci" dal tray li termina). Un **Job Object
+  Windows** (KILL_ON_JOB_CLOSE) termina i figli anche se l'app muore
+  brutalmente → RAM/VRAM sempre liberate. Notifiche native via
+  `tauri-plugin-notification` (invocate dal frontend con `window.__TAURI__`).
 - **Zero dipendenze runtime nel hub** (`node:http`) e **zero dipendenze
   frontend extra** oltre Vite/React: un `npm install` e via.
 - **Hash-routing** invece di react-router: 6 pagine, un listener

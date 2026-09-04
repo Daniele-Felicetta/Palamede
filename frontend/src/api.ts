@@ -155,6 +155,7 @@ export interface ChatParams {
   mtp: boolean
   cpuMoe: number
   gpuLayers: number
+  thinking: boolean
 }
 
 export interface ChatStatus {

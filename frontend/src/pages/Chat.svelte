@@ -265,6 +265,10 @@
           <input type="checkbox" bind:checked={settings.mtp} />
           <span>MTP (multi-token prediction)</span>
         </Field>
+        <Field check>
+          <input type="checkbox" bind:checked={settings.thinking} />
+          <span>Thinking (ragionamento interno)</span>
+        </Field>
       </div>
       {#if Text.isMoe(model) && settings.cpuMoe > 0}
         <p class="chat-note">I pesi degli esperti dei primi {settings.cpuMoe} layer andranno su CPU: meno VRAM, più lento.</p>

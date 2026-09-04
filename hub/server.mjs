@@ -244,6 +244,8 @@ const TEXT_MODELS = [
     file: join(ROOT, 'models', 'ornith-1.5-9b', 'Ornith-1.5-9B-Q4_K_M.gguf') },
   { id: 'ornith-9b-q5', name: 'Ornith 1.5 9B · Q5_K_M', moe: false,
     file: join(ROOT, 'models', 'ornith-1.5-9b', 'Ornith-1.5-9B-Q5_K_M.gguf') },
+  { id: 'bonsai-27b', name: 'Bonsai 27B · Q1_0', moe: false,
+    file: join(ROOT, 'models', 'bonsai-27b', 'Bonsai-27B-Q1_0.gguf') },
 ].filter((m) => existsSync(m.file))
 
 let textServer = { proc: null, model: null, params: null }
@@ -286,6 +288,7 @@ async function startText(cfg) {
   const gpuLayers = Math.max(-1, Number(cfg.gpuLayers) ?? 99)
   const cpuMoe = Math.max(0, Number(cfg.cpuMoe) || 0)
   const mtp = !!cfg.mtp
+  const thinking = cfg.thinking === true
 
   const args = [
     '-m', model.file,
@@ -298,17 +301,18 @@ async function startText(cfg) {
   if (kv) args.push('--cache-type-k', kv, '--cache-type-v', kv)
   if (model.moe && cpuMoe > 0) args.push('--n-cpu-moe', String(cpuMoe))
   if (mtp) args.push('--spec-type', 'draft-mtp')
+  args.push('--reasoning', thinking ? 'on' : 'off')
 
   if (!existsSync(LLAMA)) throw new Error(`manca ${LLAMA} — esegui scripts/setup.ps1`)
   mkdirSync(join(ROOT, 'outputs'), { recursive: true })
 
   textServer.model = model.id
-  textServer.params = { context, kv: kv || 'f16', mtp, cpuMoe, gpuLayers }
+  textServer.params = { context, kv: kv || 'f16', mtp, cpuMoe, gpuLayers, thinking }
   textServer.ready = false
   mkdirSync(join(ROOT, 'outputs'), { recursive: true })
   const logFd = openSync(TEXT_LOG, 'a')
   try {
-    writeSync(logFd, `\n--- avvio ${model.id} ctx=${context} kv=${kv || 'f16'} mtp=${mtp} cpuMoe=${cpuMoe} ngl=${gpuLayers} ---\n`)
+    writeSync(logFd, `\n--- avvio ${model.id} ctx=${context} kv=${kv || 'f16'} mtp=${mtp} cpuMoe=${cpuMoe} ngl=${gpuLayers} think=${thinking ? 'on' : 'off'} ---\n`)
   } catch { /* log best-effort */ }
   textServer.proc = spawn(LLAMA, args, {
     cwd: ROOT, windowsHide: true, stdio: ['ignore', logFd, logFd],

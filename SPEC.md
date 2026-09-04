@@ -119,6 +119,7 @@ senza toccare `reference/`.
 | Ornith 1.5 35B-A3B | `ornith-1.5-35b/Ornith-1.5-35B-Q4_K_M.gguf` | 20.2 GB | MoE (3B attivi), chat |
 | Ornith 1.5 9B | `ornith-1.5-9b/Ornith-1.5-9B-Q4_K_M.gguf` | 5.2 GB | dense, chat |
 | Ornith 1.5 9B Q5 | `ornith-1.5-9b/Ornith-1.5-9B-Q5_K_M.gguf` | 6.1 GB | dense, chat (qualità) |
+| Bonsai 27B | `bonsai-27b/Bonsai-27B-Q1_0.gguf` | 3.5 GB | dense, chat (thinking opzionale) |
 
 > **In bozza (`models/_inutilizzati/`)**: Wan 2.1 T2V 1.3B (+ VAE, UMT5-XXL) e Klein 9B BF16 sono sospesi, non referenziati dal codice.
 
@@ -208,6 +209,8 @@ Il server è **spento a default** e parte su `POST /api/chat/start` (porta
 OpenAI-compatible; Ornith è un modello *reasoning*, quindi i token di pensiero
 arrivano in `delta.reasoning_content` e la risposta in `delta.content` (la UI
 mostra il ragionamento in un blocco a parte).
+
+Il toggle "Thinking" nel pannello impostazioni della chat passa `--reasoning on|off` a llama-server (default: off, nessun ragionamento).
 
 ### Knowledge base llm-wiki (sezione RAG, `knowledge/`)
 
@@ -364,7 +367,7 @@ Pagine:
 |---|---|
 | `/` | Home hub: eroe compatto (headline + **registro di bordo live**: backend, modello in VRAM, barra GPU) · **card Applicazioni subito visibili** · sotto, **Le applicazioni nel dettaglio** con le descrizioni · in coda **Misure sul banco** |
 | `/images` | Generatore funzionante (due modelli) + gallery locale + wiki dei due modelli con esempi reali |
-| `/chat` | **Chat funzionante**: Ornith 35B-A3B / 9B / 9B-Q5, streaming con ragionamento mostrato, impostazioni (contesto, KV quant, MTP, layer MoE su CPU, layer GPU, temperatura), avvio/stop server, **toggle knowledge on** per usare la wiki come contesto |
+| `/chat` | **Chat funzionante**: Ornith 35B-A3B / 9B / 9B-Q5, streaming con ragionamento mostrato, impostazioni (contesto, KV quant, MTP, layer MoE su CPU, layer GPU, temperatura, toggle thinking (default off)), avvio/stop server, **toggle knowledge on** per usare la wiki come contesto |
 | `/rag` | **Knowledge base llm-wiki funzionante**: aggiungi fonti in `knowledge/raw/`, compilale nella wiki col modello, ispeziona pagine/index/log/schema, cerca nelle pagine |
 | `/3d` | **Generatore 3D funzionante**: upload immagine, qualità 512/1024, viewer three.js, download GLB + STL, sezione Server per start/stop del server TRELLIS. |
 | `/mcp` | Bozza: wiki del tipo di modello + checklist requisiti + stato non installato. |

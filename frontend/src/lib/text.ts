@@ -11,7 +11,7 @@
 //   let m: Text.ModelId = 'ornith-9b'
 
 export namespace Text {
-  export type ModelId = 'ornith-35b' | 'ornith-9b' | 'ornith-9b-q5'
+  export type ModelId = 'ornith-35b' | 'ornith-9b' | 'ornith-9b-q5' | 'bonsai-27b'
 
   /** Dati canonici per-modello. */
   export interface Model {
@@ -27,6 +27,7 @@ export namespace Text {
     mtp: boolean      // default multi-token prediction
     cpuMoe: number    // default layer MoE su CPU
     temperature: number
+    thinking: boolean // ragionamento interno (thinking) del modello
   }
 
   export const MODELS: Model[] = [
@@ -43,6 +44,7 @@ export namespace Text {
       mtp: false,
       cpuMoe: 0,
       temperature: 0.7,
+      thinking: false,
     },
     {
       id: 'ornith-9b',
@@ -57,6 +59,7 @@ export namespace Text {
       mtp: false,
       cpuMoe: 0,
       temperature: 0.7,
+      thinking: false,
     },
     {
       id: 'ornith-9b-q5',
@@ -71,6 +74,22 @@ export namespace Text {
       mtp: false,
       cpuMoe: 0,
       temperature: 0.7,
+      thinking: false,
+    },
+    {
+      id: 'bonsai-27b',
+      name: 'Bonsai 27B',
+      family: 'Bonsai',
+      quant: 'Q1_0',
+      vramGB: '3.5 GB',
+      moe: false,
+      context: 8192,
+      kv: 'q8_0',
+      gpuLayers: 99,
+      mtp: false,
+      cpuMoe: 0,
+      temperature: 0.7,
+      thinking: false,
     },
   ]
 
@@ -123,6 +142,7 @@ export namespace Text {
     cpuMoe: number
     gpuLayers: number
     temperature: number
+    thinking: boolean
   } {
     const m = get(id) ?? MODELS[1]
     return {
@@ -132,6 +152,7 @@ export namespace Text {
       cpuMoe: m.cpuMoe,
       gpuLayers: m.gpuLayers,
       temperature: m.temperature,
+      thinking: m.thinking,
     }
   }
 

@@ -1,0 +1,73 @@
+<script lang="ts">
+  import { TRIED, WIP } from '../data/experiments'
+  import { Eyebrow, SectionHead } from '../components/ui'
+</script>
+
+<Eyebrow>Sezione EXP · registro delle prove</Eyebrow>
+<h1>Experimental</h1>
+<p class="lede">
+  La cronologia delle sperimentazioni: cosa abbiamo provato e perché si è
+  fermata, e cosa stiamo provando adesso — con cosa manca da sistemare e i
+  rischi che restano.
+</p>
+
+<section aria-label="Provato e perché non è andata">
+  <SectionHead
+    title="Provato e perché non è andata"
+    sub="Ordine cronologico. Ogni voce dice cosa era, perché si è fermata e dove sta la prova nel repo."
+  />
+  <div class="exp-list">
+    {#each TRIED as e (e.id)}
+      <article class="exp-item">
+        <span class="exp-date">{e.period}</span>
+        <span class="exp-state {e.status}">{e.status}</span>
+        <div class="exp-body">
+          <h4>{e.title}</h4>
+          <p>{e.what}</p>
+          <p class="exp-why"><strong>Perché si è fermata:</strong> {e.why}</p>
+          {#if e.paths.length}
+            <p class="exp-paths">
+              {#each e.paths as p (p)}<code>{p}</code>{/each}
+            </p>
+          {/if}
+        </div>
+      </article>
+    {/each}
+  </div>
+</section>
+
+<section aria-label="In prova adesso">
+  <SectionHead
+    title="In prova adesso"
+    sub="Cosa stiamo provando, cosa manca da sistemare e perché potrebbe non funzionare."
+  />
+  <div class="exp-list">
+    {#each WIP as e (e.id)}
+      <article class="exp-item">
+        <span class="exp-date">{e.period}</span>
+        <span class="exp-state wip">in corso</span>
+        <div class="exp-body">
+          <h4>{e.title}</h4>
+          <p>{e.what}</p>
+          <div class="exp-fixes">
+            <h5>Cosa c'è da sistemare</h5>
+            <ul>
+              {#each e.fixes as f (f)}<li>{f}</li>{/each}
+            </ul>
+          </div>
+          <div class="exp-risks">
+            <h5>Perché potrebbe non andare</h5>
+            <ul>
+              {#each e.risks as r (r)}<li>{r}</li>{/each}
+            </ul>
+          </div>
+          {#if e.paths.length}
+            <p class="exp-paths">
+              {#each e.paths as p (p)}<code>{p}</code>{/each}
+            </p>
+          {/if}
+        </div>
+      </article>
+    {/each}
+  </div>
+</section>

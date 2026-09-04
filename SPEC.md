@@ -4,17 +4,20 @@
 
 **Palamede** è un hub locale per l'esecuzione e il confronto di modelli di
 generazione AI su una singola macchina (Windows + NVIDIA). Frontend web unico
-che parla con più backend locali; ogni sezione (Immagini, Testo, Video, 3D,
+che parla con più backend locali; ogni sezione (Immagini, Testo, 3D,
 RAG, MCP) ha la sua **wiki** con funzionamento, ingombri, tempi misurati,
 qualità ed esempi generati dai modelli stessi.
 
-Stato attuale: **Immagini, Chat, RAG e Video sono funzionanti** — due modelli
+Stato attuale: **Immagini, Chat e RAG sono funzionanti** — due modelli
 immagine (Bonsai 4B ternary, Z-Image Turbo Q4_K_M), chat locale con Ornith
-1.5 (35B-A3B e 9B) via llama.cpp, **video con Wan 2.1 T2V 1.3B** via sd.cpp
-(`vid_gen`), e una **knowledge base llm-wiki** (pattern Karpathy) in
-`knowledge/` con fonti raw/ compilate dal modello in pagine interconnesse,
-usate come contesto nella chat. 3D e MCP sono bozze con wiki, in attesa dei
-modelli.
+1.5 (35B-A3B e 9B) via llama.cpp, e una **knowledge base llm-wiki** (pattern
+Karpathy) in `knowledge/` con fonti raw/ compilate dal modello in pagine
+interconnesse, usate come contesto nella chat. Il **3D è integrato**: la
+pipeline image-to-3D TRELLIS.2 produce un asset 3D completo da una singola
+immagine (GLB texturizzato + STL). La sezione **MCP** resta bozza con wiki.
+
+> **Struttura del progetto**: albero delle cartelle in **MAPPA.md**
+> (rigenerato da `scripts/gen-mappa.ps1`); per l'uso operativo vedi **README.md**.
 
 ## Hardware di riferimento
 
@@ -39,6 +42,13 @@ modelli.
    `.gitignore`ata: si scaricano con `scripts/setup.ps1`.
 5. Le immagini generate dall'utente finiscono in `outputs/` (ignorata);
    gli **esempi della wiki** sono committati in `frontend/public/examples/`.
+6. **Sorgenti ufficiali per tutto.** Non scaricare/installare mai pacchetti o
+   file da fonti non ufficiali (utenti terzi su HuggingFace/GitHub, wheel
+   precompilati da repo non ufficiali): si usa SOLO PyPI, il canale PyTorch
+   ufficiale, i download ufficiali e i repo ufficiali (Microsoft/JeffreyXiang
+   per TRELLIS). Per le dipendenze native di TRELLIS.2 (`o_voxel`, `flex_gemm`,
+   `cumesh`) — codice e pesi presenti in `models/` — la via è la compilazione da
+   sorgente dai repo ufficiali, MAI wheel di utenti terzi.
 
 ## Architettura
 
@@ -106,12 +116,77 @@ senza toccare `reference/`.
 | Z-Image Turbo Q4_K_M | `z-image-turbo-Q4_K_M.gguf` | 4.67 GB | DiT S3-DiT 6B |
 | Qwen3-4B TE (per Z-Image) | `Qwen3-4B-Instruct-2507-Q4_K_M.gguf` | 2.33 GB | text encoder |
 | Z-Image VAE | `z-image-vae.safetensors` | 0.16 GB | bf16 |
-| Wan 2.1 T2V 1.3B | `wan2.1-1.3b/diffusion_pytorch_model.safetensors` | 5.4 GB | DiT flow video, F32 |
-| UMT5-XXL FP8 (per Wan) | `wan2.1-1.3b/umt5_xxl_fp8_e4m3fn_scaled.safetensors` | 6.27 GB | text encoder (Comfy-Org, pesi ufficiali) |
-| Wan VAE | `wan_2.1_vae.safetensors` | 0.25 GB | VAE video 3D |
 | Ornith 1.5 35B-A3B | `ornith-1.5-35b/Ornith-1.5-35B-Q4_K_M.gguf` | 20.2 GB | MoE (3B attivi), chat |
 | Ornith 1.5 9B | `ornith-1.5-9b/Ornith-1.5-9B-Q4_K_M.gguf` | 5.2 GB | dense, chat |
 | Ornith 1.5 9B Q5 | `ornith-1.5-9b/Ornith-1.5-9B-Q5_K_M.gguf` | 6.1 GB | dense, chat (qualità) |
+
+> **In bozza (`models/_inutilizzati/`)**: Wan 2.1 T2V 1.3B (+ VAE, UMT5-XXL) e Klein 9B BF16 sono sospesi, non referenziati dal codice.
+
+### Dipendenze visione (non referenziate) — `models/trellis-deps/`
+
+Due modelli di visione installati come pesi/dipendenze locali, **bozza per una
+future pipeline visione** e **non ancora referenziati dal codice**:
+
+| Modello | Percorso | File principali | Note |
+|---|---|---|---|
+| DINOv3 ViT (Meta AI) | `models/trellis-deps/dinov3/` | `model.safetensors` (~1.2 GB), `config.json`, `preprocessor_config.json` | ViT-B/16, hidden 1024, 24 layer, patch 16, size 224² — image feature extraction (torch_dtype float32). |
+| BRIA RMBG-2.0 / BiRefNet (`ZhengPeng7/BiRefNet`) | `models/trellis-deps/rmbg2/` | `model.safetensors` (~885 MB), `pytorch_model.bin` (~885 MB), varianti ONNX in `onnx/`, `config.json`, `birefnet.py`, `BiRefNet_config.py` | Background removal (image-segmentation). Pesi PyTorch + 8 varianti ONNX (full, fp16, int8, uint8, q4, q4f16, bnb4, quantized). |
+
+> Vivono in `models/trellis-deps/` (gitignored) e **non sono referenziati dal
+> codice**: restano pesi/dipendenze pronti per una pipeline visione futura.
+
+### TRELLIS.2 — generazione 3D da immagine (integrato)
+
+**TRELLIS.2** è un modello generativo 3D di Microsoft (~4B parametri) che fa
+**image-to-3D**: riceve **una singola immagine** e produce un **asset 3D
+completo con mesh + materiali PBR**. È diviso in due parte presenti in
+`models/`:
+
+| Componente | Percorso | Contenuto | Peso |
+|---|---|---|---|
+| Codice sorgente (`trellis2/`) | `models/TRELLIS.2/` | package Python con `pipelines/trellis2_image_to_3d.py` + `trellis2_texturing.py`, `modules/sparse` (SparseTensor), `representations/{mesh,voxel}`, renderers e dipendenza C++ `o_voxel/` (Eigen + pybind11). Licenza MIT. ~37,5 MB, 2201 file. | — |
+| Pesi ufficiali 4B (safetensors) | `models/TRELLIS.2-4B/` | `slat_flow_img2shape_dit_1_3B_{512,1024}_bf16`, `slat_flow_imgshape2tex_dit_1_3B_{512,1024}_bf16`, `ss_flow_img_dit_1_3B_64_bf16`, `shape_enc/dec_next_dc_f16c32_fp16`, `tex_enc/dec_next_dc_f16c32_fp16` + `README.md`, `pipeline.json`, `texturing_pipeline.json`. | ~15,12 GB (22 file) |
+
+**Cosa fa**: rappresentazione **O-Voxel** (voxels sparsi field-free che
+codificano geometria e aspetto), architettura **flow-matching transformer** +
+**3D VAE sparso** (downsample 16×, risoluzioni da 512³ a 1536³). Le pipeline
+nel codice sono `Trellis2ImageTo3DPipeline` (image→3D) e texturing.
+
+#### Architettura reale (Palamede)
+
+L'integrazione è **completa**: una pipeline image-to-3D funzionante con server
+FastAPI dedicato, venv Python **separato** da quello bonsai, e frontend con
+viewer + download.
+
+| Pezzo | Dettaglio |
+|---|---|
+| Backend | `backends/trellis_server.py` — FastAPI su **:8124**, genera mesh texturizzate da immagine, esporta GLB (o_voxel) + STL (trimesh). Generazioni serializzate da un `threading.Lock`. |
+| Venv | `reference/trellis-venv/` — Python **3.13**, torch **2.9.1+cu130**, triton-windows **3.5.1**, native compilate da sorgente (**flex_gemm, cumesh, o_voxel, nvdiffrast**). Il venv bonsai (`reference/bonsai`, torch 2.11+cu128) resta intatto. |
+| Hub | `hub/server.mjs` spawna/termina il server 3D come subprocess (log in `outputs/trellis-server.log`) e serve i file prodotti da `outputs/3d/`. |
+| Frontend | `frontend/src/pages/3d.svelte` — pagina `/3d`: upload immagine, qualità 512/1024, viewer three.js (dipendenza npm locale), download GLB + STL. Sidebar metriche con sezione **Server** per start/stop del server 3D. |
+| Patch al codice TRELLIS.2 | supporto backend attenzione `sdpa` (`config.py` + `full_attn.py`, evita flash_attn non installato) e fix `image_feature_extractor.py` per transformers 5.16. |
+| Setup | `scripts/setup-trellis.ps1` (deps pip + native da sorgente + decoder Stage1 RMBG2), `scripts/start-trellis.ps1` (avvio server). Porta **:8124**. |
+
+**Endpoint** (tutti via hub :4600):
+
+| Endpoint | Descrizione |
+|---|---|
+| `POST /api/3d/start` | avvia il server 3D TRELLIS (subprocess, coda mutex) |
+| `POST /api/3d/stop` | ferma il server 3D |
+| `GET /api/3d/status` | stato locale del subprocess (`running`, `ready`, `pid`, `load_time_s`) |
+| `POST /api/3d/generate` | `{image(dataUrl), pipeline_type, seed, num_samples}` → asset 3D (coda mutex, timeout 15 min) |
+| `GET /api/3d/file/<id>.{glb,stl}` | serve il file prodotto da `outputs/3d/` (attachment) |
+
+**Formato risposta `/api/3d/generate`:** `{glb_base64, path, url (.glb), stl_url (.stl), vertices, faces, time_s, vram_peak_gb, seed, pipeline_type}`. Il GLB è texturizzato in **PNG** (NON WebP: `EXT_texture_webp` non supportato da Blender; PNG = compatibile). L'STL esporta la **solo geometria** (vertici+facce, niente texture — STL non le supporta) tramite trimesh.
+
+#### Misurazioni reali (RTX 5060 Ti 16 GB)
+
+Generazione a **512²**: ~**35–75 s** a regime; il **primo colpo** (caricamento
+pipeline in VRAM) paga ~**90–280 s**. Picco VRAM ~**3,1 GB**; mesh ~**0,9–1,1 M**
+vertici. A 1024² tempi e ingombri crescono con la risoluzione del voxel.
+
+> **Kaspersky**: può bloccare lo spawn del server (falso positivo); se il
+> `/api/3d/start` fallisce, aggiungi un'esclusione per la root del progetto.
 
 ### Chat locale (llama.cpp)
 
@@ -245,13 +320,13 @@ risposta del modello viene parsata sui blocchi `<<<FILE …>>>` / `<<<INDEX>>>` 
 `<<<LOG>>>` e scritta su disco; se il formato non è rispettato la risposta
 grezza finisce in `wiki/sources/<nome>-raw.md` con un errore esplicito.
 
-| | Bonsai (gemlite in-process) | Z-Image (sd-server :8123) | Wan 2.1 (sd-server :8123, video) |
-|---|---|---|---|
-| chiamata interna | `GpuPipeline.generate_png(prompt, seed, steps, width, height)` | `POST /sdapi/v1/txt2img` → `{images:[b64]}` | `POST /sdcpp/v1/vid_gen` (job async + polling) → `{result.b64_json}` (webm) |
-| steps | default 4 | default 8 (distilled) | default 20 |
-| cfg | n/d (distilled) | `cfg_scale` 1.0 (= effettivo 0) | `cfg_scale` 6.0 |
-| seed | esplicito (il hub genera se -1) | esplicito | esplicito |
-| extra | — | — | `video_frames` (4n+1), `fps`, text encoder in RAM |
+| | Bonsai (gemlite in-process) | Z-Image (sd-server :8123) |
+|---|---|---|
+| chiamata interna | `GpuPipeline.generate_png(prompt, seed, steps, width, height)` | `POST /sdapi/v1/txt2img` → `{images:[b64]}` |
+| steps | default 4 | default 8 (distilled) |
+| cfg | n/d (distilled) | `cfg_scale` 1.0 (= effettivo 0) |
+| seed | esplicito (il hub genera se -1) | esplicito |
+| extra | — | — |
 
 ## Dati di performance MISURATI (RTX 5060 Ti)
 
@@ -264,7 +339,6 @@ gia' scaldata (JIT/autotune in cache), cold = primo uso di una risoluzione.
 | Bonsai ternary (4 step) | 1024² | 19.4 s | **6.4 s** | ~6 GB |
 | Z-Image Q4 (8 step) | 512² | 5.6 s | **3.3 s** | ~8.5 GB |
 | Z-Image Q4 (8 step) | 1024² | 17.1 s | **17.8 s** | ~8.5 GB |
-| Wan 2.1 T2V 1.3B (20 step) | 9 frame @ 480×320 | — | **≈ 50 s** | ~5.6 GB (TE in RAM) |
 
 Nota JIT: la prima generazione a una nuova risoluzione paga Triton
 JIT/autotune (cache persistite in `outputs/.triton_cache` e
@@ -292,7 +366,8 @@ Pagine:
 | `/images` | Generatore funzionante (due modelli) + gallery locale + wiki dei due modelli con esempi reali |
 | `/chat` | **Chat funzionante**: Ornith 35B-A3B / 9B / 9B-Q5, streaming con ragionamento mostrato, impostazioni (contesto, KV quant, MTP, layer MoE su CPU, layer GPU, temperatura), avvio/stop server, **toggle knowledge on** per usare la wiki come contesto |
 | `/rag` | **Knowledge base llm-wiki funzionante**: aggiungi fonti in `knowledge/raw/`, compilale nella wiki col modello, ispeziona pagine/index/log/schema, cerca nelle pagine |
-| `/video`, `/3d`, `/mcp` | Bozze: wiki del tipo di modello + checklist requisiti + stato non installato |
+| `/3d` | **Generatore 3D funzionante**: upload immagine, qualità 512/1024, viewer three.js, download GLB + STL, sezione Server per start/stop del server TRELLIS. |
+| `/mcp` | Bozza: wiki del tipo di modello + checklist requisiti + stato non installato. |
 
 ## Script
 
@@ -326,10 +401,8 @@ ripristina le console per il debug.
   del bug bonsai vive nel loader condiviso di Palamede
   (`backends/gemlite_loader.py`).
 - **Un solo backend**: `modelserver.py` possiede i modelli e li carica/scarica
-  su `/select`, così la VRAM non è mai condivisa tra modelli e non servono
-  tre processi da avviare a mano. Il modello **wan** (video) spawna sd-server
-  con `--t5xxl` e `--backend te=cpu`: il text encoder UMT5-XXL FP8 resta in
-  RAM (64 GB) e la VRAM ospita solo diffusion F32 + VAE (~5.6 GB).
+   su `/select`, così la VRAM non è mai condivisa tra modelli e non servono
+   tre processi da avviare a mano.
 - **App desktop nativa Tauri v2**: `Palamede.exe` (~6 MB) sostituisce il
   vecchio launcher .NET+browser (archiviato in legacy/). Avvia i servizi nascosti, mostra la UI in
   una finestra WebView2 e resta nel **tray** (chiudere la finestra non ferma

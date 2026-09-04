@@ -1,0 +1,223 @@
+{
+  "version": 1,
+  "note": "Baseline di integrita' dei modelli. Gli SHA-256 sono stati calcolati dai file attualmente presenti (trust-on-first-use). Se aggiorni un modello, rigenera con: python scan-models.py --update. I path sono RELATIVI alla models-dir (default: ../models rispetto a questo progetto). enforce=true = file usato a runtime (verifica rapida all'avvio); enforce=false = presente ma non referenziato dai server (solo segnalazione).",
+  "generated": "2026-08-30",
+  "files": [
+    {
+      "path": "flux-2-klein-4b-Q4_K_M.gguf",
+      "size": 2604311104,
+      "sha256": "0b25d143c8469b342bc5af3bce92b783bf6b0636d285f7b2f75e38af63af9a15",
+      "format": "gguf",
+      "enforce": true,
+      "source": "FLUX.2-klein-4B diffusion (GGUF)"
+    },
+    {
+      "path": "flux2-vae.safetensors",
+      "size": 336213556,
+      "sha256": "d64f3a68e1cc4f9f4e29b6e0da38a0204fe9a49f2d4053f0ec1fa1ca02f9c4b5",
+      "format": "safetensors",
+      "enforce": true,
+      "source": "huggingface.co/Comfy-Org/flux2-dev (VAE FLUX.2)"
+    },
+    {
+      "path": "Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+      "size": 2497281120,
+      "sha256": "3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597",
+      "format": "gguf",
+      "enforce": true,
+      "source": "huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF"
+    },
+    {
+      "path": "_inutilizzati/wan_2.1_vae.safetensors",
+      "size": 253815318,
+      "sha256": "2fc39d31359a4b0a64f55876d8ff7fa8d780956ae2cb13463b0223e15148976b",
+      "format": "safetensors",
+      "enforce": false,
+      "source": "Wan 2.1 VAE"
+    },
+    {
+      "path": "z-image-turbo-Q4_K_M.gguf",
+      "size": 5017613376,
+      "sha256": "e6494f87de6abaf6a561924f50317a5f271fc34bb4222aabbd801197df8f7daa",
+      "format": "gguf",
+      "enforce": true,
+      "source": "Z-Image Turbo DiT (GGUF)"
+    },
+    {
+      "path": "z-image-vae.safetensors",
+      "size": 167666902,
+      "sha256": "f5b59a26851551b67ae1fe58d32e76486e1e812def4696a4bea97f16604d40a3",
+      "format": "safetensors",
+      "enforce": true,
+      "source": "huggingface.co/Tongyi-MAI/Z-Image-Turbo (VAE)"
+    },
+    {
+      "path": "_inutilizzati/klein-9b/flux-2-klein-9b-bf16.safetensors",
+      "size": 18157189648,
+      "sha256": "a7868f46634b19243bbbdc3d19658e88b709125efde3f239a7eb03d0bea90159",
+      "format": "safetensors",
+      "enforce": false,
+      "source": "FLUX.2 klein-9b diffusion BF16 (da convert-nvfp4-bf16.py)"
+    },
+    {
+      "path": "_inutilizzati/klein-9b/Qwen3-8B-Q4_K_M.gguf",
+      "size": 5027784512,
+      "sha256": "120307ba529eb2439d6c430d94104dabd578497bc7bfe7e322b5d9933b449bd4",
+      "format": "gguf",
+      "enforce": false,
+      "source": "huggingface.co/unsloth/Qwen3-8B-GGUF (TE klein-9b)"
+    },
+    {
+      "path": "_inutilizzati/wan2.1-1.3b/diffusion_pytorch_model.safetensors",
+      "size": 5676070424,
+      "sha256": "96b6b242ca1c2f24e9d02cd6596066fab6d310e2d7538f33ae267cb18d957e8f",
+      "format": "safetensors",
+      "enforce": false,
+      "source": "Wan 2.1 1.3B diffusion"
+    },
+    {
+      "path": "_inutilizzati/wan2.1-1.3b/umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+      "size": 6735906897,
+      "sha256": "c3355d30191f1f066b26d93fba017ae9809dce6c627dda5f6a66eaa651204f68",
+      "format": "safetensors",
+      "enforce": false,
+      "source": "Wan 2.1 UMT5-XXL FP8"
+    },
+    {
+      "path": "ornith-1.5-35b/Ornith-1.5-35B-Q4_K_M.gguf",
+      "size": 21713462848,
+      "sha256": "ca6ea26329c88b78ffd90a85163be2e746c2fafd1024f56db47e499f117f9a7f",
+      "format": "gguf",
+      "enforce": true,
+      "source": "Ornith 1.5 35B chat (llama.cpp)"
+    },
+    {
+      "path": "ornith-1.5-9b/Ornith-1.5-9B-Q4_K_M.gguf",
+      "size": 5629108992,
+      "sha256": "7d791afcb31812acc88cd5aafc675391df28c6fc3d8eae002bb4e6cc3d8cfd8d",
+      "format": "gguf",
+      "enforce": true,
+      "source": "Ornith 1.5 9B chat (llama.cpp)"
+    },
+    {
+      "path": "ornith-1.5-9b/Ornith-1.5-9B-Q5_K_M.gguf",
+      "size": 6642544576,
+      "sha256": "e4d9634a3b6546a5c00a8680568fe1125f6c98c704ee51ae52ba07650fb4247d",
+      "format": "gguf",
+      "enforce": true,
+      "source": "Ornith 1.5 9B chat Q5 (llama.cpp)"
+    },
+    {
+      "path": "bonsai-image-4B-ternary-gemlite/text_encoder-hqq-4bit/qmodel.pt",
+      "size": 2822340711,
+      "sha256": "57ecb803e88313f896b24f2f6fedddcb2966c174801f8d89115f4fbae99be48a",
+      "format": "pickle",
+      "enforce": true,
+      "source": "bonsai text encoder HQQ (torch.load, rischio pickle)"
+    },
+    {
+      "path": "bonsai-image-4B-ternary-gemlite/transformer-gemlite-int2/state_dict.pt",
+      "size": 1540457482,
+      "sha256": "a3a7df8a90374fea24afce3b36f00b4c728d0254717143d61f912a7b3070e7ac",
+      "format": "pickle",
+      "enforce": true,
+      "source": "bonsai transformer gemlite (torch.load, rischio pickle)"
+    },
+    {
+      "path": "bonsai-image-4B-ternary-gemlite/vae/diffusion_pytorch_model.safetensors",
+      "size": 168120878,
+      "sha256": "ca70d2202afe6415bdbcb8793ba8cd99fd159cfe6192381504d6c4d3036e0f04",
+      "format": "safetensors",
+      "enforce": true,
+      "source": "bonsai VAE"
+    },
+    {
+      "path": "_inutilizzati/klein-9b/flux-2-klein-9b-nvfp4.safetensors",
+      "size": 5760960048,
+      "sha256": "5c72214496dd278f721a112e1bd1585fffed487bc0831c894bcbf30d12e9ee48",
+      "format": "safetensors",
+      "enforce": false,
+      "source": "BFL NVFP4 sorgente (input conversione)"
+    },
+    {
+      "path": "_inutilizzati/klein-9b/flux-2-klein-9b-Q4_0.gguf",
+      "size": 5616208032,
+      "sha256": "a7e77afa96871d16679ff7b949bd25f20c8179f219c4b662cac91e81ed99b944",
+      "format": "gguf",
+      "enforce": false,
+      "source": "FLUX.2 klein-9b GGUF (non referenziato)"
+    },
+    {
+      "path": "ornith-1.5-35b/mmproj-Ornith-1.5-35B-BF16.gguf",
+      "size": 902822016,
+      "sha256": "d9ce31026d1cb1f3f8d5152e2e2a014d9d2b302b6c93a7dc07bb0a0487f52837",
+      "format": "gguf",
+      "enforce": false,
+      "source": "mmproj visione (non referenziato dai server)"
+    },
+    {
+      "path": "ornith-1.5-9b/mmproj-Ornith-1.5-9B-BF16.gguf",
+      "size": 921704416,
+      "sha256": "d65001a94c4b6852bc7a0e7c5cc92fe8506755bb270e54483fd5feec7ae39a19",
+      "format": "gguf",
+      "enforce": false,
+      "source": "mmproj visione (non referenziato dai server)"
+    },
+    {
+      "path": "_inutilizzati/wan2.1-1.3b/umt5-xxl-encoder-Q8_0.gguf",
+      "size": 1153019904,
+      "sha256": "994d802779945ef33532cd7f32e5b78fe6ebbe73cecb8a8f5ea8fc032074b4c1",
+      "format": "gguf",
+      "enforce": false,
+      "source": "Wan UMT5 GGUF (non referenziato, si usa FP8)"
+    },
+    {
+      "path": "_inutilizzati/ltx-2.5-audio-vae-bf16.safetensors",
+      "size": 364866540,
+      "sha256": "c52733d37f6a7fb7949c3dc0fb468c6cb2169e4d836983a73babb9f0d54837a5",
+      "format": "safetensors",
+      "enforce": false,
+      "source": "non usato"
+    },
+    {
+      "path": "_inutilizzati/ltx-2.5-latent-spatial-upscaler-x2-bf16-1.0.safetensors",
+      "size": 995778752,
+      "sha256": "eb5a71fe4068ee87ccdb1c3aa635e547ca76bd2d30ae20ae889f2c325c0677e8",
+      "format": "safetensors",
+      "enforce": false,
+      "source": "non usato"
+    },
+    {
+      "path": "_inutilizzati/ltx-2.5-latent-temporal-upscaler-x2-bf16-1.0.safetensors",
+      "size": 261944000,
+      "sha256": "2bc3300f2b3c3c1834d72164fbf13a3b9fd73e5a741e8a2c3f4035f89a75c3fe",
+      "format": "safetensors",
+      "enforce": false,
+      "source": "non usato"
+    },
+    {
+      "path": "_inutilizzati/ltx-2.5-video-vae-bf16.safetensors",
+      "size": 1472223346,
+      "sha256": "847e14ca7f3355debca0cea4eaa24ac0fbcdf0061da054ac89ca638a869ddba3",
+      "format": "safetensors",
+      "enforce": false,
+      "source": "non usato"
+    },
+    {
+      "path": "_inutilizzati/ltx-2.5-video-vae-conv-bf16.safetensors",
+      "size": 1452269922,
+      "sha256": "685b06ee3d9b2039647698fc4ea33175112462fc374e2777312c907897dfce8d",
+      "format": "safetensors",
+      "enforce": false,
+      "source": "non usato"
+    },
+    {
+      "path": "_inutilizzati/animatediff/animatediff_lightning_4step_comfyui.safetensors",
+      "size": 908929664,
+      "sha256": "aeb66ae8ff4a868d31379c3bde3e5e7e510a4d4b565a06ee4f1297e93a561dc5",
+      "format": "safetensors",
+      "enforce": false,
+      "source": "non usato"
+    }
+  ]
+}

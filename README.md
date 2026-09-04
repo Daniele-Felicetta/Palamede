@@ -6,30 +6,39 @@ giusto quando lo selezioni (mai due modelli in VRAM insieme), e una **wiki**
 per ogni sezione con funzionamento, ingombri, tempi misurati, qualità ed
 esempi generati dai modelli stessi.
 
-**Stato**: la sezione **Immagini è operativa** con due modelli:
-**Bonsai 4B ternary** e **Z-Image Turbo Q4_K_M**. Testo, Video, 3D, RAG e MCP
-sono bozze con wiki.
+**Stato**: **Immagini**, **Chat** e **RAG** sono operative: due
+modelli immagine (**Bonsai 4B ternary**, **Z-Image Turbo Q4_K_M**), chat
+locale con **Ornith 1.5** via llama.cpp, e una **knowledge base
+llm-wiki** (pattern Karpathy) in `knowledge/` — fonti grezze compilate dal
+modello in pagine interconnesse, usate come contesto nella chat. Il **3D** è
+ora **operativo**: la pipeline image-to-3D **TRELLIS.2** genera un asset 3D
+(completo di mesh + materiali PBR) da una singola immagine, esportato in GLB
+texturizzato e STL (solo geometria); la pagina `/3d` ha viewer three.js e
+download dei file. La sezione **MCP** resta bozza con wiki.
 
 ## Requisiti
 
 - Windows 11 x64, NVIDIA GPU con ≥ 12 GB VRAM (testato: RTX 5060 Ti 16 GB)
 - Node.js ≥ 20, PowerShell 5.1, `uv` (per il venv Python di reference/bonsai)
 - Driver NVIDIA recente (CUDA 12.8+)
+- Per la build dell'exe: **Rust** (cargo) + MSVC Build Tools (per Tauri)
 
 ## Struttura
 
-```
-Palamede/
-  reference/      ← esterno, gitignored (repo bonsai sorgente con venv)
-  models/         ← gitignored: pesi copiati da reference o scaricati
-  tools/          ← gitignored: engine stable-diffusion.cpp (sd-server)
-  backends/       ← modelserver.py (unico backend dinamico) + gemlite_loader.py
-  hub/            ← server.mjs: statici + proxy + metriche + coda GPU
-  frontend/       ← Vite + React + TS (la UI)
-  scripts/        ← setup, copy-models, start-*, stop-all
-  outputs/        ← gitignored: immagini generate, log sd-server
-  SPEC.md         ← architettura, contratti API, benchmark misurati
-```
+Le cartelle in sintesi; per l'albero completo, manutenuto automaticamente,
+vedi **MAPPA.md** (si rigenera con `.\scripts\gen-mappa.ps1`).
+
+- `backends/` — modelserver.py (unico backend dinamico) + gemlite_loader.py + requirements.txt
+- `hub/` — server.mjs: statici + proxy + metriche + coda GPU + knowledge
+- `frontend/` — Vite + React + TS (la UI)
+- `src-tauri/` — app desktop nativa Tauri v2 (tray + notifiche + Job Object)
+- `scripts/` — setup, copy-models, start-*, stop-all, build, watch, gen-mappa
+- `legacy/` — vecchio launcher .NET archiviato (non più usato)
+- gitignored: `reference/`, `models/`, `tools/`, `knowledge/`, `outputs/`
+  - `models/trellis-deps/` contiene anche DINOv3 (Meta) + BRIA RMBG-2.0 (BiRefNet): dipendenze di visione non ancora usate dal codice.
+  - `models/TRELLIS.2/` = codice sorgente TRELLIS.2 di Microsoft (~37,5 MB, licenza MIT): pipeline image-to-3D + texturing. **Integrato** via `backends/trellis_server.py` (patch per il backend `sdpa` e fix transformers 5.16).
+  - `models/TRELLIS.2-4B/` = pesi ufficiali 4B in safetensors (~15,12 GB) per la generazione 3D da immagine. **Integrati** (backend TRELLIS operativo).
+  - `reference/trellis-venv/` = venv **separato** di TRELLIS (Python 3.13, torch 2.9.1+cu130, triton-windows 3.5.1 + native compilate da sorgente: flex_gemm, cumesh, o_voxel, nvdiffrast). Il backend bonsai (`reference/bonsai`, torch 2.11+cu128) resta intatto.
 
 ### Caricamento dinamico dei modelli
 
@@ -38,7 +47,7 @@ C'è **un solo backend** (`backends/modelserver.py`, :8000): tiene in VRAM
 
 - Selezioni **Bonsai** → il server carica la `GpuPipeline` gemlite (~6 GB).
 - Selezioni **Z-Image** → scarica bonsai e **spawna sd-server** come
-  subprocess (~8.5 GB); deselezionando, lo termina e libera la VRAM.
+   subprocess (~8.5 GB); deselezionando, lo termina e libera la VRAM.
 - La sidebar mostra CPU/RAM/GPU/VRAM in tempo reale e il modello attivo.
 
 ## Setup (una tantum)
@@ -53,6 +62,10 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 
 # 3. Engine sd-cpp + dipendenze frontend + build UI
 .\scripts\setup.ps1
+
+# 4. (una tantum) venv TRELLIS per la generazione 3D: deps pip + native da
+#    sorgente + decoder Stage1. Popola reference/trellis-venv (~20+ GB).
+.\scripts\setup-trellis.ps1
 ```
 
 ## Avvio
@@ -64,22 +77,53 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 ```
 
 **Oppure con il launcher**: doppio clic su **`Palamede.exe`** (alla radice) —
-una piccola finestra mostra l'avvio, apre il browser da sola e ha il pulsante
-"Ferma tutto". Si rigenera con `.\scripts\build-launcher.ps1` (usa il
-compilatore .NET Framework già presente in Windows, ~12 KB, niente install).
+una **app desktop nativa Tauri v2** (~6 MB) che avvia i servizi nascosti,
+mostra la UI in una finestra propria e **resta nel tray** (in basso a destra,
+stile WhatsApp): chiudere la finestra non spegne l'officina, i servizi
+continuano; dal tray con "Ferma tutto ed esci" (o clic destro) si termina
+tutto liberando RAM e VRAM. Notifiche native di sistema alla fine delle
+generazioni. Si rigenera con `.\scripts\build.ps1` (serve Rust + MSVC).
 
 Backend e hub girano **senza finestre visibili** e scrivono i log in
 `outputs/backend.log` e `outputs/hub.log` (per vedere la console: avvia gli
 script senza `-Hidden`, es. `.\scripts\start-backend.ps1`).
 
 Lo script/launcher controlla cosa è già attivo, avvia ciò che manca e apre
-il browser su **http://127.0.0.1:4600**.
+la finestra su **http://127.0.0.1:4600**.
 
 Per fermare tutto: `.\scripts\stop-all.ps1` (o `stop.bat`, o il pulsante
 nel launcher).
 
-> Vuoi che parta all'accesso? Metti un collegamento a `start.bat` nella
-> cartella avvio (`Win+R` → `shell:startup`).
+> Vuoi che parta all'accesso? Metti un collegamento a `start.bat` (o a
+> `Palamede.exe`) nella cartella avvio (`Win+R` → `shell:startup`).
+
+## Build dell'exe (Tauri)
+
+L'exe è una **app desktop nativa Tauri v2** (Rust): niente più bundle .NET,
+niente estrazione al primo avvio — i sorgenti (hub, backends, frontend) e i
+pesi (models/, tools/) restano file in locale e l'exe li avvia.
+
+```powershell
+# 1) Un comando solo: frontend + exe Tauri (aggiorna Palamede.exe)
+.\scripts\build.ps1
+
+# 2) Watch: rigenera automaticamente l'exe a ogni salvataggio nei sorgenti
+.\scripts\watch.ps1
+```
+
+`watch.ps1` osserva i sorgenti con un debounce di 2 s, ricompila
+(`build.ps1`) e resta in ascolto. Opzioni:
+
+```powershell
+.\scripts\build.ps1 -SkipFrontend    # solo rebuild dell'exe Tauri (UI già costruita)
+.\scripts\watch.ps1 -SkipFrontend    # watch senza ricompilare la UI a ogni colpo
+```
+
+**Attenzione**: la build incorpora il frontend `dist` nella config Tauri e
+l'exe avvia i servizi dalla root; se `Palamede.exe` è in esecuzione,
+`build.ps1` lo chiude prima di sovrascriverlo. Se un antivirus (es.
+Kaspersky) blocca gli `.exe` appena compilati, aggiungi un'esclusione per
+`src-tauri/target` e per la root del progetto.
 
 Avvio manuale, se preferisci:
 
@@ -104,12 +148,35 @@ Invoke-RestMethod -Uri 'http://127.0.0.1:4600/api/image' -Method Post `
 |---|---|
 | `GET /api/health` | stato del modello server + modello caricato |
 | `GET /api/models` | elenco modelli e quale è caricato |
-| `POST /api/select` | carica/scarica `{model: "bonsai"\|"zimage"}` |
+| `POST /api/select` | carica/scarica `{model: "bonsai"\|"zimage"\|"klein"}` |
 | `POST /api/image` | `{model, prompt, steps, seed, width, height, count}` → `{images:[{dataUrl,timeMs,seed}]}` |
 | `GET /api/metrics` | CPU/RAM/GPU (usata dalla sidebar) |
+| `GET /api/chat/status` | stato del server chat (llama-server) |
+| `POST /api/chat/start` | avvia llama-server `{model, context, kv, mtp, cpuMoe, gpuLayers}` |
+| `POST /api/chat/stop` | ferma llama-server |
+| `POST /api/chat` | chat streaming SSE (accetta anche `messages` con `system`) |
+| `GET/POST /api/kb/*` | knowledge base llm-wiki: status, files, read, save, delete, search, ingest, embeddings |
 
 La coda mutex è condivisa: **mai due generazioni simultanee sulla GPU**,
 e il backend stesso libera la VRAM quando cambi modello.
+
+### Knowledge base (llm-wiki) — sezione RAG
+
+Pattern **LLM Wiki** di Karpathy invece del classico RAG: le fonti grezze
+stanno in `knowledge/raw/`, il modello le compila in pagine markdown
+interconnesse in `knowledge/wiki/` con `index.md` e `log.md`. Niente
+embeddings a piccola scala — la chat cerca le pagine rilevanti con una
+keyword search e le usa come contesto.
+
+1. Vai su **RAG** → aggiungi una fonte (incolla testo in `knowledge/raw/`).
+2. Avvia la **Chat** (il modello serve anche per la compilazione).
+3. Torna su **RAG** → premi **compila** sulla fonte: il modello scrive le
+   pagine wiki, aggiorna l'indice e il registro.
+4. In **Chat** attiva **knowledge on**: ogni domanda cerca le pagine
+   rilevanti e le inietta come contesto, con citazioni.
+
+`embeddinggemma` è già installato su Ollama: la UI lo segnala come pronto per
+l'upgrade al RAG vettoriale quando la wiki crescerà.
 
 ## Benchmark misurati (RTX 5060 Ti 16 GB, GPU dedicata)
 
@@ -121,7 +188,7 @@ e il backend stesso libera la VRAM quando cambi modello.
 | Z-Image Q4 (8 step) | 1024² | 17.1 s | **17.8 s** |
 
 I dettagli (ingombri, VRAM, qualità, prompt degli esempi) sono nella wiki
-della pagina **Immagini** e in `SPEC.md`.
+delle pagine **Immagini** e in `SPEC.md`.
 
 ## Note
 
@@ -130,3 +197,8 @@ della pagina **Immagini** e in `SPEC.md`.
   "warm" sono quelli a regime, con le cache persistenti.
 - `reference/` non va mai modificato: il fix al loader low-memory di bonsai
   vive in `backends/gemlite_loader.py`.
+- Scaricare/installare **SOLO da fonti ufficiali** (repo ufficiali PyPI,
+  canale PyTorch ufficiale, download ufficiali): MAI utenti terzi su
+  HuggingFace/GitHub né wheel precompilati da repo non ufficiali. Per TRELLIS.2
+  le dipendenze native (`o_voxel`, `flex_gemm`, `cumesh`) si compilano da
+  sorgente dai repo ufficiali, senza wheel di terze parti.

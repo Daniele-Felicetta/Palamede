@@ -116,12 +116,6 @@ export const IMAGE_MODELS = [BONSAI, ZIMAGE, KLEIN]
 
 // ── Modelli chat (Ornith, da LM Studio → models/) ─────────────────────────
 
-export const ORNITH_MODELS = [
-  { id: 'ornith-35b', name: 'Ornith 1.5 35B-A3B', family: 'Ornith-AI · MoE 3B attivi', quant: 'Q4_K_M · 20.2 GB', moe: true },
-  { id: 'ornith-9b', name: 'Ornith 1.5 9B', family: 'Ornith-AI', quant: 'Q4_K_M · 5.2 GB', moe: false },
-  { id: 'ornith-9b-q5', name: 'Ornith 1.5 9B', family: 'Ornith-AI', quant: 'Q5_K_M · 6.1 GB', moe: false },
-]
-
 export const ORNITH_WIKI: ModelWiki[] = [
   {
     id: 'ornith-35b',
@@ -189,63 +183,6 @@ export interface DraftWiki {
 }
 
 export const DRAFTS: DraftWiki[] = [
-  {
-    path: '/video',
-    title: 'Video',
-    glyph: 'VID',
-    tagline: 'Text-to-video locale (Wan 2.x) — stesso engine sd.cpp che ospita già Z-Image.',
-    how: [
-      'stable-diffusion.cpp espone già l\'endpoint asincrono /sdcpp/v1/vid_gen per i modelli video (Wan 2.1/2.2 e LTX): job in coda, polling dello stato e container webm di ritorno.',
-      'I modelli video richiedano però ben più VRAM dell\'image stack (Wan 14B parte da ~12 GB con offload): la pagina nascerà come job-queue con preview dei frame, quando avremo i pesi in models/.',
-    ],
-    specs: {
-      'Engine previsto': 'sd-server /sdcpp/v1/vid_gen (già scaricato in tools/)',
-      'Modelli': 'Wan 2.1/2.2, LTX-Video — nessuno installato',
-      'VRAM': '≥ 12 GB realistiche (16 GB comodi)',
-      'Latenza': 'minuti per clip da 4–8 s',
-      'Stato': 'bozza — nessun modello video installato',
-    },
-    needs: [
-      'Pesare un modello Wan (es. 1.3B) e un VAE video in models/',
-      'Polling del job + galleria webm nella UI',
-    ],
-  },
-  {
-    path: '/3d',
-    title: '3D',
-    glyph: '3D',
-    tagline: 'Mesh e GS dalla descrizione: TRELLIS e Hunyuan3D.',
-    how: [
-      'I generatori 3D moderni (TRELLIS di Microsoft, Hunyuan3D di Tencent) sono pipeline diffusion che producono latenti voxel/occupancy e li decodificano in mesh con PBR, oppure Gaussian Splatting. Girano via ComfyUI o custom nodes; l\'integrazione più semplice è un workflow ComfyUI headless dietro API.',
-      'La pagina mostrerà l\'anteprima del textured mesh (viewer three.js) con download glTF.',
-    ],
-    specs: {
-      'Engine previsto': 'ComfyUI headless + custom node TRELLIS/Hunyuan3D',
-      'Modelli': 'TRELLIS-image-large, Hunyuan3D-2 — nessuno installato',
-      'VRAM': '8–16 GB',
-      'Latenza': '1–5 min per asset',
-      'Stato': 'bozza — motore e modelli non installati',
-    },
-    needs: ['ComfyUI in tools/ + workflow .json preconfigurati', 'viewer glTF nella UI'],
-  },
-  {
-    path: '/rag',
-    title: 'RAG',
-    glyph: 'RAG',
-    tagline: 'Interrogazione di documenti privati: embeddings + vector store + LLM locale.',
-    how: [
-      'Tutto resta locale: llama.cpp llama-server --embedding (o Ollama) calcola gli embedding, sqlite-vec/Chroma memorizza gli indici nella cartella index/ (ignorata), e un server-side retriever monta il contesto nella chat del modello.',
-      'Interfaccia: upload cartelle, barra di query, citazioni delle fonti con snippet. Il backend richiama le API della pagina Testo e della stessa coda mutex GPU.',
-    ],
-    specs: {
-      'Engine previsto': 'llama-server --embedding + sqlite-vec',
-      'Modelli': 'embedding (bge-m3, qwen3-embedding) — nessuno installato',
-      'VRAM': 'poche centinaia di MB per 0.5–1B di embedding',
-      'Latenza': '~ms per query; indicizzazione lineare',
-      'Stato': 'bozza — serve un modello embeddings',
-    },
-    needs: ['Modello embeddings GGUF in models/', 'CLI di ingestimento documenti'],
-  },
   {
     path: '/mcp',
     title: 'MCP',

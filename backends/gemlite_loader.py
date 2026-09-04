@@ -55,7 +55,7 @@ def fixed_low_mem_load_gemlite_transformer(path, *, device: str = "cuda"):
     with init_empty_weights():
         model = Flux2Transformer2DModel.from_config(cfg)
 
-    state = torch.load(str(state_path), map_location="cpu")
+    state = torch.load(str(state_path), map_location="cpu", weights_only=True)
 
     # cast fp32 -> fp16 in place (i tensori int delle packed weights restano)
     for k in list(state.keys()):

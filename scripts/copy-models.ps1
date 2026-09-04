@@ -5,7 +5,18 @@
 $ErrorActionPreference = 'Stop'
 $Root = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
 $M = Join-Path $Root 'models'
+$Py = Join-Path $Root 'reference\bonsai\.venv\Scripts\python.exe'
+$Audit = Join-Path $Root 'experimental\model-antivirus\audit-model.py'
 New-Item -ItemType Directory -Force -Path $M | Out-Null
+
+function Invoke-AuditModel($file, $url) {
+    # audit di affidabilità (giudice LLM locale se attivo; all'avvio non serve)
+    if ((Test-Path $Py) -and (Test-Path $Audit)) {
+        & $Py $Audit $file -Source $url --json
+        if ($LASTEXITCODE -eq 2) { Remove-Item $file -Force; throw "AUDIT FALLITO: modello respinto ($url)" }
+        if ($LASTEXITCODE -eq 3) { Write-Warning "audit: giudice LLM non disponibile, file tenuto (verifiche deterministiche ok)" }
+    }
+}
 
 # 1) bonsai
 $src = Join-Path $Root 'reference\bonsai\models\bonsai-image-4B-ternary-gemlite'
@@ -28,6 +39,7 @@ if (-not (Test-Path $te)) {
     Write-Host "scarico Qwen3-4B TE (2.5 GB)…" -ForegroundColor Cyan
     curl.exe -L --fail --retry 3 -o $te `
       'https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/main/Qwen3-4B-Instruct-2507-Q4_K_M.gguf'
+    Invoke-AuditModel $te 'https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/main/Qwen3-4B-Instruct-2507-Q4_K_M.gguf'
 }
 
 # 4) VAE Z-Image (ufficiale Tongyi, publico)
@@ -36,6 +48,16 @@ if (-not (Test-Path $vae)) {
     Write-Host "scarico Z-Image VAE (160 MB)…" -ForegroundColor Cyan
     curl.exe -L --fail --retry 3 -o $vae `
       'https://huggingface.co/Tongyi-MAI/Z-Image-Turbo/resolve/main/vae/diffusion_pytorch_model.safetensors'
+    Invoke-AuditModel $vae 'https://huggingface.co/Tongyi-MAI/Z-Image-Turbo/resolve/main/vae/diffusion_pytorch_model.safetensors'
+}
+
+# 5) VAE FLUX.2 (serve al modello klein (FLUX.2 4B); pubblico Apache-2.0)
+$fv = Join-Path $M 'flux2-vae.safetensors'
+if (-not (Test-Path $fv)) {
+    Write-Host "scarico VAE FLUX.2 (0.32 GB)…" -ForegroundColor Cyan
+    curl.exe -L --fail --retry 3 -o $fv `
+      'https://huggingface.co/Comfy-Org/flux2-dev/resolve/main/split_files/vae/flux2-vae.safetensors'
+    Invoke-AuditModel $fv 'https://huggingface.co/Comfy-Org/flux2-dev/resolve/main/split_files/vae/flux2-vae.safetensors'
 }
 
 Write-Host "models/ pronto:" -ForegroundColor Green

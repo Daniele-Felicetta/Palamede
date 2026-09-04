@@ -16,6 +16,9 @@ tools/
 src-tauri/target/
 src-tauri/gen/
 
+# cache di rust-analyzer / build Rust generica
+target/
+
 # ── Flusso legacy .NET (archiviato in legacy/) ──────────────────
 # Vecchio launcher WinForms + bundle incorporato. Sostituito da Tauri v2,
 # mantenuto solo come riferimento storico.

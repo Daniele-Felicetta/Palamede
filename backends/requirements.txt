@@ -1,0 +1,23 @@
+# Dipendenze Python del backend Palamede (backends/modelserver.py,
+# backends/gemlite_loader.py). Le versioni riportate sono quelle
+# verificate nel venv di reference/bonsai (uv). Il runtime reale usa
+# quel venv: questo file documenta le dipendenze dirette.
+
+fastapi==0.141.1
+uvicorn==0.52.4
+pydantic==2.14.0b1
+numpy==2.4.6
+torch==2.11.0+cu128
+torchao==0.18.0
+diffusers==0.40.0
+transformers==5.16.1
+accelerate==1.14.0
+safetensors==0.8.0
+gemlite==0.6.0.post1
+
+# triton (via triton_windows 3.6.0.post26 su Windows) è dipendenza
+# transitiva di torch/gemlite: non serve listarlo a mano.
+#
+# backend_gpu NON è un pacchetto pip autonomo: è installato in modo
+# editable da reference/bonsai/vendor/image-studio/backend_gpu
+# (vedi pyproject.toml di reference/bonsai).

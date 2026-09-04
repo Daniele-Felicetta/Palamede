@@ -1,0 +1,30 @@
+[package]
+name = "palamede"
+version = "0.19.0"
+description = "Palamede — officina locale di generazione"
+authors = ["Palamede"]
+edition = "2021"
+default-run = "palamede"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-notification = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = [
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_System_JobObjects",
+  "Win32_System_Threading",
+] }
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

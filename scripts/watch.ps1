@@ -3,19 +3,27 @@
 # poi scripts/build.ps1 (frontend + Tauri).
 # Uso:  .\scripts\watch.ps1
 #       .\scripts\watch.ps1 -SkipFrontend   (non ricompila la UI a ogni colpo)
-param([switch]$SkipFrontend)
+#       .\scripts\watch.ps1 -FrontendOnly  (solo rebuild UI: niente exe Tauri)
+param([switch]$SkipFrontend, [switch]$FrontendOnly)
 $ErrorActionPreference = 'Stop'
 $Root = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
 
 # ── sorgenti osservati (mai le cartelle di output: la build si auto-triggererebbe) ──
-$script:watchDirs = @(
-    (Join-Path $Root 'backends'),
-    (Join-Path $Root 'hub'),
-    (Join-Path $Root 'src-tauri\src'),
-    (Join-Path $Root 'scripts'),
-    (Join-Path $Root 'frontend\src'),
-    (Join-Path $Root 'frontend\public')
-)
+if ($FrontendOnly) {
+    $script:watchDirs = @(
+        (Join-Path $Root 'frontend\src'),
+        (Join-Path $Root 'frontend\public')
+    )
+} else {
+    $script:watchDirs = @(
+        (Join-Path $Root 'backends'),
+        (Join-Path $Root 'hub'),
+        (Join-Path $Root 'src-tauri\src'),
+        (Join-Path $Root 'scripts'),
+        (Join-Path $Root 'frontend\src'),
+        (Join-Path $Root 'frontend\public')
+    )
+}
 
 # sottostringhe escluse (dipendenze / artefatti / alberi enormi)
 $script:excludes = @(
@@ -39,7 +47,15 @@ function Invoke-Rebuild {
     $script:buildBusy = $true
     try {
         Write-Host ("[{0}] modifica rilevata: build…" -f (Get-Date -Format 'HH:mm:ss')) -ForegroundColor Yellow
-        if ($SkipFrontend) {
+        if ($FrontendOnly) {
+            Push-Location (Join-Path $Root 'frontend')
+            try {
+                npm run build
+                if ($LASTEXITCODE -ne 0) { throw "npm build fallito ($LASTEXITCODE)" }
+            } finally {
+                Pop-Location
+            }
+        } elseif ($SkipFrontend) {
             & (Join-Path $Root 'scripts\build.ps1') -SkipFrontend
         } else {
             & (Join-Path $Root 'scripts\build.ps1')
@@ -83,7 +99,11 @@ if (Test-Path $fswRoot) {
     $fsw.EnableRaisingEvents = $true
 }
 
-Write-Host 'watch attivo: osservo backends, hub, src-tauri/src, scripts, frontend/src, frontend/public' -ForegroundColor Cyan
+if ($FrontendOnly) {
+    Write-Host 'watch attivo (solo frontend): osservo frontend/src e frontend/public' -ForegroundColor Cyan
+} else {
+    Write-Host 'watch attivo: osservo backends, hub, src-tauri/src, scripts, frontend/src, frontend/public' -ForegroundColor Cyan
+}
 Write-Host 'premi Ctrl+C per fermare.' -ForegroundColor DarkGray
 
 try {

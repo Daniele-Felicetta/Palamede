@@ -1,5 +1,5 @@
 ﻿# Palamede - avvio con UN comando solo (finestre nascoste, log in outputs/).
-# Controlla cosa e' gia' attivo, avvia modello server e hub se mancano,
+# Controlla cosa è già attivo, avvia modello server e hub se mancano,
 # apre il browser.  .\scripts\start.ps1  oppure  start.bat / Palamede.exe
 param([switch]$NoBrowser, [switch]$Visible)
 $ErrorActionPreference = 'Stop'
@@ -21,7 +21,7 @@ $winStyle   = if ($Visible) { 'Minimized' } else { 'Hidden' }
 
 # ── modello server (:8000) ──
 if (Test-Port 8000) {
-    Write-Host '  modello server gia' attivo (:8000)' -ForegroundColor DarkGray
+    Write-Host '  modello server già attivo (:8000)' -ForegroundColor DarkGray
 } else {
     Write-Host '  avvio modello server (:8000)...' -ForegroundColor Cyan
     Start-Process powershell -ArgumentList (
@@ -31,7 +31,7 @@ if (Test-Port 8000) {
 
 # ── hub (:4600) ──
 if (Test-Port 4600) {
-    Write-Host '  hub gia' attivo (:4600)' -ForegroundColor DarkGray
+    Write-Host '  hub già attivo (:4600)' -ForegroundColor DarkGray
 } else {
     Write-Host '  avvio hub (:4600)...' -ForegroundColor Cyan
     Start-Process powershell -ArgumentList (

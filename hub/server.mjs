@@ -32,6 +32,20 @@ const ROOT = resolve(__dirname, '..')
 const DIST = join(ROOT, 'frontend', 'dist')
 const PORT = Number(process.env.PALAMEDE_PORT || 4600)
 const BACKEND = process.env.PALAMEDE_BACKEND || 'http://127.0.0.1:8000'
+// TRELLIS.2 (image-to-3D): venv separato su :8124, porta lunga (generazione ~74s)
+const TRELLIS = process.env.PALAMEDE_TRELLIS || 'http://127.0.0.1:8124'
+
+// Server 3D TRELLIS come subprocess gestito dal hub (start/stop), analogo a
+// textServer per la chat. Il venv Python è separato e carica la pipeline in
+// modo lazy: /status risponde 200 non appena il processo è vivo, mentre
+// j.ready=true si attiva solo dopo il primo caricamento del modello.
+const TRELLIS_PORT = Number(process.env.PALAMEDE_TRELLIS_PORT || 8124)
+const TRELLIS_PY = join(ROOT, 'reference', 'trellis-venv', 'Scripts', 'python.exe')
+const TRELLIS_LOG = join(ROOT, 'outputs', 'trellis-server.log')
+let trellisServer = { proc: null, ready: false, load_time_s: null }
+
+// documenti serviti alla sezione Progetto della UI (whitelist: niente path traversal)
+const DOC_FILES = { mappa: 'MAPPA.md', readme: 'README.md', spec: 'SPEC.md', security: 'SECURITY.md' }
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -43,6 +57,46 @@ const MIME = {
   '.ico': 'image/x-icon',
   '.woff2': 'font/woff2',
   '.json': 'application/json',
+}
+
+// ── anti drive-by / DNS rebinding ─────────────────────────────────────────
+// I servizi ascoltano su 127.0.0.1 ma senza autenticazione: senza queste
+// due difese una pagina web malevola aperta nel browser dell'utente può
+// chiamare le API (le POST "simple" non fanno preflight CORS).
+//   1. allowedHost  — il browser invia SEMPRE l'Host richiesto: se non è
+//      loopback la richiesta arriva da un dominio malevolo risolto su
+//      127.0.0.1 (DNS rebinding). 403.
+//   2. allowedOrigin — il browser invia l'Origin su tutte le fetch e su
+//      tutte le POST: se non è l'hub (o il dev server Vite) è una richiesta
+//      cross-origin da un sito web. 403.
+// I client non-browser (curl, PowerShell, Rust) non inviano Origin e
+// restano ammessi: sono processi locali già privilegiati, fuori dal modello
+// di minaccia. Residuo documentato in SECURITY.md: probing GET in sola
+// lettura via <img>/<script> su URL con id non indovinabili.
+const DEV_ORIGIN_PORT = 5173 // dev server Vite (frontend/vite.config.ts)
+
+function allowedHost(req) {
+  let h = String(req.headers.host || '').toLowerCase()
+  if (h.startsWith('[')) { // IPv6 "[::1]:port"
+    const m = h.match(/^\[([^\]]+)\]/)
+    h = m ? m[1] : h
+  } else {
+    const i = h.lastIndexOf(':')
+    if (i > 0) h = h.slice(0, i)
+  }
+  return h === '127.0.0.1' || h === 'localhost' || h === '::1'
+}
+
+function allowedOrigin(req) {
+  const origin = String(req.headers.origin || '').toLowerCase()
+  if (!origin) return true
+  const ok = new Set([
+    `http://127.0.0.1:${PORT}`,
+    `http://localhost:${PORT}`,
+    `http://127.0.0.1:${DEV_ORIGIN_PORT}`,
+    `http://localhost:${DEV_ORIGIN_PORT}`,
+  ])
+  return ok.has(origin)
 }
 
 // ── coda mutex (un solo modello alla volta sulla GPU) ───────────────────
@@ -60,14 +114,14 @@ function json(res, status, obj) {
   res.end(JSON.stringify(obj))
 }
 
-async function proxyJson(req, res, targetPath, timeoutMs = 200_000) {
+async function proxyJson(req, res, targetPath, timeoutMs = 200_000, base = BACKEND) {
   let body = null
   if (req.method === 'POST') {
     const chunks = []
     for await (const c of req) chunks.push(c)
     body = Buffer.concat(chunks)
   }
-  const r = await fetch(BACKEND + targetPath, {
+  const r = await fetch(base + targetPath, {
     method: req.method,
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
     body: body || undefined,
@@ -278,6 +332,89 @@ async function startText(cfg) {
   throw new Error('llama-server non pronto entro 150s (vedi outputs/text-server.log)')
 }
 
+// ── server 3D TRELLIS.2 (image-to-3D, venv separato :8124) ──────────────────
+// La pipeline carica in modo lazy: /status risponde 200 non appena il processo
+// è vivo, mentre j.ready=true si attiva dopo il primo caricamento. Per la
+// "readiness" del processo basta quindi che /status risponda.
+
+async function trellisReady(timeoutMs = 3000) {
+  try {
+    const r = await fetch(`http://127.0.0.1:${TRELLIS_PORT}/status`, { signal: AbortSignal.timeout(timeoutMs) })
+    if (r.ok) return true
+  } catch { /* giù */ }
+  return false
+}
+
+async function trellisStatus() {
+  const running = !!(trellisServer.proc && !trellisServer.proc.killed)
+  // se vivo, leggiamo lo stato reale del backend (:8124/status) e aggiorniamo
+  // la cache; se il fetch fallisce usiamo la cache. Così /api/3d/status non è
+  // mai "stale": ready/loading riflettono il vero stato del server trellis.
+  let load_time_s = trellisServer.load_time_s
+  let ready = trellisServer.ready
+  let loading = false
+  if (running) {
+    try {
+      const r = await fetch(`http://127.0.0.1:${TRELLIS_PORT}/status`, { signal: AbortSignal.timeout(3000) })
+      if (r.ok) {
+        const j = await r.json()
+        if (typeof j.load_time_s === 'number') { trellisServer.load_time_s = j.load_time_s; load_time_s = j.load_time_s }
+        if (j.ready === true) { trellisServer.ready = true; ready = true }
+        loading = j.loading === true
+      }
+    } catch { /* giù: usa la cache */ }
+  }
+  return { running, ready, loading, pid: trellisServer.proc ? trellisServer.proc.pid : null, load_time_s }
+}
+
+function stopTrellis(force = true) {
+  if (trellisServer.proc) {
+    try { trellisServer.proc.kill(force ? 'SIGKILL' : 'SIGTERM') } catch { /* già morto */ }
+    trellisServer.proc = null
+  }
+  trellisServer.ready = false
+  trellisServer.load_time_s = null
+}
+
+async function startTrellis() {
+  if (trellisServer.proc && !trellisServer.proc.killed) return await trellisStatus()
+
+  if (!existsSync(TRELLIS_PY)) throw new Error(`manca ${TRELLIS_PY} — il venv TRELLIS non esiste`)
+  mkdirSync(join(ROOT, 'outputs'), { recursive: true })
+
+  const logFd = openSync(TRELLIS_LOG, 'a')
+  try { writeSync(logFd, `\n--- avvio trellis server su porta ${TRELLIS_PORT} ---\n`) } catch { /* log best-effort */ }
+
+  trellisServer.ready = false
+  trellisServer.load_time_s = null
+  const env = {
+    ...process.env,
+    PYTHONIOENCODING: 'utf-8',
+    PYTHONUTF8: '1',
+    ATTN_BACKEND: 'sdpa',
+  }
+  // python -m uvicorn backends.trellis_server:app --port <porta>
+  const args = ['-m', 'uvicorn', 'backends.trellis_server:app', '--port', String(TRELLIS_PORT)]
+  trellisServer.proc = spawn(TRELLIS_PY, args, {
+    cwd: ROOT, windowsHide: true, stdio: ['ignore', logFd, logFd], env,
+  })
+  trellisServer.proc.on('error', (e) => { try { writeSync(logFd, 'errore spawn: ' + e.message + '\n') } catch { /* log chiuso */ } })
+  trellisServer.proc.on('exit', () => {
+    trellisServer.proc = null
+    trellisServer.ready = false
+    trellisServer.load_time_s = null
+  })
+
+  // attesa che /status risponda (il server uvicorn parte in pochi secondi)
+  const deadline = Date.now() + 60_000
+  while (Date.now() < deadline) {
+    if (!trellisServer.proc) throw new Error('il server 3D è uscito durante l\'avvio (vedi outputs/trellis-server.log)')
+    if (await trellisReady(2000)) return await trellisStatus()
+    await new Promise((r) => setTimeout(r, 1000))
+  }
+  throw new Error('server 3D non pronto entro 60s (vedi outputs/trellis-server.log)')
+}
+
 // proxy SSE: la risposta di llama-server viene passata byte per byte
 function proxyChat(req, res) {
   const chunks = []
@@ -441,6 +578,66 @@ async function handleApi(req, res, path) {
     return queued(() => proxyJson(req, res, '/generate', 900_000))
   }
 
+  // ── TRELLIS.2 image-to-3D (venv separato :8124) ────────────────────────
+  if (path === '/api/3d/status' && req.method === 'GET') {
+    // stato LOCALE del subprocess gestito dal hub (non più proxy): funziona
+    // anche quando il server è spento (running:false).
+    return json(res, 200, await trellisStatus())
+  }
+
+  if (path === '/api/3d/start' && req.method === 'POST') {
+    return queued(async () => {
+      try {
+        const s = await startTrellis()
+        // in coda come /chat/start: il frontend vede running:true subito.
+        return json(res, 200, s)
+      } catch (e) {
+        return json(res, 500, { error: { message: e.message } })
+      }
+    })
+  }
+
+  if (path === '/api/3d/stop' && req.method === 'POST') {
+    stopTrellis(true)
+    return json(res, 200, await trellisStatus())
+  }
+
+  if (path === '/api/3d/generate' && req.method === 'POST') {
+    // coda mutex come /api/image; timeout lungo (15 min) per la generazione.
+    // NB: il proxy punta al trellis server :8124 (non al modello server :8000).
+    if (!(await trellisStatus()).running) {
+      return json(res, 409, { error: { message: 'server 3D spento: avvialo dalla sidebar o da /api/3d/start' } })
+    }
+    return queued(() => proxyJson(req, res, '/generate', 900_000, TRELLIS))
+  }
+
+  if (path.startsWith('/api/3d/file/') && req.method === 'GET') {
+    // serve un GLB già prodotto da outputs/3d (download / viewer)
+    const fm = path.match(/^\/api\/3d\/file\/([^/]+)$/)
+    if (fm) {
+      const id = fm[1]
+      if (!/^[a-zA-Z0-9._-]+$/.test(id) || !id.endsWith('.glb') && !id.endsWith('.stl')) {
+        return json(res, 400, { error: { message: 'id non valido' } })
+      }
+      const abs = join(ROOT, 'outputs', '3d', id)
+      if (!abs.startsWith(join(ROOT, 'outputs', '3d'))) {
+        return json(res, 403, { error: { message: 'forbidden' } })
+      }
+      try {
+        const data = await readFile(abs)
+        res.writeHead(200, {
+          'Content-Type': 'application/octet-stream',
+          'Cache-Control': 'no-store',
+          'Content-Disposition': `attachment; filename="${id}"`,
+        })
+        res.end(data)
+        return
+      } catch {
+        return json(res, 404, { error: { message: 'file non trovato' } })
+      }
+    }
+  }
+
   if (path === '/api/chat/status' && req.method === 'GET') {
     return json(res, 200, textStatus())
   }
@@ -463,6 +660,19 @@ async function handleApi(req, res, path) {
 
   if (path === '/api/chat' && req.method === 'POST') {
     return proxyChat(req, res)
+  }
+
+  // ── documentazione del progetto (sezione Progetto nella UI) ───────────
+  if (path === '/api/doc' && req.method === 'GET') {
+    const name = String(new URL(req.url, 'http://localhost').searchParams.get('name') || '').toLowerCase()
+    const file = DOC_FILES[name]
+    if (!file) return json(res, 404, { error: { message: 'documento sconosciuto (mappa|readme|spec|security)' } })
+    try {
+      const text = await readFile(join(ROOT, file), 'utf8')
+      return json(res, 200, { name: file, text })
+    } catch {
+      return json(res, 404, { error: { message: 'documento non trovato' } })
+    }
   }
 
   if (path.startsWith('/api/history')) {
@@ -526,6 +736,9 @@ createServer(async (req, res) => {
     console.log(`[${new Date().toISOString()}] ABORTED ${req.method} ${req.url} (${Date.now() - start}ms)`)
   })
   const path = new URL(req.url, 'http://localhost').pathname
+  // ── anti drive-by / DNS rebinding ──
+  if (!allowedHost(req)) return json(res, 403, { error: { message: 'host non ammesso' } })
+  if (path.startsWith('/api/') && !allowedOrigin(req)) return json(res, 403, { error: { message: 'origin non ammessa' } })
   try {
     if (path.startsWith('/api/')) return await handleApi(req, res, path)
     if (req.method === 'GET' || req.method === 'HEAD') return await serveStatic(res, path)

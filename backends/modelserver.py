@@ -85,7 +85,6 @@ MODELS = {
     "klein": {"name": "Klein 4B Q4 (FLUX.2)", "engine": "stable-diffusion.cpp (sd-server, flux2)"},
 }
 
-
 class ModelManager:
     def __init__(self) -> None:
         self._lock = threading.Lock()
@@ -162,7 +161,12 @@ class ModelManager:
         raise RuntimeError(f"sd-server non pronto entro {timeout}s")
 
     def _sd_files(self, model: str) -> tuple[str, str, str, str]:
-        """(diffusion, vae, text-encoder, vae-format) per un modello sd-server."""
+        """(diffusion, vae, text-encoder, vae-format) per un modello sd-server.
+
+        Il text-encoder può essere `--llm` (Z-Image/Klein, Qwen): chi
+        chiama sceglie il flag in base al modello. Il ritorno è sempre
+        (diffusion, vae, encoder, vae-format).
+        """
         if model == "zimage":
             return (str(ROOT / "models" / "z-image-turbo-Q4_K_M.gguf"),
                     str(ROOT / "models" / "z-image-vae.safetensors"),
@@ -191,8 +195,8 @@ class ModelManager:
                     proc.wait(timeout=5)
                 except Exception:
                     log.warning("sd-server precedente non terminato pulitamente")
-        diffusion, vae, llm, vae_format = self._sd_files(model)
-        missing = [p for p in (diffusion, vae, llm) if not Path(p).exists()]
+        diffusion, vae, encoder, vae_format = self._sd_files(model)
+        missing = [p for p in (diffusion, vae, encoder) if not Path(p).exists()]
         if missing:
             raise RuntimeError(
                 f"mancano file per {model}: {', '.join(missing)} — "
@@ -201,9 +205,10 @@ class ModelManager:
         cmd = [SD_EXE,
                "--diffusion-model", diffusion,
                "--vae", vae,
-               "--llm", llm,
                "--diffusion-fa",
                "--listen-port", str(SD_PORT)]
+        # il text encoder è --llm (Z-Image/Klein, Qwen)
+        cmd += ["--llm", encoder]
         if vae_format != "auto":
             cmd += ["--vae-format", vae_format]
         t0 = time.perf_counter()

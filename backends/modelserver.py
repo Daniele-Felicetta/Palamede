@@ -92,6 +92,7 @@ class ModelManager:
         self._pipeline: GpuPipeline | None = None
         self._sd: subprocess.Popen | None = None
         self._sd_model: str | None = None
+        self._sd_log = None  # handle del log sd-server (chiuso a ogni unload)
 
     # ── stato ──
     def status(self) -> dict:
@@ -107,6 +108,33 @@ class ModelManager:
         }
 
     # ── unload ──
+    def _close_sd_log(self) -> None:
+        fh, self._sd_log = self._sd_log, None
+        if fh is not None:
+            try:
+                fh.close()
+            except Exception:
+                pass
+
+    def _kill_sd(self) -> None:
+        proc, self._sd = self._sd, None
+        self._sd_model = None
+        if proc is None:
+            self._close_sd_log()
+            return
+        log.info("terminazione sd-server (pid=%s)", proc.pid)
+        try:
+            proc.terminate()
+            proc.wait(timeout=15)
+        except Exception:
+            try:
+                proc.kill()
+                proc.wait(timeout=5)
+            except Exception:
+                log.warning("sd-server non terminato pulitamente")
+        finally:
+            self._close_sd_log()
+
     def _unload(self) -> None:
         if self._current == "bonsai" and self._pipeline is not None:
             log.info("unload bonsai: libero VRAM")
@@ -115,19 +143,8 @@ class ModelManager:
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
         if self._current in ("zimage", "klein") and self._sd is not None:
-            proc = self._sd
-            self._sd = None
-            self._sd_model = None
-            log.info("unload %s: terminazione sd-server (pid=%s)", self._current, proc.pid)
-            try:
-                proc.terminate()
-                proc.wait(timeout=15)
-            except Exception:
-                try:
-                    proc.kill()
-                    proc.wait(timeout=5)
-                except Exception:
-                    log.warning("sd-server non terminato pulitamente")
+            log.info("unload %s: terminazione sd-server", self._current)
+            self._kill_sd()
         self._current = None
 
     # ── load ──
@@ -183,18 +200,7 @@ class ModelManager:
             return
         # cambio modello: termina il server precedente (libera VRAM)
         if self._sd is not None:
-            proc = self._sd
-            self._sd = None
-            self._sd_model = None
-            try:
-                proc.terminate()
-                proc.wait(timeout=15)
-            except Exception:
-                try:
-                    proc.kill()
-                    proc.wait(timeout=5)
-                except Exception:
-                    log.warning("sd-server precedente non terminato pulitamente")
+            self._kill_sd()
         diffusion, vae, encoder, vae_format = self._sd_files(model)
         missing = [p for p in (diffusion, vae, encoder) if not Path(p).exists()]
         if missing:
@@ -212,7 +218,9 @@ class ModelManager:
         if vae_format != "auto":
             cmd += ["--vae-format", vae_format]
         t0 = time.perf_counter()
+        self._close_sd_log()
         stdout = open(SD_LOG, "ab", buffering=0)
+        self._sd_log = stdout
         self._sd = subprocess.Popen(
             cmd, stdout=stdout, stderr=subprocess.STDOUT,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
@@ -251,6 +259,9 @@ class ModelManager:
             raise ValueError(f"modello sconosciuto: {model}")
         if image and model == "bonsai":
             raise ValueError("bonsai non supporta image-to-image (usa zimage o klein)")
+        # il VAE richiede multipli di 32: snap difensivo (la UI invia preset validi)
+        width = max(64, (int(width) // 32) * 32)
+        height = max(64, (int(height) // 32) * 32)
         with self._lock:
             # auto-carica se il modello non è quello attivo
             if self._current != model:

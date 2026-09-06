@@ -70,7 +70,7 @@
           href="#{n.path}"
           class="{(route.path === n.path ? 'active ' : '') + (n.live ? '' : 'disabled')}"
           onclick={(e) => { e.preventDefault(); navigate(n.path) }}
-        >{n.label}</a>
+        ><svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html n.icon}</svg>{n.label}</a>
       {/each}
     </nav>
     <div class="beacon" role="status" aria-label="Stato dell'officina">

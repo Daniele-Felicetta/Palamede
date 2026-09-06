@@ -16,5 +16,6 @@
     "noFallthroughCasesInSwitch": true,
     "types": ["svelte", "vite/client"]
   },
-  "include": ["src/**/*.ts", "src/**/*.svelte"]
+  "include": ["src/**/*.ts", "src/**/*.svelte"],
+  "exclude": ["node_modules", "dist", "src/components/ui2/**/*", "src/ui/**/*"]
 }

@@ -4,6 +4,8 @@
   import Draft from './components/Draft.svelte'
   import { DRAFTS } from './data/wiki'
   import { route } from './router.svelte'
+  import Setup from './games/bandersketch/src/Setup.svelte'
+  import Bandersketch from './games/bandersketch/src/Bandersketch.svelte'
 
   // ── Auto-routing ───────────────────────────────────────────────────────
   // Ogni file in pages/*.svelte diventa una rotta da solo, niente righe da
@@ -24,8 +26,14 @@
     const href = name === 'Home' ? '/' : `/${name.toLowerCase()}`
     pages.set(href, (pageModules[file] as { default: Component }).default)
   }
+  // Bandersketch: il setup sta in /bandersketch, il gioco vero e proprio in
+  // /bandersnatch/<genere> (rotta dinamica, esperienza separata dal resto).
+  pages.set('/bandersketch', Setup)
 
-  let Page = $derived(pages.get(route.path) ?? null)
+  const gameRoute = /^\/bandersnatch\/([^/]+)$/
+  let Page = $derived(
+    pages.get(route.path) ?? (gameRoute.test(route.path) ? Bandersketch : null),
+  )
   let draft = $derived(DRAFTS.find((d) => d.path === route.path) ?? null)
   let Home = $derived(pages.get('/')!)
 </script>

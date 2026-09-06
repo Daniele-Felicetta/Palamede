@@ -91,7 +91,19 @@ class TrellisManager:
         if self._pipeline is not None:
             return
         if self._loading:
-            raise RuntimeError("TRELLIS.2 sta ancora caricando; riprova tra qualche secondo")
+            # preload in corso in background: attendi invece di fallire
+            deadline = time.time() + 300.0
+            while time.time() < deadline:
+                time.sleep(1.0)
+                if self._pipeline is not None:
+                    return
+                if not self._loading:
+                    break
+            if self._pipeline is not None:
+                return
+            # se il preload è fallito, riprova il caricamento diretto qui sotto
+            if self._loading:
+                raise RuntimeError("TRELLIS.2 sta ancora caricando; riprova tra qualche secondo")
         self._loading = True
         t0 = time.perf_counter()
         try:
@@ -109,6 +121,8 @@ class TrellisManager:
         except Exception:
             self._loading = False
             raise
+        else:
+            self._loading = False
 
     # ── preload all'avvio (best-effort) ──
     def preload(self) -> None:

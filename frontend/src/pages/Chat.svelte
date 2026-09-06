@@ -9,6 +9,11 @@
 
   interface Msg extends ChatMessage { pending?: boolean; reason?: string }
 
+  // Testo leggibile di un messaggio: i contenuti multimodali (array di parti)
+  // si riducono alle sole parti testuali.
+  const msgText = (m: Msg): string =>
+    typeof m.content === 'string' ? m.content : m.content.filter((p) => p.type === 'text').map((p) => p.text ?? '').join('')
+
   // Ragionamento pieghevole: resta aperto durante lo streaming, poi l'utente
   // decide (ogni messaggio con il proprio stato).
   let status = $state<ChatStatus | null>(null)
@@ -290,14 +295,14 @@
           {:else}
             {#each messages as m, i (i)}
               {#if m.role === 'user'}
-                <div class="bubble user">{m.content}</div>
+                <div class="bubble user">{msgText(m)}</div>
               {:else}
                 <div class="msg assistant">
                    <span class="avatar" aria-hidden="true">O</span>
                   <div class="msg-body">
                     {#if m.reason}<ReasonBlock text={m.reason} streaming={!!m.pending} />{/if}
                     <div class="msg-text">
-                      <Markdown text={m.content} />
+                      <Markdown text={msgText(m)} />
                        {#if m.pending}<span class="caret" aria-hidden="true"></span>{/if}
                     </div>
                   </div>

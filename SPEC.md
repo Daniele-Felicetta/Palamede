@@ -349,17 +349,19 @@ JIT/autotune (cache persistite in `outputs/.triton_cache` e
 
 ## Frontend
 
-Vite + React 18 + TypeScript, router custom hash-based (zero deps extra),
+Vite + Svelte 5 + TypeScript, router custom hash-based (zero deps extra),
 CSS vanilla con design system "officina a inchiostro": sumi-ink scuro, carta
 invecchiata, accenti ocra/vermiglio, Fraunces (display) + IBM Plex
 (Sans/Mono). `npm run dev` proxya `/api` al hub :4600.
 
-**Stato condiviso** in `frontend/src/store.ts`: un solo poller per tutta
-l'app (health + modelli + metriche ogni 3 s) esposto via `useStore()`, così
+**Stato condiviso** in `frontend/src/store.svelte.ts`: un solo poller per tutta
+l'app (health + modelli + metriche + chat ogni 3 s, senza overlap e in pausa a
+scheda nascosta) esposto via runes `$state`, così
 sidebar, home e pagina immagini mostrano sempre lo stesso stato. Il cambio
 modello è un solo punto (`switchModel(id)`): il server scarica il precedente
 e carica il nuovo su `/select` — **non serve mai premere un "eject" prima di
-cambiare modello**.
+cambiare modello**. Auto-routing in `App.svelte`: ogni file in `pages/*.svelte`
+diventa una rotta (`Home` → `/`).
 
 Pagine:
 

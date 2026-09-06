@@ -29,13 +29,23 @@ export const getCurrent = (): string | null => current
 
 export const modelLabel = Images.modelLabel
 
+let ticking = false
 async function tick() {
-  const errs: string[] = []
-  try { store.health = await getHealth() } catch (e) { errs.push('health: ' + (e instanceof Error ? e.message : String(e))) }
-  try { store.models = await getModels() } catch (e) { errs.push('models: ' + (e instanceof Error ? e.message : String(e))) }
-  try { store.metrics = await getMetrics() } catch (e) { errs.push('metrics: ' + (e instanceof Error ? e.message : String(e))) }
-  try { store.chat = await getChatStatus() } catch { /* chat non ancora supportata dal hub */ }
-  store.lastError = errs.length ? errs.join(' · ') : null
+  // niente overlap: se il giro precedente è ancora in volo (hub sotto carico),
+  // salta questo (il poller riprova tra 3 s). A scheda nascosta, niente poll.
+  if (ticking) return
+  if (typeof document !== 'undefined' && document.hidden) return
+  ticking = true
+  try {
+    const errs: string[] = []
+    try { store.health = await getHealth() } catch (e) { errs.push('health: ' + (e instanceof Error ? e.message : String(e))) }
+    try { store.models = await getModels() } catch (e) { errs.push('models: ' + (e instanceof Error ? e.message : String(e))) }
+    try { store.metrics = await getMetrics() } catch (e) { errs.push('metrics: ' + (e instanceof Error ? e.message : String(e))) }
+    try { store.chat = await getChatStatus() } catch { /* chat non ancora supportata dal hub */ }
+    store.lastError = errs.length ? errs.join(' · ') : null
+  } finally {
+    ticking = false
+  }
 }
 
 // Il poller parte all'import del modulo: Layout monta sempre, quindi l'app

@@ -102,7 +102,7 @@ whitelist** (`^[a-zA-Z0-9._-]+$` + estensione attesa) e controllo
 | **Probing GET via `<img>`/`<script>`** | Lettura di file con id "non indovinabili" (`outputs/history`, `outputs/3d`) | Gli id sono `timestamp-random` (6 caratteri base36): non enumerabili, e le risposte non sono leggibili cross-origin senza CORS. |
 | **Body API senza limite dimensionale** | Un processo locale può riempire RAM/disco (img2img dataUrl, prompt lunghi) | Serve un client locale, già fuori dal modello di minaccia. |
 | **Processi figli con i privilegi dell'utente** | Un bug di parsing GGUF nei runtime C++ su file malevolo = esecuzione come utente | La verifica modelli all'avvio è l'unico gate; i modelli vanno scaricati solo da fonti ufficiali. |
-| **Knowledge base (RAG)**: il frontend chiama `/api/kb/*` ma il hub non li implementa (404) | Sezione RAG non funzionante, nessun rischio aggiuntivo | Se verranno ripristinati, vanno reintrodotti i path check su `read/save/delete` (candidati path traversal). |
+| **Knowledge base (RAG)**: endpoint `/api/kb/*` con write su disco | Path traversal / scrittura arbitraria | Tutti i path passano per `kbResolve()` (niente `..`, assoluti, backslash) + whitelist `raw/|wiki/` e `.md/.txt`; `read`/`delete`/`file` con regex + `startsWith` sulla base. |
 
 ## Regole di manutenzione
 

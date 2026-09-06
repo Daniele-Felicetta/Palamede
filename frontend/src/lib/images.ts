@@ -46,10 +46,13 @@ export namespace Images {
     return id !== 'bonsai'
   }
 
-  /** '512x512' → [512, 512]; su formato non valido ripiega su 512². */
+  /** '512x512' → [512, 512]; snap a multipli di 32 (vincolo VAE),
+   *  clamp 64–2048; su formato non valido ripiega su 512². */
   export function parseSize(size: string): [number, number] {
     const [w, h] = size.split('x').map(Number)
-    return Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0 ? [w, h] : [512, 512]
+    if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return [512, 512]
+    const snap = (v: number) => Math.min(2048, Math.max(64, Math.round(v / 32) * 32))
+    return [snap(w), snap(h)]
   }
 
   /** true se il formato è tra i preset di SIZES. */

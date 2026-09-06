@@ -49,17 +49,19 @@ Palamede/                       (repo git · aggiornata: 2026-09-02 02:05)
 
 ## Frontend — frontend/
 
-- `src/main.tsx` — entry React, mappa path→pagina (Home/Images/Chat/Rag/Progetto/Draft).
-- `src/router.ts` — router hash-based (`useHashRoute`).
-- `src/store.ts` — store condiviso: poller health/modelli/metriche ogni 3 s, `switchModel`.
-- `src/api.ts` — client HTTP verso il hub (tutti gli endpoint `/api/*`).
+- `src/main.ts` — entry Svelte 5, monta `App.svelte` (auto-routing da `pages/*.svelte`).
+- `src/App.svelte` — mappa path→pagina (Home/Images/Chat/Rag/Progetto/3d…) + Draft per le bozze.
+- `src/router.svelte.ts` — router hash-based (`route` $state + `navigate()`).
+- `src/store.svelte.ts` — store condiviso: poller health/modelli/metriche/chat ogni 3 s (no overlap, pausa a scheda nascosta), `switchModel`.
+- `src/api.ts` — client HTTP verso il hub (tutti gli endpoint `/api/*`: health, models, image, history, chat, kb, 3d, doc).
+- `src/lib/images.ts` + `src/lib/text.ts` — logica di dominio pura (preset formati/step, parse formati con snap a multipli di 32, parser SSE).
 - `src/desktop.ts` — ponte opzionale verso Tauri (`notify`), no-op in browser.
-- `src/data/sections.ts` — fonte delle sezioni/nav (7 route, flag live).
+- `src/data/sections.ts` — fonte delle sezioni/nav (8 route, flag live).
 - `src/data/wiki.ts` — contenuti wiki modelli (BONSAI/ZIMAGE/KLEIN/ORNITH/DRAFTS).
-- `src/components/` — Layout (shell+metriche), Markdown (renderer zero-dep), WikiEntry.
-- `src/pages/` — Home, Images (3 modelli+img2img+gallery), Chat (streaming SSE Ornith), Rag (kb), Project (doc), Draft (3D/MCP).
+- `src/components/` — Layout (shell+metriche), Markdown (renderer zero-dep con escaping + allowlist http/https), WikiEntry, Shot, ReasonBlock, Draft + `ui/` (design system).
+- `src/pages/` — Home, Images (3 modelli+img2img+gallery), Chat (streaming SSE Ornith + knowledge), Rag (kb llm-wiki), 3d (viewer three.js + GLB/STL), Games, Experimental, Progetto.
 - `public/` — palamede_icon.png, examples/ (8 immagini committate).
-- Config: `package.json`, `vite.config.ts` (proxy /api→:4600), `tsconfig.json`, `index.html`.
+- Config: `package.json` (svelte 5 + three), `vite.config.ts` (proxy /api→:4600, three in chunk a parte), `tsconfig.json` (esclude `src/ui/` e `src/components/ui2/`: duplicati non usati, rotti — la UI viva è `src/components/ui/`), `svelte.config.js`, `index.html`.
 
 ## Hub Node.js — hub/
 

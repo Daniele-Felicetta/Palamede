@@ -10,5 +10,15 @@ export default defineConfig({
       '/api': { target: 'http://127.0.0.1:4600', changeOrigin: true },
     },
   },
-  build: { outDir: 'dist' },
+  build: {
+    outDir: 'dist',
+    chunkSizeWarningLimit: 900,
+    rollupOptions: {
+      output: {
+        // three.js (~600 KB) finisce in un chunk a parte: la home si apre
+        // veloce, il 3D lo scarica solo chi apre /3d.
+        manualChunks: { three: ['three'] },
+      },
+    },
+  },
 })

@@ -29,8 +29,8 @@ Le cartelle in sintesi; per l'albero completo, manutenuto automaticamente,
 vedi **MAPPA.md** (si rigenera con `.\scripts\gen-mappa.ps1`).
 
 - `backends/` — modelserver.py (unico backend dinamico) + gemlite_loader.py + requirements.txt
-- `hub/` — server.mjs: statici + proxy + metriche + coda GPU + knowledge
-- `frontend/` — Vite + React + TS (la UI)
+- `hub/` — server.mjs: statici + proxy + metriche + coda GPU + chat + knowledge + 3D
+- `frontend/` — Vite + Svelte 5 + TS (la UI)
 - `src-tauri/` — app desktop nativa Tauri v2 (tray + notifiche + Job Object)
 - `scripts/` — setup, copy-models, start-*, stop-all, build, watch, gen-mappa
 - `legacy/` — vecchio launcher .NET archiviato (non più usato)

@@ -11,7 +11,7 @@
 //   let m: Text.ModelId = 'ornith-9b'
 
 export namespace Text {
-  export type ModelId = 'ornith-35b' | 'ornith-9b' | 'ornith-9b-q5' | 'bonsai-27b'
+  export type ModelId = 'ornith-35b' | 'ornith-9b' | 'ornith-9b-q5' | 'bonsai-27b' | 'lfm-vl-3b'
 
   /** Dati canonici per-modello. */
   export interface Model {
@@ -84,6 +84,21 @@ export namespace Text {
       vramGB: '3.5 GB',
       moe: false,
       context: 8192,
+      kv: 'q8_0',
+      gpuLayers: 99,
+      mtp: false,
+      cpuMoe: 0,
+      temperature: 0.7,
+      thinking: false,
+    },
+    {
+      id: 'lfm-vl-3b',
+      name: 'LFM2.5 VL 3B',
+      family: 'Liquid AI · vision-language',
+      quant: 'Q5_K_XL',
+      vramGB: '1.8 GB',
+      moe: false,
+      context: 16384,
       kv: 'q8_0',
       gpuLayers: 99,
       mtp: false,

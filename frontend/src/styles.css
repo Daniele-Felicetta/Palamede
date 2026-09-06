@@ -156,6 +156,9 @@ video {
   border: 1px solid transparent;
   transition: color .15s, border-color .15s, background .15s;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .nav a:hover {
@@ -171,6 +174,13 @@ video {
 
 .nav a.disabled {
   color: var(--paper-faint);
+}
+
+.nav a .nav-ico {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  opacity: .9;
 }
 
 .beacon {
@@ -288,7 +298,7 @@ h1 em {
 }
 
 section {
-  margin-top: 1rem;
+  margin: 1rem 0.5rem;
 }
 
 .sec-title {
@@ -851,6 +861,12 @@ section {
   color: var(--paper-dim);
   cursor: not-allowed;
   transform: none;
+}
+
+/* Stato selezionato (Button toggled): verde + anello per feedback netto */
+.go.on {
+  background: linear-gradient(135deg, var(--moss), color-mix(in srgb, var(--moss) 55%, var(--ochre)));
+  box-shadow: 0 0 0 3px var(--ring);
 }
 
 .hintline {

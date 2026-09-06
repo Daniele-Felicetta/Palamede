@@ -96,7 +96,7 @@ export async function generateImage(req: GenRequest): Promise<GenImage[]> {
   return data.images as GenImage[]
 }
 
-/** Generazione rapida con default di fabbrica: bonsai · 512² · step consigliati
+/** Generazione rapida con default di fabbrica: bonsai · 1024² · step consigliati
  *  (4) · seed -1 · 1 copia. Sovrascrivibile con `opts`
  *  (es. { model: "zimage", width: 1024, height: 1024 }). */
 export async function generateQuick(
@@ -167,9 +167,15 @@ export interface ChatStatus {
   models: ChatModelInfo[]
 }
 
+export interface ChatContentPart {
+  type: 'text' | 'image_url'
+  text?: string
+  image_url?: { url: string }
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant'
-  content: string
+  content: string | ChatContentPart[]
 }
 
 export async function getChatStatus(): Promise<ChatStatus> {
@@ -195,19 +201,26 @@ export async function stopChat(): Promise<ChatStatus> {
 }
 
 /** Chiamata streaming: restituisce lo stream SSE del hub. `system` opzionale
- *  (es. contesto wiki) viene preposto come messaggio di sistema. */
+ *  (es. contesto wiki) viene preposto come messaggio di sistema. `maxTokens`
+ *  opzionale limita la lunghezza della risposta (default: contesto intero). */
 export async function chatStream(
   messages: ChatMessage[],
   temperature: number,
   system?: string,
+  maxTokens?: number,
 ): Promise<ReadableStream<Uint8Array>> {
-  const msgs: { role: string; content: string }[] = system
+  const msgs: { role: string; content: string | ChatContentPart[] }[] = system
     ? [{ role: 'system', content: system }, ...messages]
     : messages
   const r = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages: msgs, stream: true, temperature }),
+    body: JSON.stringify({
+      messages: msgs,
+      stream: true,
+      temperature,
+      ...(maxTokens ? { max_tokens: maxTokens } : {}),
+    }),
   })
   if (!r.ok || !r.body) throw new Error(`chat HTTP ${r.status}`)
   return r.body

@@ -11,6 +11,16 @@
     return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
   }
 
+  // Solo http/https (e ancore/relative): niente javascript:/data:/vbscript:
+  // che con {@html} diventerebbero XSS nella webview Tauri.
+  function safeHref(url: string): string | null {
+    const u = url.trim()
+    if (/^(https?:\/\/|#|\/)/i.test(u) && !/^[\s]*javascript:/i.test(u) && !/^data:/i.test(u) && !/^vbscript:/i.test(u)) {
+      return esc(u)
+    }
+    return null
+  }
+
   const INLINE_RE = /(`[^`]+`|\*\*[^*]+\*\*|__[^_]+__|\*[^*\n]+\*|_[^_\n]+_|~~[^~]+~~|\[[^\]]+\]\([^)]+\))/g
   const URL_RE = /(https?:\/\/[^\s<>"']+)/g
   // NOTA: URL_TEST è senza flag 'g' — con 'g' .test() è stateful (lastIndex
@@ -29,13 +39,20 @@
       if (p.startsWith('_')) return `<em>${esc(p.slice(1, -1))}</em>`
       if (p.startsWith('[')) {
         const m = p.match(/^\[([^\]]+)\]\(([^)]+)\)$/)
-        if (m) return `<a href="${m[2]}" target="_blank" rel="noreferrer">${esc(m[1])}</a>`
+        if (m) {
+          const href = safeHref(m[2])
+          if (href) return `<a href="${href}" target="_blank" rel="noreferrer">${esc(m[1])}</a>`
+          return esc(p)
+        }
         return esc(p)
       }
       // testo semplice: autolink delle URL nude
       return p.split(URL_RE).map((s) => {
         if (!s) return ''
-        if (URL_TEST.test(s)) return `<a href="${s}" target="_blank" rel="noreferrer">${s}</a>`
+        if (URL_TEST.test(s)) {
+          const href = safeHref(s)
+          if (href) return `<a href="${href}" target="_blank" rel="noreferrer">${href}</a>`
+        }
         return esc(s)
       }).join('')
     }).join('')

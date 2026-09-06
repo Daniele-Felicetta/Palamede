@@ -17,5 +17,8 @@
     "types": ["svelte", "vite/client"]
   },
   "include": ["src/**/*.ts", "src/**/*.svelte"],
-  "exclude": ["node_modules", "dist", "src/components/ui2/**/*", "src/ui/**/*"]
+  // src/ui = kit sperimentale stile SvelteKit (alias $lib, assets e micromark
+  // assenti su Vite): resta nel repo ma fuori dalla build finché non verrà
+  // migrato. Il canonico è src/components/ui/.
+  "exclude": ["node_modules", "dist", "src/ui/**/*"]
 }

@@ -50,7 +50,10 @@ Palamede/                       (repo git · aggiornata: 2026-09-02 02:05)
 ## Frontend — frontend/
 
 - `src/main.ts` — entry Svelte 5, monta `App.svelte` (auto-routing da `pages/*.svelte`).
-- `src/App.svelte` — mappa path→pagina (Home/Images/Chat/Rag/Progetto/3d…) + Draft per le bozze.
+- `src/App.svelte` — auto-routing **lazy** (ogni `pages/*.svelte` è un chunk separato; fallback Home + stati caricamento/errore).
+- `src/api/` — client per domini (`http`, `image`, `chat`, `history`, `kb`, `trellis`, `doc`; `index.ts` riesporta tutto, gli import `from '../api'` restano validi).
+- `src/styles/tokens.css` — design tokens (variabili dark/light); `styles.css` = base + layout.
+- `src/ui/` — kit sperimentale stile SvelteKit (alias `$lib`, assets e `micromark` assenti su Vite): **escluso dalla build** in `tsconfig.json`, in attesa di migrazione. Il canonico è `src/components/ui/`.
 - `src/router.svelte.ts` — router hash-based (`route` $state + `navigate()`).
 - `src/store.svelte.ts` — store condiviso: poller health/modelli/metriche/chat ogni 3 s (no overlap, pausa a scheda nascosta), `switchModel`.
 - `src/api.ts` — client HTTP verso il hub (tutti gli endpoint `/api/*`: health, models, image, history, chat, kb, 3d, doc).

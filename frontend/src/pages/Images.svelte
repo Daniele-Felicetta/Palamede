@@ -53,8 +53,46 @@
     clearing: false,
     deleting: null as string | null,
     viewer: null as string | null, // id dell'immagine nel lightbox a schermo pieno
+    preview: (typeof localStorage !== "undefined" &&
+      localStorage.getItem("palamede:preview") === "1") as boolean,
+    previewUrl: null as string | null, // object URL del frame di preview in streaming
   });
   let current = $derived(getCurrent());
+
+  // Preview in streaming: durante la generazione polla /api/preview (~2/s) e
+  // mostra il denoise che si forma. Il toggle è persistito in localStorage.
+  let previewTimer: number | null = null;
+  const stopPreview = () => {
+    if (previewTimer !== null) {
+      clearInterval(previewTimer);
+      previewTimer = null;
+    }
+  };
+  const startPreview = () => {
+    stopPreview();
+    if (!ui.preview) return;
+    previewTimer = window.setInterval(async () => {
+      try {
+        const r = await fetch("/api/preview", { cache: "no-store" });
+        if (r.status === 204) return;
+        const blob = await r.blob();
+        if (blob.size === 0) return;
+        const url = URL.createObjectURL(blob);
+        if (ui.previewUrl) URL.revokeObjectURL(ui.previewUrl);
+        ui.previewUrl = url;
+      } catch {
+        /* la preview non blocca mai la generazione */
+      }
+    }, 500);
+  };
+  const togglePreview = (on: boolean) => {
+    ui.preview = on;
+    try {
+      localStorage.setItem("palamede:preview", on ? "1" : "0");
+    } catch {
+      /* storage non disponibile */
+    }
+  };
 
   // Lightbox a schermo pieno: in Tauri il target=_blank non funziona, quindi
   // l'immagine si apre in un overlay che copre tutta la finestra.
@@ -133,6 +171,8 @@
       ? "in coda sulla GPU (img2img)…"
       : "in coda sulla GPU…";
     const [w, h] = Images.parseSize(ui.size);
+    ui.previewUrl = null;
+    startPreview();
     try {
       if (current !== ui.model) {
         ui.hint = `caricamento ${ui.model} sulla GPU…`;
@@ -149,6 +189,9 @@
         count: ui.count,
         image: ui.initImg ?? undefined,
         strength: ui.strength,
+        preview: ui.preview,
+        preview_interval: 8,
+        preview_mode: "vae",
       });
       // salva in cronologia (un file per immagine) e rilegge la lista
       for (const im of imgs) {
@@ -178,6 +221,11 @@
       ui.hint = String(err instanceof Error ? err.message : err);
       ui.error = true;
     } finally {
+      stopPreview();
+      if (ui.previewUrl) {
+        URL.revokeObjectURL(ui.previewUrl);
+        ui.previewUrl = null;
+      }
       ui.busy = false;
     }
   };
@@ -331,6 +379,22 @@
         />
       </Field>
     </div>
+
+    <label class="preview-toggle">
+      <input
+        type="checkbox"
+        checked={ui.preview}
+        onchange={(e) => togglePreview(e.currentTarget.checked)}
+      />
+      preview in streaming (denoise in diretta · solo modelli sd)
+    </label>
+
+    {#if ui.previewUrl}
+      <div class="preview-box">
+        <img src={ui.previewUrl} alt="preview del denoise in corso" />
+        <span>denoise in corso…</span>
+      </div>
+    {/if}
 
     <Button
       type="submit"

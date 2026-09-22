@@ -50,3 +50,24 @@ export async function proxyJson(req, res, targetPath, timeoutMs, base) {
     json(res, 502, { error: { message: `backend non raggiungibile (${e.message || e})` } })
   }
 }
+
+// Proxy binario (es. il PNG della preview in streaming): passa i byte tal quali
+// e preserva il content-type; 204 → nessun contenuto (preview non ancora pronta).
+export async function proxyBinary(res, targetPath, timeoutMs, base) {
+  try {
+    const r = await fetch(base + targetPath, { signal: AbortSignal.timeout(timeoutMs) })
+    if (r.status === 204) {
+      res.writeHead(204, { 'Cache-Control': 'no-store' })
+      res.end()
+      return
+    }
+    const buf = Buffer.from(await r.arrayBuffer())
+    res.writeHead(r.status, {
+      'Content-Type': r.headers.get('content-type') || 'application/octet-stream',
+      'Cache-Control': 'no-store',
+    })
+    res.end(buf)
+  } catch (e) {
+    json(res, 502, { error: { message: `backend non raggiungibile (${e.message || e})` } })
+  }
+}

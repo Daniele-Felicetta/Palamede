@@ -14,6 +14,9 @@ export interface GenRequest {
   count: number
   image?: string // dataUrl: image-to-image (modelli sd-server)
   strength?: number // forza del denoise in img2img (0.05–1)
+  preview?: boolean // preview del denoise in streaming (solo modelli sd-server)
+  preview_interval?: number // ogni quanti step aggiornare la preview
+  preview_mode?: string // 'vae' | 'tae' | 'proj'
 }
 
 export interface GenImage {

@@ -510,3 +510,38 @@
   letter-spacing: .8px;
 }
 
+/* preview in streaming del denoise */
+.preview-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.preview-toggle input {
+  accent-color: var(--accent, #b4451f);
+}
+
+.preview-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0;
+}
+
+.preview-box img {
+  width: 100%;
+  max-width: 320px;
+  border-radius: 6px;
+  border: 1px solid rgba(128, 128, 128, .35);
+}
+
+.preview-box span {
+  font-size: 12px;
+  opacity: .7;
+  font-family: var(--mono);
+}
+

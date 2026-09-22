@@ -23,7 +23,7 @@ import time
 import urllib.request
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from pydantic import BaseModel, Field
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -291,7 +291,9 @@ class ModelManager:
 
     def generate(self, model: str, prompt: str, steps: int, seed: int,
                  width: int, height: int, count: int,
-                 image: str | None = None, strength: float = 0.6) -> list[dict]:
+                 image: str | None = None, strength: float = 0.6,
+                 preview: bool = False, preview_interval: int = 8,
+                 preview_mode: str = "vae") -> list[dict]:
         if model not in MODELS:
             raise ValueError(f"modello sconosciuto: {model}")
         if image and model == "bonsai":
@@ -310,6 +312,9 @@ class ModelManager:
                     self._load_bonsai()
                 else:
                     self._load_sd(model)
+            # preview in streaming: configurata una volta per generazione
+            if model in SD_MODELS:
+                self.configure_preview(preview, preview_interval, preview_mode)
             out = []
             rng = random.SystemRandom()
             for i in range(count):
@@ -375,6 +380,44 @@ class ModelManager:
             raise RuntimeError("sd-server: risposta senza immagini")
         return "data:image/png;base64," + j["images"][0]
 
+    # ── preview in streaming (sd-server patchato: /sdcpp/v1/preview) ──
+    def configure_preview(self, enabled: bool, interval: int = 8,
+                          mode: str = "vae") -> None:
+        """Abilita/disabilita la preview per-step su sd-server (best-effort).
+
+        I modelli bonsai non hanno preview; se sd-server non è attivo la
+        chiamata è un no-op (la preview è puramente diagnostica, non blocca).
+        """
+        if self._sd is None or self._sd.poll() is not None:
+            return
+        import json
+        body = json.dumps({"enabled": bool(enabled),
+                           "interval": max(1, int(interval)),
+                           "mode": mode}).encode()
+        req = urllib.request.Request(
+            f"http://127.0.0.1:{SD_PORT}/sdcpp/v1/preview/config",
+            data=body, headers={"Content-Type": "application/json"}, method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=5):
+                pass
+        except Exception as e:
+            log.warning("preview config fallita: %s", e)
+
+    def get_preview(self) -> bytes | None:
+        """Ultimo frame di preview (PNG) di sd-server, o None se assente."""
+        if self._sd is None or self._sd.poll() is not None:
+            return None
+        try:
+            with urllib.request.urlopen(
+                    f"http://127.0.0.1:{SD_PORT}/sdcpp/v1/preview", timeout=5) as r:
+                if r.status == 204:
+                    return None
+                data = r.read()
+                return data or None
+        except Exception:
+            return None
+
 
 manager = ModelManager()
 app = FastAPI(title="Palamede model server")
@@ -394,6 +437,9 @@ class GenerateRequest(BaseModel):
     count: int = Field(default=1, ge=1, le=4)
     image: str | None = None  # dataUrl: img2img (modelli sd-server)
     strength: float = Field(default=0.6, ge=0.05, le=1.0)
+    preview: bool = False  # preview in streaming (solo modelli sd-server)
+    preview_interval: int = Field(default=8, ge=1, le=40)
+    preview_mode: str = "vae"  # vae | tae | proj
 
 
 @app.get("/healthz")
@@ -417,12 +463,23 @@ def select(req: SelectRequest) -> dict:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+@app.get("/preview")
+def preview():
+    """Ultimo frame di preview del modello sd-server (image/png) o 204."""
+    data = manager.get_preview()
+    if not data:
+        return Response(status_code=204)
+    return Response(content=data, media_type="image/png",
+                    headers={"Cache-Control": "no-store"})
+
+
 @app.post("/generate")
 def generate(req: GenerateRequest) -> dict:
     try:
         images = manager.generate(req.model, req.prompt, req.steps, req.seed,
                                   req.width, req.height, req.count,
-                                  req.image, req.strength)
+                                  req.image, req.strength,
+                                  req.preview, req.preview_interval, req.preview_mode)
         return {"images": images}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e

@@ -27,7 +27,7 @@ import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { PORT, BACKEND, TRELLIS, ROOT } from './lib/root.mjs'
-import { json, proxyJson, readBody } from './lib/http.mjs'
+import { json, proxyJson, proxyBinary, readBody } from './lib/http.mjs'
 import { allowedHost, allowedOrigin } from './lib/guards.mjs'
 import { createQueue } from './lib/queue.mjs'
 import { currentMetrics, startMetrics } from './lib/metrics.mjs'
@@ -79,6 +79,11 @@ async function handleApi(req, res, path) {
 
   if (path === '/api/image' && req.method === 'POST') {
     return queued(() => proxyJson(req, res, '/generate', 900_000, BACKEND))
+  }
+
+  // preview in streaming del denoise (PNG del modello attivo; 204 se assente)
+  if (path === '/api/preview' && req.method === 'GET') {
+    return proxyBinary(res, '/preview', 5_000, BACKEND)
   }
 
   // ── TRELLIS.2 image-to-3D (venv separato :8124) ────────────────────────
@@ -207,7 +212,7 @@ createServer(async (req, res) => {
   // ~3s: risposte da pochi ms, non intasano il log.
   const QUIET = new Set([
     '/api/health', '/api/models', '/api/metrics',
-    '/api/chat/status', '/api/3d/status',
+    '/api/chat/status', '/api/3d/status', '/api/preview',
   ])
   const qpath = new URL(req.url, 'http://localhost').pathname
   res.on('finish', () => {

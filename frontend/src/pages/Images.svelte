@@ -310,7 +310,7 @@
           id="steps"
           type="number"
           min={1}
-          max={20}
+          max={50}
           bind:value={ui.steps}
         />
       </Field>

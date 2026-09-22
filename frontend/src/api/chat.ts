@@ -76,6 +76,48 @@ export async function chatStream(
   return r.body
 }
 
+/** Narratori cloud: disponibilità (chiave server-side) e voci Gemini.
+ *  Il client non vede mai la chiave, solo gli id modello. */
+export interface NarratorsStatus {
+  gemini: { configured: boolean; models: { id: string; label: string; hint: string }[] }
+}
+
+export async function narratorsStatus(): Promise<NarratorsStatus> {
+  return j(await fetch('/api/narrators'))
+}
+
+/** Stream SSE dal narratore cloud (stesso formato di /api/chat: riusa Text.stream).
+ *  `content` accetta testo o parti testo+immagine (Gemini è multimodale). */
+export async function narrateStream(
+  model: string,
+  content: string | ChatContentPart[],
+  temperature: number,
+  system?: string,
+  maxTokens?: number,
+): Promise<ReadableStream<Uint8Array>> {
+  const r = await fetch('/api/narrate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: 'user', content }],
+      temperature,
+      ...(system ? { system } : {}),
+      ...(maxTokens ? { max_tokens: maxTokens } : {}),
+      stream: true,
+    }),
+  })
+  if (!r.ok || !r.body) {
+    let msg = `narratore cloud HTTP ${r.status}`
+    try {
+      const e = await r.json()
+      if (e?.error?.message) msg = e.error.message
+    } catch { /* corpo non JSON */ }
+    throw new Error(msg)
+  }
+  return r.body
+}
+
 /** Generazione testuale rapida (storia/risposta) con default di fabbrica:
  *  modello consigliato (ornith-9b), temperatura 0.7. Avvia il server solo se
  *  non è già attivo con quel modello, streamma la risposta e la restituisce

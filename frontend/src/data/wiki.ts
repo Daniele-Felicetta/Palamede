@@ -63,7 +63,7 @@ export const ZIMAGE: ModelWiki = {
   specs: {
     'Parametri': '6B (S3-DiT single-stream), quantizzato Q4_K_M',
     'Peso disco': '7.2 GB totali (DiT 4.67 + Qwen3-4B TE 2.33 + VAE 0.16)',
-    'VRAM misurata': '≈ 8.5 GB residente (sd-server, tutto su GPU)',
+    'VRAM misurata': '≈ 5 GB residente (TE da 3.5 GB su RAM via --backend te=cpu; tutto su GPU: ≈ 8.5 GB)',
     'Tempo 512²': '3.3 s warm (5.6 s primo colpo)',
     'Tempo 1024²': '17.8 s warm',
     'Tempo 1248×832': '≈ 16.6 s warm',
@@ -112,7 +112,38 @@ export const KLEIN: ModelWiki = {
   examples: [],
 }
 
-export const IMAGE_MODELS = [BONSAI, ZIMAGE, KLEIN]
+export const QWENIMAGE: ModelWiki = {
+  id: 'qwenimage',
+  name: 'Qwen-Image 2.1 — Q4_K_M',
+  family: 'Qwen (Alibaba) · Single-Stream DiT 7B',
+  how: [
+    'Qwen-Image 2.1 è il modello unificato di generazione ed editing di Qwen: 7B nel componente visivo (32 layer DiT single-stream) con attenzione a granularità mista e riuso della KV cache di prefisso. È bilingue EN/ZH.',
+    'Il GGUF Q4_K_M (unsloth Dynamic 2.0) è solo il denoiser: servono il text encoder Qwen3-VL-8B in GGUF e la VAE dedicata. Gira in stable-diffusion.cpp come Z-Image e Klein, ma con cfg reale (6.0, sampler euler, 40 step) perché NON è un modello distillato a pochi step.',
+    'Il pezzo pesante è il text encoder da 8B: è quello che decide l\'ingombro in VRAM, non il DiT da 4B. La generazione paga più step degli altri modelli della sezione.',
+    'A 40 step il costo è alto (~77 s a 512² senza ottimizzazioni). Con il caching dei blocchi DiT (cache-dit) scende a ~33 s sullo stesso seed, senza perdita visibile: è attivo di default per questo modello (disattivabile con PALAMEDE_SD_CACHE=0).',
+  ],
+  specs: {
+    'Parametri': '7B (32 layer DiT single-stream), quantizzato Q4_K_M',
+    'Peso disco': '≈ 10,0 GB totali (DiT 4,2 + Qwen3-VL-8B TE 5,1 + VAE 0,68)',
+    'Text encoder': 'Qwen3-VL-8B-Instruct (GGUF UD-Q4_K_XL)',
+    'VAE': 'Qwen-Image 2.1 (bf16)',
+    'Step': '40 (consigliati)',
+    'CFG': '6.0 · sampler euler',
+    'Rispezioni': 'nativo ad alta risoluzione (fino a 2048²); 1024² il compromesso pratico',
+    'Tempo 512²': '≈33 s (40 step, cache-dit) · ≈77 s senza cache — misurato',
+    'Tempo 1024²': 'da misurare su questa macchina',
+    'VRAM misurata': 'da misurare (TE da 8B: il più esigente della sezione)',
+    'Endpoint': 'POST http://127.0.0.1:8123/sdapi/v1/txt2img (sd-server)',
+  },
+  quality: [
+    'Pensato per testo nell\'immagine e fotorealismo: è il modello più grande della sezione (7B).',
+    'Nel modello originale supporta editing (fino a 10 immagini di riferimento) e PNG trasparenti (RGBA); qui la UI espone il solo text-to-image.',
+    'Il costo è il tempo e la VRAM: non coesiste con altri modelli sulla GPU.',
+  ],
+  examples: [],
+}
+
+export const IMAGE_MODELS = [BONSAI, ZIMAGE, KLEIN, QWENIMAGE]
 
 // ── Modelli chat (Ornith, da LM Studio → models/) ─────────────────────────
 

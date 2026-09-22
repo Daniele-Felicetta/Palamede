@@ -55,6 +55,9 @@ apply_fixed_loader(_pg)
 SD_PORT = int(os.environ.get("PALAMEDE_SD_PORT", "8123"))
 SD_EXE = os.environ.get("PALAMEDE_SD_EXE", str(ROOT / "tools" / "sd-cpp" / "sd-server.exe"))
 SD_LOG = os.environ.get("PALAMEDE_SD_LOG", str(ROOT / "outputs" / "sd-server.log"))
+# Text encoder su CPU (RAM) invece che VRAM: risparmia ~2,3 GB, l'encoding
+# avviene una volta sola per immagine. 1 = attivo (default), 0 = tutto su GPU.
+SD_TE_CPU = os.environ.get("PALAMEDE_SD_TE_CPU", "1") != "0"
 
 # Klein 4B (FLUX.2) — GGUF Q4 in download; VAE flux2 e text encoder Qwen3
 # riusati dal lavoro gia' fatto in reference/bonsai.
@@ -83,7 +86,25 @@ MODELS = {
     "bonsai": {"name": "Bonsai 4B ternary", "engine": "gemlite (in-process)"},
     "zimage": {"name": "Z-Image Turbo Q4_K_M", "engine": "stable-diffusion.cpp (sd-server)"},
     "klein": {"name": "Klein 4B Q4 (FLUX.2)", "engine": "stable-diffusion.cpp (sd-server, flux2)"},
+    "qwenimage": {"name": "Qwen-Image 2.1 Q4_K_M", "engine": "stable-diffusion.cpp (sd-server, qwen-image)"},
 }
+
+# Modelli serviti da sd-server (subprocess gestito, uno alla volta).
+SD_MODELS = ("zimage", "klein", "qwenimage")
+
+# cfg_scale / sampler per modello sd-server: i distillati (Z-Image, Klein)
+# escono con cfg 1.0 (= 0 effettivo), Qwen-Image è un modello CFG "vero"
+# (6.0, sampler euler, 40 step di default come da guida unsloth).
+# "cache" = caching dei blocchi DiT: utile solo con molti step (Qwen, 40):
+# cache-dit misura ~2.4× sul sampling senza perdita visibile.
+SD_GEN = {
+    "zimage": {"cfg": 1.0, "sampler": None},
+    "klein": {"cfg": 1.0, "sampler": None},
+    "qwenimage": {"cfg": 6.0, "sampler": "euler", "cache": "cache-dit"},
+}
+
+# Caching DiT attivo di default (0 = disattiva, per confronti qualità/tempo).
+SD_CACHE = os.environ.get("PALAMEDE_SD_CACHE", "1") != "0"
 
 class ModelManager:
     def __init__(self) -> None:
@@ -142,7 +163,7 @@ class ModelManager:
             gc.collect()
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-        if self._current in ("zimage", "klein") and self._sd is not None:
+        if self._current in SD_MODELS and self._sd is not None:
             log.info("unload %s: terminazione sd-server", self._current)
             self._kill_sd()
         self._current = None
@@ -191,6 +212,12 @@ class ModelManager:
                     "auto")
         if model == "klein":
             return (_resolve_klein_diffusion(), KLEIN_VAE, KLEIN_LLM, "flux2")
+        if model == "qwenimage":
+            qwen_dir = ROOT / "models" / "qwen-image"
+            return (str(qwen_dir / "qwen-image-2.1-Q4_K_M.gguf"),
+                    str(qwen_dir / "qwen_image_2.1_vae_bf16.safetensors"),
+                    str(qwen_dir / "Qwen3-VL-8B-Instruct-UD-Q4_K_XL.gguf"),
+                    "auto")
         raise ValueError(f"modello sconosciuto: {model}")
 
     def _load_sd(self, model: str) -> None:
@@ -215,8 +242,15 @@ class ModelManager:
                "--listen-port", str(SD_PORT)]
         # il text encoder è --llm (Z-Image/Klein, Qwen)
         cmd += ["--llm", encoder]
+        if SD_TE_CPU:
+            # TE su RAM: ~2,3 GB risparmiati in VRAM, encoding una tantum su CPU
+            cmd += ["--backend", "te=cpu"]
         if vae_format != "auto":
             cmd += ["--vae-format", vae_format]
+        # caching DiT (solo modelli con molti step, es. Qwen-Image 40 step)
+        cache = SD_GEN.get(model, {}).get("cache") if SD_CACHE else None
+        if cache:
+            cmd += ["--cache-mode", cache]
         t0 = time.perf_counter()
         self._close_sd_log()
         stdout = open(SD_LOG, "ab", buffering=0)
@@ -243,7 +277,10 @@ class ModelManager:
         with self._lock:
             if self._current == model and model == "bonsai" and self._pipeline is not None:
                 return self.status()
-            if self._current == model and self._sd is not None and self._sd_model == model:
+            # sd-server potrebbe essere morto nel frattempo: controlla che
+            # il processo sia vivo, altrimenti ricarica invece di riuscire a vuoto
+            if (self._current == model and self._sd is not None
+                    and self._sd_model == model and self._sd.poll() is None):
                 return self.status()
             self._unload()
             if model == "bonsai":
@@ -263,8 +300,11 @@ class ModelManager:
         width = max(64, (int(width) // 32) * 32)
         height = max(64, (int(height) // 32) * 32)
         with self._lock:
-            # auto-carica se il modello non è quello attivo
-            if self._current != model:
+            # auto-carica se il modello non è quello attivo, o se sd-server
+            # è morto nel frattempo (respawn invece di "connection refused")
+            sd_dead = (model in SD_MODELS
+                       and (self._sd is None or self._sd.poll() is not None))
+            if self._current != model or sd_dead:
                 self._unload()
                 if model == "bonsai":
                     self._load_bonsai()
@@ -308,10 +348,13 @@ class ModelManager:
                 width: int, height: int,
                 image: str | None, strength: float) -> str:
         import json
+        gen = SD_GEN.get(model, {})
         body = {
             "prompt": prompt, "width": width, "height": height,
-            "steps": steps, "cfg_scale": 1.0, "seed": seed,
+            "steps": steps, "cfg_scale": gen.get("cfg", 1.0), "seed": seed,
         }
+        if gen.get("sampler"):
+            body["sampler_name"] = gen["sampler"]
         url = f"http://127.0.0.1:{SD_PORT}/sdapi/v1/txt2img"
         if image:
             # img2img: dataUrl → base64 nudo, con la forza di denoise richiesta

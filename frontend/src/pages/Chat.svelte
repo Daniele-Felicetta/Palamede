@@ -1,8 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { chatStream, getChatStatus, getKbStatus, readKbFile, searchKb, startChat, stopChat } from '../api'
+  import { chatStream, getChatStatus, startChat, stopChat } from '../api'
   import type { ChatMessage, ChatStatus } from '../api'
   import { Text } from '../lib/text'
+  import { buildKbContext } from '../lib/kbContext'
   import Markdown from '../components/Markdown.svelte'
   import ReasonBlock from '../components/ReasonBlock.svelte'
   import { Button, ChatState, EmptyState, Field, Hintline, ModelPlate } from '../components/ui'
@@ -80,31 +81,11 @@
     try { status = await stopChat() } catch (e) { err = String(e) } finally { busy = false }
   }
 
-  // Contesto knowledge base per una domanda: cerca le pagine wiki rilevanti
-  // e le mette in un system prompt. Errore silenzioso → chat senza contesto.
+  // Contesto knowledge base per una domanda (lib/kbContext.ts): cerca le
+  // pagine wiki rilevanti e le inietta come system prompt. Null → chat liscia.
   const kbContext = async (text: string): Promise<string | null> => {
     if (!kbOn) return null
-    try {
-      const st = await getKbStatus()
-      const pages = (await searchKb(text)).pages
-      const parts: string[] = []
-      if (pages.length) {
-        for (const p of pages) {
-          try {
-            const f = await readKbFile('wiki/' + p)
-            parts.push(`\n## ${p}\n${f.content.slice(0, 4000)}`)
-          } catch { /* pagina non leggibile, skip */ }
-        }
-      } else if (st.wiki > 0) {
-        // nessuna pagina rilevante: dai almeno l'indice al modello
-        parts.push('\n' + st.index.slice(0, 3000))
-      }
-      if (!parts.length) return null
-      const sys = `Hai una knowledge base locale (wiki in knowledge/). Usala per rispondere: cita le fonti tra parentesi, non inventare. Ecco le pagine rilevanti per questa domanda:${parts.join('\n')}`
-      return sys
-    } catch {
-      return null
-    }
+    return buildKbContext(text)
   }
 
   async function send(e: { preventDefault(): void }) {

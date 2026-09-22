@@ -52,6 +52,30 @@
       "source": "huggingface.co/Tongyi-MAI/Z-Image-Turbo (VAE)"
     },
     {
+      "path": "qwen-image/qwen-image-2.1-Q4_K_M.gguf",
+      "size": 4199565024,
+      "sha256": "631d532e7ca71e8d90a87c71d3699761a812039d22e3370e87498d87754660fe",
+      "format": "gguf",
+      "enforce": true,
+      "source": "huggingface.co/unsloth/Qwen-Image-2.1-GGUF (DiT Q4_K_M)"
+    },
+    {
+      "path": "qwen-image/qwen_image_2.1_vae_bf16.safetensors",
+      "size": 675508656,
+      "sha256": "71879ffd5321e6d10c3c87513e2b474b1252efa7f3dec2969214a9bf06a6dd5c",
+      "format": "safetensors",
+      "enforce": true,
+      "source": "huggingface.co/unsloth/Qwen-Image-2.1-FP8 (VAE 2.1 bf16)"
+    },
+    {
+      "path": "qwen-image/Qwen3-VL-8B-Instruct-UD-Q4_K_XL.gguf",
+      "size": 5148699488,
+      "sha256": "e3d1a6e87c5cb31e054f2c3bc0dd82ffde052f613de5eef3665b7bd33c9b703e",
+      "format": "gguf",
+      "enforce": true,
+      "source": "huggingface.co/unsloth/Qwen3-VL-8B-Instruct-GGUF (text encoder)"
+    },
+    {
       "path": "_inutilizzati/klein-9b/flux-2-klein-9b-bf16.safetensors",
       "size": 18157189648,
       "sha256": "a7868f46634b19243bbbdc3d19658e88b709125efde3f239a7eb03d0bea90159",
@@ -106,6 +130,14 @@
       "format": "gguf",
       "enforce": true,
       "source": "Ornith 1.5 9B chat Q5 (llama.cpp)"
+    },
+    {
+      "path": "k2-7b/K2-Horizon-7B-Q4_K_M.gguf",
+      "size": 5592217984,
+      "sha256": "eb89c15a0ae9712be2ee462bf43802de14200f20f93b73da6eb68c2ebdd28e4e",
+      "format": "gguf",
+      "enforce": true,
+      "source": "K2 Horizon 7B chat (llama.cpp)"
     },
     {
       "path": "bonsai-image-4B-ternary-gemlite/text_encoder-hqq-4bit/qmodel.pt",

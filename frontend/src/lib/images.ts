@@ -10,7 +10,7 @@
 //   let m: Images.ModelId = 'zimage'
 
 export namespace Images {
-  export type ModelId = 'bonsai' | 'zimage' | 'klein'
+  export type ModelId = 'bonsai' | 'zimage' | 'klein' | 'qwenimage'
 
   /** Preset di formato disponibili (valore · etichetta). */
   export const SIZES = [
@@ -27,13 +27,14 @@ export namespace Images {
   ] as const
 
   /** Step consigliati per modello. */
-  export const DEFAULT_STEPS: Record<ModelId, number> = { bonsai: 4, zimage: 8, klein: 4 }
+  export const DEFAULT_STEPS: Record<ModelId, number> = { bonsai: 4, zimage: 8, klein: 4, qwenimage: 40 }
 
   /** Nome breve del modello. */
   export const MODEL_NAMES: Record<ModelId, string> = {
     bonsai: 'Bonsai',
     zimage: 'Z-Image',
     klein: 'Klein',
+    qwenimage: 'Qwen-Image',
   }
 
   /** Nome breve del modello (fallback: l'id stesso). */
@@ -75,11 +76,35 @@ export namespace Images {
     })
   }
 
+  /** Riduce un dataURL via canvas (JPEG, max `max` px lato lungo): le immagini
+   *  compatte pesano poco sul contesto dei modelli vision-language.
+   *  Spostato qui da Bandersketch per riuso (anteprime, contesto visivo). */
+  export function downscaleDataUrl(dataUrl: string, max = 448): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const img = new Image()
+      img.onload = () => {
+        const scale = Math.min(1, max / Math.max(img.width || 1, img.height || 1))
+        const w = Math.max(1, Math.round((img.width || 1) * scale))
+        const h = Math.max(1, Math.round((img.height || 1) * scale))
+        const c = document.createElement('canvas')
+        c.width = w
+        c.height = h
+        const ctx = c.getContext('2d')
+        if (!ctx) { reject(new Error('canvas non disponibile')); return }
+        ctx.drawImage(img, 0, 0, w, h)
+        resolve(c.toDataURL('image/jpeg', 0.85))
+      }
+      img.onerror = () => reject(new Error('immagine non leggibile'))
+      img.src = dataUrl
+    })
+  }
+
   /** Etichette "verbose" per sidebar/stato (id → nome descrittivo). */
   export const MODEL_LABELS: Record<ModelId, string> = {
     bonsai: 'Bonsai 4B T',
     zimage: 'Z-Image Q4',
     klein: 'Klein 4B Q4',
+    qwenimage: 'Qwen-Image 2.1',
   }
 
   /** Etichetta descrittiva del modello (fallback: l'id stesso). */
@@ -92,6 +117,7 @@ export namespace Images {
     bonsai: '1.58-bit',
     zimage: 'Q4_K_M',
     klein: 'Q4',
+    qwenimage: 'Q4_K_M',
   }
 
   /** Stamp "N step · quant" per le piastrelle modello. */
@@ -104,6 +130,7 @@ export namespace Images {
     bonsai: '512² in 1.8 s — il più veloce',
     zimage: 'testo nell\'immagine, fotorealismo spinto',
     klein: 'img2img nativo · 2,5 GB · ~1.8 s',
+    qwenimage: '7B · editing e trasparenza · 40 step',
   }
 
   /** Tagline del modello (fallback: stringa vuota). */

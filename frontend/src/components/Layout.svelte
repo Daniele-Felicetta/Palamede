@@ -9,7 +9,7 @@
 
   // Marcatore di build: compare nel footer, cosi' si capisce subito se il
   // browser sta servendo un bundle vecchio (in tal caso: Ctrl+F5).
-  const BUILD = 'v0.20'
+  const BUILD = 'v0.22'
 
   let theme = $state<'dark' | 'light'>(
     (() => { try { return (localStorage.getItem('palamede-theme') as 'dark' | 'light') || 'dark' } catch { return 'dark' } })()

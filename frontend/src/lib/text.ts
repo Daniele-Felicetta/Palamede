@@ -11,7 +11,7 @@
 //   let m: Text.ModelId = 'ornith-9b'
 
 export namespace Text {
-  export type ModelId = 'ornith-35b' | 'ornith-9b' | 'ornith-9b-q5' | 'bonsai-27b' | 'lfm-vl-3b'
+  export type ModelId = 'ornith-35b' | 'ornith-9b' | 'ornith-9b-q5' | 'k2-7b' | 'bonsai-27b' | 'lfm-vl-3b' | 'gemma-4-26b'
 
   /** Dati canonici per-modello. */
   export interface Model {
@@ -77,6 +77,21 @@ export namespace Text {
       thinking: false,
     },
     {
+      id: 'k2-7b',
+      name: 'K2 Horizon 7B',
+      family: 'IFM · dense · reasoning',
+      quant: 'Q4_K_M',
+      vramGB: '5.2 GB',
+      moe: false,
+      context: 8192,
+      kv: 'q8_0',
+      gpuLayers: 99,
+      mtp: false,
+      cpuMoe: 0,
+      temperature: 0.7,
+      thinking: true,
+    },
+    {
       id: 'bonsai-27b',
       name: 'Bonsai 27B',
       family: 'Bonsai',
@@ -104,6 +119,21 @@ export namespace Text {
       mtp: false,
       cpuMoe: 0,
       temperature: 0.7,
+      thinking: false,
+    },
+    {
+      id: 'gemma-4-26b',
+      name: 'Gemma 4 26B-A4B',
+      family: 'Google · MoE 3.8B attivi',
+      quant: 'IQ3_S',
+      vramGB: '10.5 GB',
+      moe: true,
+      context: 4096,
+      kv: 'q4_0',
+      gpuLayers: 99,
+      mtp: false,
+      cpuMoe: -1,
+      temperature: 0.6,
       thinking: false,
     },
   ]
@@ -185,8 +215,8 @@ export namespace Text {
   export interface StreamStats { tps: number; tokens: number }
 
   /** Parser del flusso SSE de llama.cpp (chat streaming): 'reason' = token di
-   *  ragionamento interno, 'content' = testo vero. Su fine chiama onDone
-   *  (con stats se presenti nei timings), su errore onErr. */
+   *  ragionamento interno, 'content' = testo vero. Su fine chiama onDone UNA
+   *  sola volta (con stats se presenti nei timings), su errore onErr. */
   export function stream(
     body: ReadableStream<Uint8Array>,
     onDelta: (type: 'reason' | 'content', t: string) => void,
@@ -196,9 +226,18 @@ export namespace Text {
     const reader = body.getReader()
     const decoder = new TextDecoder()
     let buf = ''
+    let finished = false
+    // Il server può mandare sia i timings che [DONE]: senza guardia onDone
+    // scatterebbe due volte (resolve idempotente, ma i chiamanti contano una
+    // sola chiusura). Il reader si chiude da sé a risposta esaurita.
+    const done = (stats?: StreamStats) => {
+      if (finished) return
+      finished = true
+      onDone(stats)
+    }
     const pump = (): void => {
-      reader.read().then(({ done, value }) => {
-        if (done) { onDone(); return }
+      reader.read().then(({ done: doneFlag, value }) => {
+        if (doneFlag) { done(); return }
         buf += decoder.decode(value, { stream: true })
         let idx
         while ((idx = buf.indexOf('\n\n')) >= 0) {
@@ -207,7 +246,7 @@ export namespace Text {
           const line = chunk.split('\n').find((l) => l.startsWith('data: '))
           if (!line) continue
           const data = line.slice(6).trim()
-          if (data === '[DONE]') { onDone(); return }
+          if (data === '[DONE]') { done(); return }
           try {
             const j = JSON.parse(data)
             const d = j?.choices?.[0]?.delta
@@ -218,7 +257,7 @@ export namespace Text {
             }
             const t = j?.timings
             if (t && typeof t.predicted_per_second === 'number') {
-              onDone({ tps: t.predicted_per_second, tokens: t.predicted_n ?? 0 })
+              done({ tps: t.predicted_per_second, tokens: t.predicted_n ?? 0 })
               return
             }
           } catch { /* eventi non JSON ignorati */ }

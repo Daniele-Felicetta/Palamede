@@ -52,6 +52,8 @@ Palamede/                       (repo git · aggiornata: 2026-09-02 02:05)
 - `src/main.ts` — entry Svelte 5, monta `App.svelte` (auto-routing da `pages/*.svelte`).
 - `src/App.svelte` — auto-routing **lazy** (ogni `pages/*.svelte` è un chunk separato; fallback Home + stati caricamento/errore).
 - `src/api/` — client per domini (`http`, `image`, `chat`, `history`, `kb`, `trellis`, `doc`; `index.ts` riesporta tutto, gli import `from '../api'` restano validi).
+- `src/lib/` — logica riusabile: `images` (formati, lettura file, downscale per VLM), `text` (registri modelli, parser SSE), `download` (saveBlob/downloadUrl/dataUrlToBytes), `viewer3d` (viewer orbitale three.js), `kbContext` (system prompt dalla wiki).
+- `src/styles/` — CSS a sezioni (`tokens`, `base`, `layout`, `home`, `images`, `chat`, `wiki`, `shell`, `rag`, `misc`) importate in ordine da `styles.css` (stessa cascata di prima, file navigabili).
 - `src/styles/tokens.css` — design tokens (variabili dark/light); `styles.css` = base + layout.
 - `src/ui/` — kit sperimentale stile SvelteKit (alias `$lib`, assets e `micromark` assenti su Vite): **escluso dalla build** in `tsconfig.json`, in attesa di migrazione. Il canonico è `src/components/ui/`.
 - `src/router.svelte.ts` — router hash-based (`route` $state + `navigate()`).
@@ -68,7 +70,8 @@ Palamede/                       (repo git · aggiornata: 2026-09-02 02:05)
 
 ## Hub Node.js — hub/
 
-- `server.mjs` — server zero-dipendenze (~655 righe): coda mutex un-modello-alla-volta, metriche (WMI+nvidia-smi), chat via llama-server :8121 (SSE), doc progetto (/api/doc), cronologie immagini, statici da frontend/dist.
+- `server.mjs` — solo wiring: statici, router `/api/*`, bootstrap (la logica vive in `lib/`).
+- `lib/` — moduli single-responsibility, zero dipendenze: `root` (env+path), `http` (json/proxy/body), `guards` (anti drive-by), `queue` (mutex GPU), `proc` (spawn/log/kill), `metrics`, `proxy` (stream SSE), `chat` (llama-server), `trellis` (:8124), `lmstudio`, `history`, `kb` (llm-wiki), `docs`, `static`.
 
 ## Backend Python — backends/
 

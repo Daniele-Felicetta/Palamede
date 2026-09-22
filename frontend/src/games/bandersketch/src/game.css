@@ -1,0 +1,90 @@
+/* Bandersketch · teatro: frontend dedicato al gioco, fuori dal layout officina.
+   Importato da Setup.svelte e Bandersketch.svelte (chunk gioco separato).
+   Classi globali con prefisso bs- / game- / stage- per non scontrarsi col design system. */
+
+/* ── radice a tutto schermo ── */
+.game-root {
+  min-height: 100dvh;
+  background:
+    radial-gradient(1100px 480px at 50% -10%, rgba(201, 153, 94, 0.14), transparent 62%),
+    radial-gradient(900px 700px at 8% 110%, rgba(58, 36, 20, 0.55), transparent 60%),
+    radial-gradient(900px 700px at 92% 110%, rgba(58, 36, 20, 0.55), transparent 60%),
+    linear-gradient(180deg, #0d0f15 0%, #0a0c11 100%);
+  color: #e7e0cc;
+  font-family: Georgia, "Times New Roman", serif;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── barra sottile del teatro ── */
+.game-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 10px clamp(12px, 2.5vw, 28px);
+  border-bottom: 1px solid rgba(201, 153, 94, 0.22);
+  background: rgba(10, 12, 17, 0.72);
+  backdrop-filter: blur(10px);
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+
+.game-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: #e7e0cc;
+  white-space: nowrap;
+}
+
+.game-brand .glyph { color: #c9995e; font-size: 18px; }
+
+/* ── sala di lettura del setup ── */
+.setup-root {
+  width: min(920px, 94vw);
+  margin: 0 auto;
+  padding: clamp(18px, 4vh, 48px) 0 70px;
+  flex: 1;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #9a958a;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px 2px;
+  margin-bottom: 18px;
+}
+
+.back-link:hover { color: #c9995e; }
+
+/* ── scrollbar pergamena per le pagine ── */
+.page {
+  scrollbar-width: thin;
+  scrollbar-color: #b89b62 transparent;
+}
+
+.page::-webkit-scrollbar { width: 10px; }
+.page::-webkit-scrollbar-track { background: transparent; }
+.page::-webkit-scrollbar-thumb {
+  background: #b89b62;
+  border-radius: 8px;
+  border: 2px solid #ecdfbe;
+}
+
+@media (max-width: 700px) {
+  .game-brand { font-size: 11px; letter-spacing: 3px; }
+}

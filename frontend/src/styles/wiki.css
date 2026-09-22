@@ -1,0 +1,160 @@
+/* ── Wiki ── */
+.wiki {
+  border-top: 1px solid var(--line);
+  margin-top: 60px;
+  padding-top: 36px;
+}
+
+.wiki-entry {
+  margin-top: 32px;
+}
+
+.wiki-entry h3 {
+  font-family: var(--display);
+  font-size: 21px;
+  font-weight: 600;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.wiki-entry h3 .tag {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--moss);
+  letter-spacing: .8px;
+}
+
+.wiki-body {
+  color: var(--paper-dim);
+  max-width: 75ch;
+  margin-top: 8px;
+}
+
+.wiki-body p+p {
+  margin-top: 10px;
+}
+
+.spec-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 16px;
+  font-size: 13px;
+}
+
+.spec-table th,
+.spec-table td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.spec-table th {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--ochre);
+  font-weight: 500;
+  width: 150px;
+}
+
+.spec-table td {
+  color: var(--paper);
+}
+
+.spec-table td code {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--paper-dim);
+}
+
+.ex-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.ex {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--ink-2);
+}
+
+.ex img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  display: block;
+}
+
+.ex .cap {
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--paper-dim);
+}
+
+.ex .cap .m {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--paper-faint);
+  display: block;
+  margin-top: 4px;
+}
+
+/* Bozze */
+.bozza-note {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--amber);
+  background: var(--ink-2);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  margin-top: 26px;
+  font-size: 13.5px;
+  color: var(--paper-dim);
+}
+
+.bozza-note strong {
+  color: var(--paper);
+  font-weight: 600;
+}
+
+footer {
+  border-top: 1px solid var(--line);
+  padding: 20px 26px;
+  margin-top: 56px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--paper-faint);
+  letter-spacing: .4px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.build-tag {
+  color: var(--ochre);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 1px 6px;
+  font-size: 9.5px;
+  letter-spacing: .8px;
+}
+
+.hub-err {
+  color: var(--seal);
+  font-size: 10px;
+  border: 1px solid rgba(248, 113, 113, .4);
+  border-radius: 6px;
+  padding: 1px 6px;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+

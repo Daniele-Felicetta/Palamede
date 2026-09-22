@@ -1,0 +1,270 @@
+/* ── Card ── */
+.grid-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 14px;
+}
+
+.card {
+  display: block;
+  text-decoration: none;
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px 20px 16px;
+  position: relative;
+  transition: border-color .15s, transform .15s, box-shadow .15s;
+  color: var(--paper);
+  overflow: hidden;
+}
+
+.card:hover {
+  border-color: var(--ochre);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow);
+}
+
+.card h3 {
+  font-family: var(--display);
+  font-size: 20px;
+  font-weight: 600;
+  margin: 10px 0 6px;
+}
+
+.card p {
+  color: var(--paper-dim);
+  font-size: 13.5px;
+}
+
+.card .glyph {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ochre);
+  letter-spacing: 1px;
+}
+
+.card .state {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 1px;
+  padding: 3px 9px;
+  border-radius: 20px;
+  text-transform: uppercase;
+}
+
+.state.live {
+  color: var(--moss);
+  border: 1px solid rgba(52, 211, 153, .35);
+  background: rgba(52, 211, 153, .08);
+}
+
+.state.bozza {
+  color: var(--paper-faint);
+  border: 1px solid var(--line);
+  background: var(--ink-3);
+}
+
+/* ── Home ── */
+.home-hero {
+  position: relative;
+}
+
+.home-hero::after {
+  content: '';
+  position: absolute;
+  inset: -60px -26px 0;
+  background:
+    radial-gradient(55% 110% at 82% -10%, rgba(139, 147, 255, .14), transparent 60%),
+    radial-gradient(45% 100% at 6% -20%, rgba(52, 211, 153, .10), transparent 60%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.apps {
+  margin-top: 36px;
+}
+
+.log-strip {
+  margin-top: 24px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 22px;
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  color: var(--paper-dim);
+  box-shadow: var(--shadow);
+}
+
+.log-led {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.log-led .led {
+  width: 7px;
+  height: 7px;
+}
+
+.log-model {
+  color: var(--paper);
+}
+
+.log-gpu {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: auto;
+}
+
+.log-bar {
+  width: 100px;
+  height: 5px;
+  border-radius: 4px;
+  background: var(--ink-3);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.log-fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--ochre), var(--moss));
+  transition: width .5s ease;
+}
+
+.live-card {
+  border-top: 2px solid var(--moss);
+}
+
+.app-foot {
+  display: block;
+  margin-top: 12px;
+  padding-top: 9px;
+  border-top: 1px dashed var(--line);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  color: var(--paper-faint);
+}
+
+/* ── Home: dettaglio applicazioni ── */
+.app-list {
+  border-top: 1px solid var(--line);
+}
+
+.app-item {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 20px 4px;
+  border-bottom: 1px solid var(--line);
+}
+
+.app-item .glyph {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ochre);
+  letter-spacing: 1px;
+  min-width: 42px;
+  padding-top: 6px;
+}
+
+.app-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.app-body h3 {
+  font-family: var(--display);
+  font-size: 19px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.app-body p {
+  color: var(--paper-dim);
+  font-size: 14px;
+  margin-top: 5px;
+  max-width: 72ch;
+}
+
+.app-go {
+  display: inline-block;
+  margin-top: 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--ochre);
+  text-decoration: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 5px 12px;
+  transition: border-color .15s, background .15s;
+}
+
+.app-go:hover {
+  border-color: var(--ochre);
+  background: var(--ink-3);
+}
+
+/* ── Strip misure ── */
+.gauge {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--ink-2);
+  box-shadow: var(--shadow);
+}
+
+.gauge .cell {
+  flex: 1 1 160px;
+  padding: 16px 18px;
+  border-right: 1px solid var(--line);
+}
+
+.gauge .cell:last-child {
+  border-right: none;
+}
+
+.gauge .num {
+  font-family: var(--display);
+  font-size: 25px;
+  font-weight: 600;
+  color: var(--paper);
+}
+
+.gauge .num small {
+  font-size: 14px;
+  color: var(--paper-dim);
+}
+
+.gauge .lab {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--ochre);
+  margin-top: 2px;
+}
+

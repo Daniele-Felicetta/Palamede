@@ -1,0 +1,213 @@
+/* ── Sidebar metriche (a SINISTRA) ── */
+@media (min-width: 1200px) {
+  .shell-sidebar .masthead {
+    margin-left: 236px;
+  }
+
+  .shell-sidebar main,
+  .shell-sidebar footer {
+    margin-left: 236px;
+  }
+}
+
+.masthead,
+main,
+footer {
+  transition: margin-left .2s ease;
+}
+
+.side-toggle {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .8px;
+  background: var(--ink-3);
+  color: var(--paper-dim);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  white-space: nowrap;
+  transition: color .15s, border-color .15s;
+}
+
+.side-toggle:hover {
+  color: var(--paper);
+  border-color: var(--ochre);
+}
+
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 236px;
+  background: var(--ink-2);
+  border-right: 1px solid var(--line);
+  padding: 22px 18px 24px;
+  overflow-y: auto;
+  z-index: 15;
+  transition: transform .22s ease;
+}
+
+@media (min-width: 1200px) {
+  .sidebar:not(.open) {
+    display: none;
+  }
+}
+
+@media (max-width: 1199px) {
+  .sidebar {
+    width: min(236px, 85vw);
+    transform: translateX(-100%);
+    box-shadow: 8px 0 24px rgba(0, 0, 0, .35);
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+}
+
+/* ── Server (stato servizi + start/stop 3D) ── */
+.srv-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.srv-name {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .4px;
+  color: var(--paper-dim);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.srv-btn {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .6px;
+  background: var(--ink-3);
+  color: var(--paper-dim);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 3px 9px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color .15s, border-color .15s, background .15s;
+}
+
+.srv-btn:hover:not(:disabled) {
+  color: var(--paper);
+  border-color: var(--ochre);
+}
+
+.srv-btn:disabled {
+  opacity: .5;
+  cursor: default;
+}
+
+.side-backdrop {
+  display: none;
+}
+
+@media (max-width: 1199px) {
+  .side-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, .45);
+    z-index: 14;
+  }
+}
+
+.side-sec {
+  margin-bottom: 20px;
+}
+
+.side-title {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--ochre);
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+
+.meter {
+  margin-bottom: 12px;
+}
+
+.meter-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--paper-dim);
+  margin-bottom: 4px;
+}
+
+.meter-val {
+  color: var(--paper);
+}
+
+.meter-bar {
+  height: 5px;
+  border-radius: 4px;
+  background: var(--ink-3);
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+
+.meter-fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--ochre), var(--moss));
+  transition: width .4s ease;
+}
+
+.side-mini {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--paper-dim);
+  margin-bottom: 5px;
+}
+
+.side-mini.off {
+  color: var(--paper-faint);
+}
+
+.procs-mem {
+  color: var(--paper-dim);
+}
+
+.procs-mem.na {
+  color: var(--paper-faint);
+  opacity: .7;
+}
+
+.loaded-model {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: .8px;
+  color: var(--paper-faint);
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.loaded-model.on {
+  color: var(--moss);
+}
+

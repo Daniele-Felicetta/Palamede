@@ -6,8 +6,9 @@ giusto quando lo selezioni (mai due modelli in VRAM insieme), e una **wiki**
 per ogni sezione con funzionamento, ingombri, tempi misurati, qualità ed
 esempi generati dai modelli stessi.
 
-**Stato**: **Immagini**, **Chat** e **RAG** sono operative: due
-modelli immagine (**Bonsai 4B ternary**, **Z-Image Turbo Q4_K_M**), chat
+**Stato**: **Immagini**, **Chat** e **RAG** sono operative: quattro
+modelli immagine (**Bonsai 4B ternary**, **Z-Image Turbo Q4_K_M**, **Klein 4B
+FLUX.2** e **Qwen-Image 2.1 Q4_K_M**), chat
 locale con **Ornith 1.5** via llama.cpp, e una **knowledge base
 llm-wiki** (pattern Karpathy) in `knowledge/` — fonti grezze compilate dal
 modello in pagine interconnesse, usate come contesto nella chat. Il **3D** è
@@ -148,7 +149,7 @@ Invoke-RestMethod -Uri 'http://127.0.0.1:4600/api/image' -Method Post `
 |---|---|
 | `GET /api/health` | stato del modello server + modello caricato |
 | `GET /api/models` | elenco modelli e quale è caricato |
-| `POST /api/select` | carica/scarica `{model: "bonsai"\|"zimage"\|"klein"}` |
+| `POST /api/select` | carica/scarica `{model: "bonsai"\|"zimage"\|"klein"\|"qwenimage"}` |
 | `POST /api/image` | `{model, prompt, steps, seed, width, height, count}` → `{images:[{dataUrl,timeMs,seed}]}` |
 | `GET /api/metrics` | CPU/RAM/GPU (usata dalla sidebar) |
 | `GET /api/chat/status` | stato del server chat (llama-server) |

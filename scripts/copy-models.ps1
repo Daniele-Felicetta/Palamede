@@ -60,6 +60,33 @@ if (-not (Test-Path $fv)) {
     Invoke-AuditModel $fv 'https://huggingface.co/Comfy-Org/flux2-dev/resolve/main/split_files/vae/flux2-vae.safetensors'
 }
 
+# 6) Qwen-Image 2.1 (sd-server): DiT GGUF + VAE + text encoder Qwen3-VL-8B.
+#    Nota: servono 3 pezzi (il DiT è solo il denoiser); VAE e text encoder
+#    NON sono intercambiabili con quelli di Qwen-Image 1 / Wan 2.2.
+$qdir = Join-Path $M 'qwen-image'
+$qdit = Join-Path $qdir 'qwen-image-2.1-Q4_K_M.gguf'
+$qvae = Join-Path $qdir 'qwen_image_2.1_vae_bf16.safetensors'
+$qte  = Join-Path $qdir 'Qwen3-VL-8B-Instruct-UD-Q4_K_XL.gguf'
+New-Item -ItemType Directory -Force -Path $qdir | Out-Null
+if (-not (Test-Path $qdit)) {
+    Write-Host "scarico Qwen-Image 2.1 DiT Q4_K_M (4.2 GB)…" -ForegroundColor Cyan
+    curl.exe -L --fail --retry 3 -o $qdit `
+      'https://huggingface.co/unsloth/Qwen-Image-2.1-GGUF/resolve/main/qwen-image-2.1-Q4_K_M.gguf'
+    Invoke-AuditModel $qdit 'https://huggingface.co/unsloth/Qwen-Image-2.1-GGUF/resolve/main/qwen-image-2.1-Q4_K_M.gguf'
+}
+if (-not (Test-Path $qvae)) {
+    Write-Host "scarico Qwen-Image 2.1 VAE (~0.68 GB)…" -ForegroundColor Cyan
+    curl.exe -L --fail --retry 3 -o $qvae `
+      'https://huggingface.co/unsloth/Qwen-Image-2.1-FP8/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors'
+    Invoke-AuditModel $qvae 'https://huggingface.co/unsloth/Qwen-Image-2.1-FP8/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors'
+}
+if (-not (Test-Path $qte)) {
+    Write-Host "scarico Qwen3-VL-8B text encoder (~5.1 GB)…" -ForegroundColor Cyan
+    curl.exe -L --fail --retry 3 -o $qte `
+      'https://huggingface.co/unsloth/Qwen3-VL-8B-Instruct-GGUF/resolve/main/Qwen3-VL-8B-Instruct-UD-Q4_K_XL.gguf'
+    Invoke-AuditModel $qte 'https://huggingface.co/unsloth/Qwen3-VL-8B-Instruct-GGUF/resolve/main/Qwen3-VL-8B-Instruct-UD-Q4_K_XL.gguf'
+}
+
 Write-Host "models/ pronto:" -ForegroundColor Green
 Get-ChildItem $M -Recurse -File | Measure-Object Length -Sum |
     ForEach-Object { "  {0:N2} GB totali" -f ($_.Sum / 1GB) }

@@ -8,8 +8,9 @@ che parla con più backend locali; ogni sezione (Immagini, Testo, 3D,
 RAG, MCP) ha la sua **wiki** con funzionamento, ingombri, tempi misurati,
 qualità ed esempi generati dai modelli stessi.
 
-Stato attuale: **Immagini, Chat e RAG sono funzionanti** — due modelli
-immagine (Bonsai 4B ternary, Z-Image Turbo Q4_K_M), chat locale con Ornith
+Stato attuale: **Immagini, Chat e RAG sono funzionanti** — quattro modelli
+immagine (Bonsai 4B ternary, Z-Image Turbo Q4_K_M, Klein 4B FLUX.2 e
+Qwen-Image 2.1 Q4_K_M), chat locale con Ornith
 1.5 (35B-A3B e 9B) via llama.cpp, e una **knowledge base llm-wiki** (pattern
 Karpathy) in `knowledge/` con fonti raw/ compilate dal modello in pagine
 interconnesse, usate come contesto nella chat. Il **3D è integrato**: la
@@ -116,6 +117,9 @@ senza toccare `reference/`.
 | Z-Image Turbo Q4_K_M | `z-image-turbo-Q4_K_M.gguf` | 4.67 GB | DiT S3-DiT 6B |
 | Qwen3-4B TE (per Z-Image) | `Qwen3-4B-Instruct-2507-Q4_K_M.gguf` | 2.33 GB | text encoder |
 | Z-Image VAE | `z-image-vae.safetensors` | 0.16 GB | bf16 |
+| Qwen-Image 2.1 Q4_K_M | `qwen-image/qwen-image-2.1-Q4_K_M.gguf` | 4.2 GB | DiT single-stream 7B (sd-server) |
+| Qwen3-VL-8B TE (per Qwen-Image) | `qwen-image/Qwen3-VL-8B-Instruct-UD-Q4_K_XL.gguf` | 5.1 GB | text encoder 8B |
+| Qwen-Image 2.1 VAE | `qwen-image/qwen_image_2.1_vae_bf16.safetensors` | 0.68 GB | bf16 |
 | Ornith 1.5 35B-A3B | `ornith-1.5-35b/Ornith-1.5-35B-Q4_K_M.gguf` | 20.2 GB | MoE (3B attivi), chat |
 | Ornith 1.5 9B | `ornith-1.5-9b/Ornith-1.5-9B-Q4_K_M.gguf` | 5.2 GB | dense, chat |
 | Ornith 1.5 9B Q5 | `ornith-1.5-9b/Ornith-1.5-9B-Q5_K_M.gguf` | 6.1 GB | dense, chat (qualità) |

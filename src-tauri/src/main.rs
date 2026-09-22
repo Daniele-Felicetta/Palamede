@@ -361,8 +361,9 @@ fn main() {
             let py = root.join("reference").join("bonsai").join(".venv")
                 .join("Scripts").join("python.exe");
             if py.exists() {
-                let scan_cmd = Command::new(&py)
-                    .current_dir(root)
+                let mut scan_cmd = Command::new(py);
+                scan_cmd
+                    .current_dir(&root)
                     .args(["experimental/model-antivirus/scan-models.py", "--quick"])
                     .creation_flags(0x08000000);
                 match scan_cmd.stdout(Stdio::inherit()).stderr(Stdio::inherit()).status() {

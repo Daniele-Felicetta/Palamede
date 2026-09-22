@@ -32,6 +32,9 @@
   const gameLoader = () => import('./games/bandersketch/src/Bandersketch.svelte')
 
   const gameRoute = /^\/bandersnatch\/([^/]+)$/
+  // Teatro: le rotte del gioco escono dal Layout officina (niente masthead,
+  // sidebar, footer) e occupano tutto lo schermo con frontend dedicato.
+  let isGameRoute = $derived(route.path === '/bandersketch' || gameRoute.test(route.path))
   let Page = $state<Component | null>(null)
   let loadErr = $state('')
   let navToken = 0
@@ -56,6 +59,15 @@
   let draft = $derived(DRAFTS.find((d) => d.path === route.path) ?? null)
 </script>
 
+{#if isGameRoute}
+  {#if Page}
+    <Page />
+  {:else if loadErr}
+    <p class="route-err" role="alert">Pagina non caricata: {loadErr}</p>
+  {:else}
+    <p class="route-loading" aria-busy="true">caricamento…</p>
+  {/if}
+{:else}
 <Layout>
   {#if draft}
     <Draft draft={draft} />
@@ -67,6 +79,7 @@
     <p class="route-loading" aria-busy="true">caricamento…</p>
   {/if}
 </Layout>
+{/if}
 
 <style>
   .route-loading, .route-err { padding: 40px 8px; color: var(--paper-dim); }

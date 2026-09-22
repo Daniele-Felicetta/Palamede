@@ -1,8 +1,9 @@
 ﻿# Setup one-time: engine sd-cpp, llama.cpp (chat), dipendenze frontend, build UI.
 # I pesi dei modelli stanno in models/ (riempiti da copy-models.ps1).
 param(
-    # release di stable-diffusion.cpp (binari Windows CUDA 12)
-    [string]$SdTag = 'master-829-0a565f2',
+    # release di stable-diffusion.cpp (binari Windows CUDA 12). Deve contenere
+    # il supporto Qwen-Image 2.1 (PR #1994, commit 137f740, dal 2026-09-20).
+    [string]$SdTag = 'master-896-e112ab5',
     # release di llama.cpp (binari Windows CUDA)
     [string]$LlamaTag = 'b10679'
 )
@@ -10,16 +11,25 @@ $ErrorActionPreference = 'Stop'
 $Root = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
 
 # ── 1. stable-diffusion.cpp (sd-server.exe) ───────────────────────────────
-$zip  = Join-Path $Root 'tools\sd-cpp.zip'
-$dst  = Join-Path $Root 'tools\sd-cpp'
-$exe  = Join-Path $dst 'sd-server.exe'
-if (-not (Test-Path $exe)) {
+# L'asset di release si chiama "sd-master-<sha>-...": il tag ha anche un
+# contatore (master-<n>-<sha>), quindi per l'URL ricaviamo il solo sha.
+# Uno stamp del tag installato fa scattare l'aggiornamento quando cambia.
+$zip   = Join-Path $Root 'tools\sd-cpp.zip'
+$dst   = Join-Path $Root 'tools\sd-cpp'
+$exe   = Join-Path $dst 'sd-server.exe'
+$stamp = Join-Path $dst '.sd-tag'
+$current = if (Test-Path $stamp) { (Get-Content -LiteralPath $stamp -Raw).Trim() } else { '' }
+if (-not (Test-Path $exe) -or $current -ne $SdTag) {
+    $sha = 'master-' + ($SdTag -replace '^.*-', '')
     New-Item -ItemType Directory -Force -Path (Join-Path $Root 'tools') | Out-Null
-    $url = "https://github.com/leejet/stable-diffusion.cpp/releases/download/$SdTag/sd-$SdTag-bin-win-cuda12-x64.zip"
-    Write-Host "scarico sd-cpp: $url" -ForegroundColor Cyan
+    $url = "https://github.com/leejet/stable-diffusion.cpp/releases/download/$SdTag/sd-$sha-bin-win-cuda12-x64.zip"
+    Write-Host "scarico sd-cpp ($SdTag): $url" -ForegroundColor Cyan
+    if (Test-Path $dst) { Remove-Item $dst -Recurse -Force }
     curl.exe -L --fail --retry 3 -o $zip $url
+    if ($LASTEXITCODE -ne 0) { throw "download sd-cpp fallito" }
     Expand-Archive -Path $zip -DestinationPath $dst -Force
     Remove-Item $zip
+    Set-Content -LiteralPath (Join-Path $dst '.sd-tag') -Value $SdTag
 }
 Write-Host "sd-server: $(Test-Path $exe)"
 

@@ -6,11 +6,20 @@
 #   1. frontend: npm run build (frontend/dist)
 #   2. Tauri:    cargo build --release (src-tauri/target/release/palamede.exe)
 #   3. copia:    palamede.exe -> Palamede.exe alla radice
+#   4. firma:    scripts/sign.ps1 su Palamede.exe (skip se non c'e' cert)
 #
 # Nota: Kaspersky e altri AV possono bloccare/eliminare gli .exe appena
 # compilati da Rust. In tal caso aggiungi un'esclusione per la cartella
 # src-tauri/target (e per la radice) e riprova.
-param([switch]$SkipFrontend)
+# La firma self-signed ("-CreateDevCert") serve SOLO a testare lo script in
+# locale: non riduce i flag Kaspersky/SmartScreen sugli altri PC.
+# Per quello serve un cert pubblico OV/EV o Azure Trusted Signing.
+param(
+    [switch]$SkipFrontend,
+    [switch]$SkipSign,
+    [string]$SignThumbprint = $env:PALAMEDE_CERT_THUMBPRINT,
+    [switch]$CreateDevCert
+)
 $ErrorActionPreference = 'Stop'
 $Root = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
 
@@ -57,4 +66,26 @@ Copy-Item $srcExe $dstExe -Force
 $mbExe = [math]::Round((Get-Item $dstExe).Length / 1MB, 1)
 $mbSrc = [math]::Round((Get-Item $srcExe).Length / 1MB, 1)
 Write-Host "Palamede.exe aggiornato: $mbExe MB (da $mbSrc MB)"
+
+# --- 4. firma Authenticode (mai bloccante: sign.ps1 fa warn + exit 0 se non puo' firmare) ---
+if (-not $SkipSign) {
+    $signScript = Join-Path $Root 'scripts\sign.ps1'
+    if (Test-Path $signScript) {
+        Write-Host '- firma Authenticode (skip se nessun cert)' -ForegroundColor Yellow
+        $signArgs = @{ File = $dstExe }
+        if ($SignThumbprint) { $signArgs['Thumbprint'] = $SignThumbprint }
+        if ($CreateDevCert) { $signArgs['CreateDevCert'] = $true }
+        try {
+            & $signScript @signArgs
+        } catch {
+            Write-Warning "firma fallita (build comunque valida): $($_.Exception.Message)"
+        }
+    } else {
+        Write-Warning 'scripts/sign.ps1 non trovato, firma saltata.'
+    }
+} else {
+    Write-Host '- firma saltata (-SkipSign)' -ForegroundColor DarkGray
+}
+
+Get-FileHash $dstExe -Algorithm SHA256 | ForEach-Object { Write-Host "SHA256: $($_.Hash)" -ForegroundColor DarkGray }
 Write-Host '== build completata ==' -ForegroundColor Green

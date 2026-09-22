@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
-  import * as THREE from "three";
   import {
     get3DStatus,
     generate3D,
@@ -9,6 +8,9 @@
     type Generate3DResult,
     type TrellisStatus,
   } from "../api";
+  import { Images } from "../lib/images";
+  import { dataUrlToBytes, downloadUrl } from "../lib/download";
+  import { createViewer3D, type Viewer3D } from "../lib/viewer3d";
   import {
     Button,
     ChatState,
@@ -33,7 +35,7 @@
   let viewerErr = $state("");
 
   let canvas: HTMLCanvasElement | null = $state(null);
-  let viewer: { dispose: () => void } | null = $state(null);
+  let viewer: Viewer3D | null = $state(null);
 
   // stato del server 3D (processo avviato/fermato dal hub tramite /api/3d)
   const refreshStatus = async () => {
@@ -100,24 +102,16 @@
     };
   });
 
-  const loadFile = (f: File) => {
-    if (!f.type.startsWith("image/")) {
-      hint = "il file non è un'immagine";
-      error = true;
-      return;
-    }
-    const r = new FileReader();
-    r.onload = () => {
-      img = r.result as string;
+  const loadFile = async (f: File) => {
+    try {
+      img = await Images.readImageAsDataURL(f);
       result = null;
       error = false;
       hint = "immagine caricata — pronta per la generazione 3D";
-    };
-    r.onerror = () => {
-      hint = "lettura dell'immagine fallita";
+    } catch (e) {
+      hint = e instanceof Error ? e.message : "lettura dell'immagine fallita";
       error = true;
-    };
-    r.readAsDataURL(f);
+    }
   };
 
   const submit = async (e: SubmitEvent) => {
@@ -137,11 +131,12 @@
       hint = `fatto: ${r.vertices.toLocaleString("it-IT")} vertici · ${r.faces.toLocaleString("it-IT")} facce in ${r.time_s}s`;
       // il viewer è un extra: se fallisce, NON blocca il risultato.
       // tick(): senza di questo il <canvas bind:this> non è ancora stato
-      // montato quando parte renderViewer (Svelte 5 aggiorna il DOM in un
+      // montato quando parte il render (Svelte 5 aggiorna il DOM in un
       // microtask) → canvas è null e il viewer esce senza disegnare nulla.
       await tick();
       try {
-        await renderViewer(r);
+        if (canvas && !viewer) viewer = await createViewer3D(canvas);
+        await viewer?.showGlb(r.glb_base64);
       } catch (verr) {
         viewerErr = String(verr instanceof Error ? verr.message : verr);
       }
@@ -156,29 +151,11 @@
   // download robusto del GLB: prima la URL servita dal hub, fallback sul base64.
   const downloadGlb = async () => {
     if (!result) return;
-    try {
-      const blob = await fetch(result.url).then((r) => {
-        if (!r.ok) throw new Error(String(r.status));
-        return r.blob();
-      });
-      saveBlob(blob, `palamede-3d-${result.seed}.glb`);
-    } catch {
-      const b64 = result.glb_base64.split(",")[1] ?? result.glb_base64;
-      const bin = atob(b64);
-      const bytes = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      saveBlob(
-        new Blob([bytes], { type: "model/gltf-binary" }),
-        `palamede-3d-${result.seed}.glb`,
-      );
-    }
-  };
-  const saveBlob = (blob: Blob, name: string) => {
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = name;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    const name = `palamede-3d-${result.seed}.glb`;
+    const b64 = result.glb_base64;
+    await downloadUrl(result.url, name, () =>
+      new Blob([dataUrlToBytes(b64)], { type: "model/gltf-binary" }),
+    );
   };
 
   // download STL (solo geometria): niente base64 nel risultato, quindi se il
@@ -186,88 +163,11 @@
   const downloadStl = async () => {
     if (!result?.stl_url) return;
     try {
-      const blob = await fetch(result.stl_url).then((r) => {
-        if (!r.ok) throw new Error(String(r.status));
-        return r.blob();
-      });
-      saveBlob(blob, `palamede-3d-${result.seed}.stl`);
+      await downloadUrl(result.stl_url, `palamede-3d-${result.seed}.stl`);
     } catch {
       hint = "download STL non riuscito: riprova o scarica il GLB";
       error = true;
     }
-  };
-
-  // viewer three.js (dipendenza npm locale, niente CDN)
-  const renderViewer = async (r: Generate3DResult) => {
-    if (!canvas) return;
-    // nuova generazione: smantella il viewer precedente prima di crearne uno
-    // nuovo (stesso canvas → stesso contesto WebGL, niente renderer multipli).
-    if (viewer) {
-      viewer.dispose();
-      viewer = null;
-    }
-    const [{ GLTFLoader }, { OrbitControls }] = await Promise.all([
-      import("three/examples/jsm/loaders/GLTFLoader.js"),
-      import("three/examples/jsm/controls/OrbitControls.js"),
-    ]);
-
-    // decodifica il base64 del GLB in un Blob URL
-    const b64 = r.glb_base64.split(",")[1] ?? r.glb_base64;
-    const bin = atob(b64);
-    const bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    const blob = new Blob([bytes], { type: "model/gltf-binary" });
-    const url = URL.createObjectURL(blob);
-
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x14181f);
-    const camera = new THREE.PerspectiveCamera(
-      50,
-      canvas.clientWidth / canvas.clientHeight,
-      0.1,
-      100,
-    );
-    camera.position.set(2, 1.6, 2.6);
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-    renderer.setSize(canvas.clientWidth, canvas.clientHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-
-    scene.add(new THREE.AmbientLight(0xffffff, 1.4));
-    const dir = new THREE.DirectionalLight(0xffffff, 2.2);
-    dir.position.set(3, 5, 4);
-    scene.add(dir);
-
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-
-    const loader = new GLTFLoader();
-    const gltf = await loader.loadAsync(url);
-    scene.add(gltf.scene);
-
-    // centra e scala il mesh per inquadrarlo
-    const box = new THREE.Box3().setFromObject(gltf.scene);
-    const size = box.getSize(new THREE.Vector3()).length();
-    const center = box.getCenter(new THREE.Vector3());
-    gltf.scene.position.sub(center);
-    camera.position.set(size, size * 0.8, size * 1.2);
-    camera.lookAt(0, 0, 0);
-
-    const animate = () => {
-      controls.update();
-      renderer.render(scene, camera);
-      raf = requestAnimationFrame(animate);
-    };
-    let raf = requestAnimationFrame(animate);
-
-    // cleanup al cambio risultato / smontaggio
-    viewer = {
-      dispose: () => {
-        cancelAnimationFrame(raf);
-        controls.dispose();
-        renderer.dispose();
-        URL.revokeObjectURL(url);
-      },
-    };
   };
 </script>
 

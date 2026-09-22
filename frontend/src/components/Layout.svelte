@@ -1,11 +1,10 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
-  import { onMount } from 'svelte'
   import { route, navigate } from '../router.svelte'
   import { store, getCurrent, modelLabel } from '../store.svelte'
   import { SECTIONS } from '../data/sections'
   import { Button, Led, Meter } from './ui'
-  import { get3DStatus, start3D, stop3D, type TrellisStatus } from '../api'
+  import { start3D, stop3D } from '../api'
 
   // Marcatore di build: compare nel footer, cosi' si capisce subito se il
   // browser sta servendo un bundle vecchio (in tal caso: Ctrl+F5).
@@ -23,30 +22,22 @@
 
   let sidebar = $state(typeof window !== 'undefined' ? window.innerWidth >= 1400 : true)
 
-  // stato del server 3D TRELLIS (subprocess gestito dal hub)
-  let trellis = $state<TrellisStatus | null>(null)
+  // Stato del server 3D TRELLIS: arriva dallo store condiviso (un solo poller
+  // per l'app, come chat/modelli). Qui solo start/stop, che scrivono l'esito.
   let trellisBusy = $state(false)
   let trellisHint = $state('')
 
-  async function pollTrellis() {
-    try { trellis = await get3DStatus() } catch { /* hub non ancora vivo */ }
-  }
   async function toggleTrellis() {
     if (trellisBusy) return
     trellisBusy = true; trellisHint = ''
     try {
-      trellis = trellis?.running ? await stop3D() : await start3D()
+      store.trellis = store.trellis?.running ? await stop3D() : await start3D()
     } catch (e) {
       trellisHint = String(e instanceof Error ? e.message : e)
     } finally {
       trellisBusy = false
     }
   }
-  onMount(() => {
-    pollTrellis()
-    const t = setInterval(pollTrellis, 5000)
-    return () => clearInterval(t)
-  })
 
   let gpuOk = $derived(store.metrics?.gpu.ok)
   let loaded = $derived(getCurrent())
@@ -156,13 +147,13 @@
       <!-- 3D :8124 con start/stop -->
       <div class="srv-row">
         <span class="srv-name">3D :8124</span>
-        <Led state={trellis?.running ? 'on' : 'off'} title="Server 3D TRELLIS.2" />
+        <Led state={store.trellis?.running ? 'on' : 'off'} title="Server 3D TRELLIS.2" />
         <Button variant="server" onclick={toggleTrellis} disabled={trellisBusy}>
-          {trellisBusy ? '…' : (trellis?.running ? 'stop' : 'start')}
+          {trellisBusy ? '…' : (store.trellis?.running ? 'stop' : 'start')}
         </Button>
       </div>
-      {#if trellis?.ready}<div class="side-mini">pipeline pronta</div>{/if}
-      {#if !trellis?.ready && trellis?.running && trellis?.loading}<div class="side-mini">in caricamento…</div>{/if}
+      {#if store.trellis?.ready}<div class="side-mini">pipeline pronta</div>{/if}
+      {#if !store.trellis?.ready && store.trellis?.running && store.trellis?.loading}<div class="side-mini">in caricamento…</div>{/if}
       {#if trellisHint}<div class="side-mini off">{trellisHint}</div>{/if}
     </div>
     {#if (store.metrics?.gpu.procs?.length ?? 0) > 0}

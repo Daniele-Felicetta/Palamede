@@ -21,8 +21,25 @@
 </script>
 
 <label class="dropzone" ondragover={(e) => e.preventDefault()} ondrop={onDrop}>
-  <input type="file" accept={accept} hidden onchange={onChange} />
+  <!-- Visually hidden, NON `hidden`: un input display:none non è focusabile da
+       tastiera. Con questa classe resta raggiungibile con Tab e il <label>
+       mostra lo stato focus (vedi .dropzone:focus-within in images.css). -->
+  <input type="file" class="dz-input" accept={accept} onchange={onChange} />
   {#if children}
     {@render children()}
   {/if}
 </label>
+
+<style>
+  .dz-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+</style>

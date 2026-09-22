@@ -46,16 +46,6 @@
   flex-wrap: wrap;
 }
 
-.wiki-toggle {
-  display: inline-flex;
-}
-
-@media (max-width: 999px) {
-  .wiki-toggle {
-    display: none;
-  }
-}
-
 .chat-plates {
   flex-basis: 100%;
   display: grid;
@@ -556,110 +546,6 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-}
-
-.chat-wiki {
-  flex: none;
-  width: 300px;
-  min-height: 0;
-  overflow-y: auto;
-  border-right: 1px solid var(--line);
-  background: var(--ink-2);
-  padding: 18px 18px 32px;
-}
-
-.chat-wiki:not(.open) {
-  display: none;
-}
-
-.chat-wiki .wiki-head {
-  margin-bottom: 14px;
-}
-
-.chat-wiki .sec-title {
-  font-size: 19px;
-  margin: 4px 0 0;
-}
-
-.chat-wiki .sec-sub {
-  font-size: 12.5px;
-  margin-top: 4px;
-  margin-bottom: 0;
-  line-height: 1.5;
-}
-
-.chat-wiki .wiki-entry {
-  background: var(--ink-3);
-  border: 1px solid var(--line);
-  border-left: 3px solid var(--ochre);
-  border-radius: var(--radius);
-  padding: 14px 16px;
-  margin-top: 14px;
-}
-
-.chat-wiki .wiki-entry h3 {
-  font-size: 15.5px;
-  margin: 0;
-  line-height: 1.3;
-}
-
-.chat-wiki .wiki-entry h3 .tag {
-  display: block;
-  margin-top: 5px;
-  font-size: 9.5px;
-  letter-spacing: .6px;
-  color: var(--moss);
-}
-
-.chat-wiki .wiki-body {
-  font-size: 12.5px;
-  margin-top: 8px;
-}
-
-.chat-wiki .spec-table {
-  font-size: 12px;
-  margin-top: 12px;
-}
-
-.chat-wiki .spec-table th {
-  width: auto;
-  padding: 5px 8px 5px 0;
-  font-size: 9px;
-  letter-spacing: 1px;
-}
-
-.chat-wiki .spec-table td {
-  padding: 5px 0;
-}
-
-.chat-wiki .ex-row {
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.chat-wiki .ex .cap {
-  font-size: 10px;
-  padding: 6px 8px;
-}
-
-.chat-wiki .ex .cap .m {
-  font-size: 9px;
-}
-
-@media (max-width: 1300px) {
-  .chat-wiki {
-    width: 280px;
-    padding: 14px 14px 28px;
-  }
-}
-
-@media (max-width: 999px) {
-
-  .chat-wiki,
-  .chat-wiki.open {
-    display: none;
-  }
 }
 
 @media (max-width: 600px) {

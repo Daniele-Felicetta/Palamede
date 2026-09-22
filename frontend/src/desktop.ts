@@ -19,8 +19,3 @@ export function notify(title: string, body: string): void {
   if (!api) return
   api.core.invoke('notify', { title, body }).catch(() => {})
 }
-
-/** True se la UI gira dentro l'app desktop (non nel browser). */
-export function inDesktop(): boolean {
-  return tauri() !== null
-}

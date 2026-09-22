@@ -58,10 +58,15 @@
   transition: border-color .15s, color .15s, background .15s;
 }
 
-.dropzone:hover {
+.dropzone:hover,
+.dropzone:focus-within {
   border-color: var(--ochre);
   color: var(--paper-dim);
   background: var(--ink-3);
+}
+
+.dropzone:focus-within {
+  box-shadow: 0 0 0 3px var(--ring);
 }
 
 .dropzone em {

@@ -51,6 +51,25 @@ export async function createViewer3D(canvas: HTMLCanvasElement): Promise<Viewer3
   let currentUrl: string | null = null
   let raf = 0
   let dead = false
+
+  // three.js non libera da sé GPU memory: geometrie, materiali e texture vanno
+  // disposed esplicitamente, altrimenti a ogni asset caricato la VRAM cresce.
+  const disposeMaterial = (mat: THREE.Material) => {
+    for (const v of Object.values(mat)) {
+      if (v && (v as THREE.Texture).isTexture) (v as THREE.Texture).dispose()
+    }
+    mat.dispose()
+  }
+  const disposeObject = (obj: THREE.Object3D) => {
+    obj.traverse((o) => {
+      const mesh = o as THREE.Mesh
+      if (!mesh.isMesh) return
+      mesh.geometry?.dispose()
+      const m = mesh.material
+      if (Array.isArray(m)) m.forEach(disposeMaterial)
+      else if (m) disposeMaterial(m)
+    })
+  }
   const animate = () => {
     if (dead) return
     controls.update()
@@ -68,7 +87,11 @@ export async function createViewer3D(canvas: HTMLCanvasElement): Promise<Viewer3
       const url = URL.createObjectURL(new Blob([bytes], { type: 'model/gltf-binary' }))
       const gltf = await loader.loadAsync(url)
       if (dead) { URL.revokeObjectURL(url); return }
-      if (current) { scene.remove(current); if (currentUrl) URL.revokeObjectURL(currentUrl) }
+      if (current) {
+        scene.remove(current)
+        disposeObject(current)
+        if (currentUrl) URL.revokeObjectURL(currentUrl)
+      }
       current = gltf.scene
       currentUrl = url
       scene.add(current)
@@ -85,6 +108,7 @@ export async function createViewer3D(canvas: HTMLCanvasElement): Promise<Viewer3
       dead = true
       cancelAnimationFrame(raf)
       controls.dispose()
+      if (current) disposeObject(current)
       renderer.dispose()
       if (currentUrl) URL.revokeObjectURL(currentUrl)
     },

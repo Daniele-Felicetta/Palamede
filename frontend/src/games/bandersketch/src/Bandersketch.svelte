@@ -153,13 +153,12 @@
 
   const ask = async (
     fragment: string,
-    withImages = false, // includi le ultime tavole per coerenza visiva
     scene: string[] = [], // dataUrl già ridotte (es. la tavola corrente)
     maxTokens = 200,
     temperature = 0.6,
   ): Promise<string> => {
-    // scene e withImages sono indipendenti: la tavola corrente da sola è
-    // veloce (1 immagine), le tavole passate costano decode a ~8 tok/s.
+    // La tavola corrente (scene) da sola è veloce (1 immagine); le tavole
+    // passate costano decode a ~8 tok/s e restano fuori da questo path.
     const content: string | ChatContentPart[] =
       scene.length
         ? [
@@ -169,12 +168,7 @@
               image_url: { url },
             })),
           ]
-        : withImages
-          ? [
-              { type: "text", text: fragment },
-              ...(await contextImages()),
-            ]
-          : fragment;
+        : fragment;
     const stream = IS_GEMINI
       ? await narrateStream(
           NARRATOR_ID,
@@ -261,9 +255,9 @@
       // scollegato si tiene comunque — il gioco non deve mai bloccarsi.
       const brew = async (frag: string) => {
         const good = (t: string) => groundedIn(t, tail) && !repeatsTail(t, tail);
-        const first = stripEcho(await ask(frag, false, scene, 280, 0.5), frag);
+        const first = stripEcho(await ask(frag, scene, 280, 0.5), frag);
         if (good(first)) return first;
-        const second = stripEcho(await ask(frag, false, scene, 280, 0.3), frag);
+        const second = stripEcho(await ask(frag, scene, 280, 0.3), frag);
         if (good(second)) return second;
         // Ripiego: meglio ancorato che originale — ma mai una copia se c'è
         // un'alternativa ancorata.

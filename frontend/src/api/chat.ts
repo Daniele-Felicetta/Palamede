@@ -1,4 +1,3 @@
-import { Text } from '../lib/text'
 import { j, postJson } from './http'
 
 // ── chat locale (llama.cpp llama-server via hub) ──────────────────────────
@@ -116,30 +115,4 @@ export async function narrateStream(
     throw new Error(msg)
   }
   return r.body
-}
-
-/** Generazione testuale rapida (storia/risposta) con default di fabbrica:
- *  modello consigliato (ornith-9b), temperatura 0.7. Avvia il server solo se
- *  non è già attivo con quel modello, streamma la risposta e la restituisce
- *  completa. `onDelta` (opzionale) riceve i token di contenuto in tempo reale. */
-export async function generateQuickText(
-  prompt: string,
-  opts: { model?: string; temperature?: number; onDelta?: (t: string) => void } = {},
-): Promise<string> {
-  const model = opts.model ?? Text.DEFAULT_MODEL
-  const temperature = opts.temperature ?? 0.7
-  const st = await getChatStatus().catch(() => null)
-  if (!st?.running || !st.ready || st.model !== model) {
-    await startChat({ model, ...Text.defaultsFor(model) })
-  }
-  const stream = await chatStream([{ role: 'user', content: prompt }], temperature)
-  return new Promise((resolve, reject) => {
-    let out = ''
-    Text.stream(
-      stream,
-      (type, t) => { if (type === 'content') { out += t; opts.onDelta?.(t) } },
-      () => resolve(out),
-      (e) => reject(e),
-    )
-  })
 }

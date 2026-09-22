@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onDestroy, onMount } from "svelte";
   import type { HistoryEntry } from "../api";
   import {
     generateImage,
@@ -34,6 +34,16 @@
   } from "../components/ui";
   import { notify } from "../desktop";
 
+  // `localStorage` può lanciare (privacy mode / iframe sandbox): leggere la
+  // preferenza in try/catch, non con un `typeof` che non basta a proteggere.
+  const readPreviewPref = (): boolean => {
+    try {
+      return localStorage.getItem("palamede:preview") === "1";
+    } catch {
+      return false;
+    }
+  };
+
   // Stato unico della pagina (standard Svelte 5): un solo oggetto $state.
   // `current` è l'unica eccezione: è derivato dallo store, resta un $derived.
   let ui = $state({
@@ -53,8 +63,7 @@
     clearing: false,
     deleting: null as string | null,
     viewer: null as string | null, // id dell'immagine nel lightbox a schermo pieno
-    preview: (typeof localStorage !== "undefined" &&
-      localStorage.getItem("palamede:preview") === "1") as boolean,
+    preview: readPreviewPref(),
     previewUrl: null as string | null, // object URL del frame di preview in streaming
   });
   let current = $derived(getCurrent());
@@ -93,6 +102,16 @@
       /* storage non disponibile */
     }
   };
+
+  // Uscendo dalla pagina durante una generazione l'interval resterebbe vivo
+  // (e la previewUrl non verrebbe revocata): fermalo allo smontaggio.
+  onDestroy(() => {
+    stopPreview();
+    if (ui.previewUrl) {
+      URL.revokeObjectURL(ui.previewUrl);
+      ui.previewUrl = null;
+    }
+  });
 
   // Lightbox a schermo pieno: in Tauri il target=_blank non funziona, quindi
   // l'immagine si apre in un overlay che copre tutta la finestra.
@@ -236,6 +255,11 @@
     if (Images.isSizePreset(s.size)) ui.size = s.size;
     ui.seed = s.seed;
     ui.prompt = s.prompt;
+    // Un'immagine di partenza di un altro modello resterebbe incoerente
+    // (es. bonsai non fa img2img): si riparte puliti.
+    ui.initImg = null;
+    ui.strength = 0.6;
+    ui.error = false;
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -289,6 +313,8 @@
     <div class="plates" role="radiogroup" aria-label="Modello">
       {#each IMAGE_MODELS as m (m.id)}
         <ModelPlate
+          role="radio"
+          aria-checked={ui.model === m.id}
           name={m.name}
           selected={ui.model === m.id}
           led={current === m.id ? 'on' : store.selecting === m.id ? 'busy' : 'off'}

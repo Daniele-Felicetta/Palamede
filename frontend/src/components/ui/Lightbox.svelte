@@ -21,19 +21,44 @@
     onnext?: () => void
   } = $props()
 
+  let box: HTMLDivElement | undefined = $state()
+
+  // Apertura: blocca lo scroll, sposta il focus dentro il dialogo, gestisci i
+  // tasti (Esc/frecce) e intrappola Tab; alla chiusura ripristina il focus su
+  // chi l'aveva prima (niente focus perso nel vuoto).
   $effect(() => {
     if (!open) return
+    const prevFocus = document.activeElement as HTMLElement | null
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
+    box?.focus()
+    const focusables = () =>
+      Array.from(
+        box?.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      ).filter((el) => !el.hasAttribute('disabled'))
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onclose?.()
       else if (e.key === 'ArrowLeft') onprev?.()
       else if (e.key === 'ArrowRight') onnext?.()
+      else if (e.key === 'Tab') {
+        const f = focusables()
+        if (!f.length) return
+        const first = f[0]
+        const last = f[f.length - 1]
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault(); last.focus()
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault(); first.focus()
+        }
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => {
       document.body.style.overflow = prev
       window.removeEventListener('keydown', onKey)
+      prevFocus?.focus?.()
     }
   })
 </script>
@@ -45,6 +70,7 @@
     aria-modal="true"
     aria-label="immagine a schermo pieno"
     tabindex="-1"
+    bind:this={box}
     onclick={(e) => {
       if (e.target === e.currentTarget) onclose?.()
     }}

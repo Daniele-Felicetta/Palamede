@@ -9,7 +9,7 @@
 // switchModel() è il punto unico di cambio modello: scarica il precedente e
 // carica il nuovo in un colpo solo (il server lo fa da sé su /select), quindi
 // NON serve mai premere prima un "eject".
-import { getChatStatus, getHealth, getMetrics, getModels, selectModel, type ChatStatus, type Health, type Metrics, type ModelsStatus } from './api'
+import { get3DStatus, getChatStatus, getHealth, getMetrics, getModels, selectModel, type ChatStatus, type Health, type Metrics, type ModelsStatus, type TrellisStatus } from './api'
 import { Images } from './lib/images'
 
 export const store = $state({
@@ -17,15 +17,16 @@ export const store = $state({
   models: null as ModelsStatus | null,
   metrics: null as Metrics | null,
   chat: null as ChatStatus | null,
+  trellis: null as TrellisStatus | null,
   selecting: null as string | null,
   lastError: null as string | null,
 })
 
-const current = $derived(store.models?.current ?? null)
-
 /** Modello attualmente caricato sulla GPU (null se VRAM vuota).
- *  Getter: i componenti lo leggono dentro un proprio $derived. */
-export const getCurrent = (): string | null => current
+ *  Getter: legge lo store al momento della chiamata, così i componenti che lo
+ *  usano dentro un proprio $derived tracciano `store.models` da soli (niente
+ *  $derived a livello di modulo, che sarebbe condiviso e non tracciabile). */
+export const getCurrent = (): string | null => store.models?.current ?? null
 
 export const modelLabel = Images.modelLabel
 
@@ -42,6 +43,8 @@ async function tick() {
     try { store.models = await getModels() } catch (e) { errs.push('models: ' + (e instanceof Error ? e.message : String(e))) }
     try { store.metrics = await getMetrics() } catch (e) { errs.push('metrics: ' + (e instanceof Error ? e.message : String(e))) }
     try { store.chat = await getChatStatus() } catch { /* chat non ancora supportata dal hub */ }
+    // stato del server 3D: silenzioso (il hub risponde anche a server spento)
+    try { store.trellis = await get3DStatus() } catch { /* hub non vivo */ }
     store.lastError = errs.length ? errs.join(' · ') : null
   } finally {
     ticking = false

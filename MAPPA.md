@@ -51,14 +51,12 @@ Palamede/                       (repo git · aggiornata: 2026-09-02 02:05)
 
 - `src/main.ts` — entry Svelte 5, monta `App.svelte` (auto-routing da `pages/*.svelte`).
 - `src/App.svelte` — auto-routing **lazy** (ogni `pages/*.svelte` è un chunk separato; fallback Home + stati caricamento/errore).
-- `src/api/` — client per domini (`http`, `image`, `chat`, `history`, `kb`, `trellis`, `doc`; `index.ts` riesporta tutto, gli import `from '../api'` restano validi).
+- `src/api/` — client per domini (`http`, `image`, `chat`, `history`, `story`, `kb`, `trellis`, `doc`; `index.ts` riesporta tutto, gli import `from '../api'` restano validi).
 - `src/lib/` — logica riusabile: `images` (formati, lettura file, downscale per VLM), `text` (registri modelli, parser SSE), `download` (saveBlob/downloadUrl/dataUrlToBytes), `viewer3d` (viewer orbitale three.js), `kbContext` (system prompt dalla wiki).
 - `src/styles/` — CSS a sezioni (`tokens`, `base`, `layout`, `home`, `images`, `chat`, `wiki`, `shell`, `rag`, `misc`) importate in ordine da `styles.css` (stessa cascata di prima, file navigabili).
-- `src/styles/tokens.css` — design tokens (variabili dark/light); `styles.css` = base + layout.
-- `src/ui/` — kit sperimentale stile SvelteKit (alias `$lib`, assets e `micromark` assenti su Vite): **escluso dalla build** in `tsconfig.json`, in attesa di migrazione. Il canonico è `src/components/ui/`.
+- `src/styles/tokens.css` — design tokens (variabili dark/light). Niente font da CDN: l'officina è offline, i token ripiegano sui font di sistema.
 - `src/router.svelte.ts` — router hash-based (`route` $state + `navigate()`).
 - `src/store.svelte.ts` — store condiviso: poller health/modelli/metriche/chat ogni 3 s (no overlap, pausa a scheda nascosta), `switchModel`.
-- `src/api.ts` — client HTTP verso il hub (tutti gli endpoint `/api/*`: health, models, image, history, chat, kb, 3d, doc).
 - `src/lib/images.ts` + `src/lib/text.ts` — logica di dominio pura (preset formati/step, parse formati con snap a multipli di 32, parser SSE).
 - `src/desktop.ts` — ponte opzionale verso Tauri (`notify`), no-op in browser.
 - `src/data/sections.ts` — fonte delle sezioni/nav (8 route, flag live).
@@ -66,7 +64,7 @@ Palamede/                       (repo git · aggiornata: 2026-09-02 02:05)
 - `src/components/` — Layout (shell+metriche), Markdown (renderer zero-dep con escaping + allowlist http/https), WikiEntry, Shot, ReasonBlock, Draft + `ui/` (design system).
 - `src/pages/` — Home, Images (3 modelli+img2img+gallery), Chat (streaming SSE Ornith + knowledge), Rag (kb llm-wiki), 3d (viewer three.js + GLB/STL), Games, Experimental, Progetto.
 - `public/` — palamede_icon.png, examples/ (8 immagini committate).
-- Config: `package.json` (svelte 5 + three), `vite.config.ts` (proxy /api→:4600, three in chunk a parte), `tsconfig.json` (esclude `src/ui/` e `src/components/ui2/`: duplicati non usati, rotti — la UI viva è `src/components/ui/`), `svelte.config.js`, `index.html`.
+- Config: `package.json` (svelte 5 + three), `vite.config.ts` (proxy /api→:4600, three in chunk a parte), `tsconfig.json` (build ristretta a `src/`: la UI viva è `src/components/ui/`), `svelte.config.js`, `index.html`.
 
 ## Hub Node.js — hub/
 

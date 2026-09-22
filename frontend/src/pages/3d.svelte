@@ -1,13 +1,12 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
   import {
-    get3DStatus,
     generate3D,
     start3D,
     stop3D,
     type Generate3DResult,
-    type TrellisStatus,
   } from "../api";
+  import { store } from "../store.svelte";
   import { Images } from "../lib/images";
   import { dataUrlToBytes, downloadUrl } from "../lib/download";
   import { createViewer3D, type Viewer3D } from "../lib/viewer3d";
@@ -29,7 +28,8 @@
   let busy = $state(false);
   let hint = $state("");
   let error = $state(false);
-  let server = $state<TrellisStatus | null>(null);
+  // Stato del server 3D: dallo store condiviso (unico poller dell'app).
+  const server = $derived(store.trellis);
   let serverBusy = $state(false);
   let result = $state<Generate3DResult | null>(null);
   let viewerErr = $state("");
@@ -37,27 +37,13 @@
   let canvas: HTMLCanvasElement | null = $state(null);
   let viewer: Viewer3D | null = $state(null);
 
-  // stato del server 3D (processo avviato/fermato dal hub tramite /api/3d)
-  const refreshStatus = async () => {
-    try {
-      server = await get3DStatus();
-      if (!server.running && !hint) {
-        hint = 'server 3D spento: premi "avvia server" qui sotto';
-        error = true;
-      }
-    } catch {
-      server = null;
-      if (!hint) {
-        hint = "hub non raggiungibile: stato server 3D sconosciuto";
-        error = true;
-      }
+  // Avviso una tantum quando lo stato arriva e il server è spento (senza
+  // sovrascrivere hint già mostrati da avvio/generazione).
+  $effect(() => {
+    if (server && !server.running && !hint) {
+      hint = 'server 3D spento: premi "avvia server" qui sotto';
+      error = true;
     }
-  };
-  onMount(() => {
-    refreshStatus();
-    // poll leggero: aggiorna il banner quando il modello finisce di caricare
-    const t = setInterval(refreshStatus, 5_000);
-    return () => clearInterval(t);
   });
 
   const startServer = async () => {
@@ -66,12 +52,11 @@
     error = false;
     hint = "avvio del server 3D… (preload del modello in background)";
     try {
-      server = await start3D();
-      hint = server.ready
+      store.trellis = await start3D();
+      hint = store.trellis.ready
         ? "server 3D pronto"
         : "server 3D avviato: il modello si sta caricando (prima volta ~30-60s)";
     } catch (e) {
-      server = null;
       hint =
         "avvio del server 3D fallito: " + (e instanceof Error ? e.message : e);
       error = true;
@@ -86,7 +71,7 @@
     error = false;
     hint = "fermo del server 3D…";
     try {
-      server = await stop3D();
+      store.trellis = await stop3D();
       hint = "server 3D fermato";
     } catch (e) {
       hint =

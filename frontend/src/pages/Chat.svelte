@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
-  import { chatStream, getChatStatus, startChat, stopChat } from '../api'
-  import type { ChatMessage, ChatStatus } from '../api'
+  import { chatStream, startChat, stopChat } from '../api'
+  import type { ChatMessage } from '../api'
+  import { store } from '../store.svelte'
   import { Text } from '../lib/text'
   import { buildKbContext } from '../lib/kbContext'
   import Markdown from '../components/Markdown.svelte'
@@ -17,7 +17,10 @@
 
   // Ragionamento pieghevole: resta aperto durante lo streaming, poi l'utente
   // decide (ogni messaggio con il proprio stato).
-  let status = $state<ChatStatus | null>(null)
+  // Lo stato del server arriva dallo store condiviso (un solo poller per la
+  // app): qui niente polling duplicato. Le azioni scrivono l'esito in store.chat
+  // per un aggiornamento immediato, poi il poller resta la fonte di verità.
+  let status = $derived(store.chat)
   let busy = $state(false)
   let err = $state('')
 
@@ -43,17 +46,14 @@
   let logEl: HTMLDivElement | undefined = $state()
   let stick = true
 
-  const refresh = async () => {
-    try { status = await getChatStatus() } catch { status = null }
-  }
-  onMount(() => {
-    refresh()
-    const id = setInterval(refresh, 4000)
-    return () => clearInterval(id)
-  })
-
+  // Autoscroll in streaming: leggere anche contenuto/ragionamento dell'ultimo
+  // messaggio (non solo la lunghezza dell'array) è ciò che fa ripartire
+  // l'effetto a ogni token, altrimenti il log non segue la generazione.
   $effect(() => {
+    const last = messages[messages.length - 1]
     void messages.length
+    void last?.content
+    void last?.reason
     if (logEl && stick) logEl.scrollTop = logEl.scrollHeight
   })
 
@@ -68,7 +68,7 @@
     try {
       messages = []
       const st = await startChat({ model, ...settings })
-      status = st
+      store.chat = st
     } catch (e) {
       err = e instanceof Error ? e.message : String(e)
     } finally {
@@ -78,7 +78,7 @@
 
   const stop = async () => {
     busy = true; err = ''
-    try { status = await stopChat() } catch (e) { err = String(e) } finally { busy = false }
+    try { store.chat = await stopChat() } catch (e) { err = String(e) } finally { busy = false }
   }
 
   // Contesto knowledge base per una domanda (lib/kbContext.ts): cerca le
@@ -135,16 +135,19 @@
   // attivo con un altro modello). La plate del modello attivo non fa nulla.
   const pickChatModel = async (id: Text.ModelId) => {
     if (busy) return
-    const already = status?.running && status?.model === id
     model = id
+    if (status?.running && status?.model === id) return // già attivo: nessuna azione
+    // Cambio modello = parametri di fabbrica di QUEL modello (context/KV/temp):
+    // senza reset resterebbero quelli del modello precedente (es. Gemma 26B
+    // partirebbe con ctx 8192/q8_0 di Ornith invece di 4096/q4_0).
+    settings = Text.defaultsFor(id)
     const cpuMoe = Text.supportsCpuMoe(id) ? settings.cpuMoe : 0
-    if (already) return // già attivo: nessuna azione
     err = ''
     busy = true
     try {
       messages = []
       const st = await startChat({ model: id, ...settings, cpuMoe })
-      status = st
+      store.chat = st
     } catch (e) {
       err = e instanceof Error ? e.message : String(e)
     } finally {
@@ -163,6 +166,8 @@
           {@const state = active ? (loading ? 'busy' : 'on') : (model === m.id ? 'sel' : 'off')}
           <ModelPlate
             small
+            role="radio"
+            aria-checked={model === m.id}
             selected={model === m.id}
             active={active}
             name={m.name}

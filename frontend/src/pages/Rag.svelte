@@ -5,6 +5,7 @@
     ingestKbSource, readKbFile, saveKbFile, searchKb,
   } from '../api'
   import type { KbEmbeddings, KbFileInfo, KbStatus } from '../api'
+  import { store } from '../store.svelte'
   import Markdown from '../components/Markdown.svelte'
   import { Button, ChatState, EmptyState, Eyebrow, Field, Hintline, Panel, PromptBox, SectionHead, Stamp } from '../components/ui'
 
@@ -89,7 +90,8 @@
   let hits = $state<string[] | null>(null)
   async function doSearch(e: { preventDefault(): void }) {
     e.preventDefault()
-    if (!q.trim()) return
+    if (!q.trim()) { hits = null; return }
+    err = ''
     try {
       const r = await searchKb(q)
       hits = r.pages
@@ -99,7 +101,9 @@
     }
   }
 
-  let chatReady = $derived(status?.chat?.ready)
+  // Stato del modello chat dallo store condiviso (pollato ogni 3 s): quello di
+  // KbStatus è letto solo al mount e resterebbe "spento" se avvii la chat dopo.
+  let chatReady = $derived(store.chat?.ready)
 </script>
 
   <header class="rag-head">

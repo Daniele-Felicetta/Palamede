@@ -15,6 +15,8 @@
   // che con {@html} diventerebbero XSS nella webview Tauri.
   function safeHref(url: string): string | null {
     const u = url.trim()
+    // `//host` è protocol-relative: sembra relativo ma punta fuori. Negalo.
+    if (u.startsWith('//')) return null
     if (/^(https?:\/\/|#|\/)/i.test(u) && !/^[\s]*javascript:/i.test(u) && !/^data:/i.test(u) && !/^vbscript:/i.test(u)) {
       return esc(u)
     }

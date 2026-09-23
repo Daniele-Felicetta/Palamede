@@ -1,6 +1,40 @@
 <script lang="ts">
   import { TRIED, WIP } from '../data/experiments'
   import { Eyebrow, SectionHead } from '../components/ui'
+  import { getJevProjects, jevProjectAction, type JevProjects } from '../api'
+
+  // JEV Hub: elenco dei progetti jev con avvio/arresto, servito dal hub di
+  // Palamede (che avvia il servizio jev-hub dedicato). Poll leggero per lo stato.
+  let hub = $state<JevProjects | null>(null)
+  let hubErr = $state('')
+  let busy = $state<string | null>(null)
+
+  async function load() {
+    try {
+      hub = await getJevProjects()
+      hubErr = ''
+    } catch (e) {
+      hubErr = String((e as Error)?.message ?? e)
+    }
+  }
+
+  $effect(() => {
+    load()
+    const t = setInterval(load, 4000)
+    return () => clearInterval(t)
+  })
+
+  async function act(id: string, action: 'start' | 'stop') {
+    busy = id
+    try {
+      await jevProjectAction(id, action)
+      await load()
+    } catch (e) {
+      hubErr = String((e as Error)?.message ?? e)
+    } finally {
+      busy = null
+    }
+  }
 </script>
 
 <Eyebrow>Sezione EXP · registro delle prove</Eyebrow>
@@ -10,6 +44,46 @@
   fermata, e cosa stiamo provando adesso — con cosa manca da sistemare e i
   rischi che restano.
 </p>
+
+<section aria-label="JEV Hub">
+  <SectionHead
+    title="JEV Hub"
+    sub="I progetti sperimentali jev: avviali e aprili da qui. Girano dal loro percorso originale, con i loro ambienti e pesi."
+  />
+  {#if hubErr}
+    <p class="wiki-body">Errore: {hubErr}</p>
+  {:else if hub === null}
+    <p class="wiki-body" style="color: var(--paper-dim)">Caricamento…</p>
+  {:else if !hub.running}
+    <p class="wiki-body" style="color: var(--paper-dim)">
+      Progetti in <code>{hub.root}</code> — nessun progetto attivo.
+    </p>
+  {/if}
+  {#if hub}
+    <div class="exp-list">
+      {#each hub.items as p (p.id)}
+        <article class="exp-item">
+          <span class="exp-state {p.running ? 'wip' : 'sospeso'}">{p.running ? 'attivo' : 'fermo'}</span>
+          <div class="exp-body">
+            <h4>{p.name}</h4>
+            <p>{p.desc}</p>
+            <p class="exp-paths">
+              <code>:{p.port}</code>
+              {#if p.running}<a class="exp-link" href={p.url} target="_blank" rel="noreferrer">apri UI →</a>{/if}
+            </p>
+            <div class="exp-hub-actions">
+              {#if p.running}
+                <button class="exp-hub-btn" disabled={busy === p.id} onclick={() => act(p.id, 'stop')}>Ferma</button>
+              {:else}
+                <button class="exp-hub-btn" disabled={busy === p.id} onclick={() => act(p.id, 'start')}>Avvia</button>
+              {/if}
+            </div>
+          </div>
+        </article>
+      {/each}
+    </div>
+  {/if}
+</section>
 
 <section aria-label="Provato e perché non è andata">
   <SectionHead

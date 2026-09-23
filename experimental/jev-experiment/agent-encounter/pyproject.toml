@@ -1,0 +1,14 @@
+[project]
+name = "agent-encounter"
+version = "0.1.0"
+description = "Top-down game where agents meet: rizzo-flow decides, vanilla Spark talks"
+requires-python = ">=3.11"
+# No extra dependencies: it runs inside rizzo-flow's environment, reusing its model stack.
+dependencies = []
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100

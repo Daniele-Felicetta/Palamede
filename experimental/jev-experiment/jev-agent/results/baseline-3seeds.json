@@ -1,0 +1,141 @@
+{
+  "config": {
+    "seed": 0,
+    "backend": "heuristic",
+    "server_url": "http://127.0.0.1:8017",
+    "steps": 400,
+    "max_reward": 5.0,
+    "memory": {
+      "working_capacity": 8,
+      "ttl_seconds": 120.0,
+      "decay": 0.995,
+      "forget_threshold": 0.05,
+      "ltm_decay_interval": 10,
+      "consolidation_interval": 50,
+      "consolidation_min_group": 3,
+      "consolidation_threshold": 0.9,
+      "replay_interval": 100,
+      "replay_size": 10
+    },
+    "retrieval": {
+      "k": 5,
+      "w_semantic": 0.45,
+      "w_recency": 0.15,
+      "w_importance": 0.2,
+      "w_salience": 0.1,
+      "w_frequency": 0.05,
+      "w_context": 0.05,
+      "recency_tau": 60.0
+    },
+    "plasticity": {
+      "learning_rate": 0.1,
+      "temporal_tau": 30.0,
+      "importance_cap": 2.0,
+      "salience_cap": 1.0
+    },
+    "context": {
+      "max_memories": 6,
+      "max_chars": 4000
+    },
+    "state": {
+      "latent_momentum": 0.9
+    }
+  },
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "results": {
+    "no_memory": {
+      "condition": "no_memory",
+      "decisions": 400.0,
+      "decision_accuracy": 0.2383333333333333,
+      "mean_reward": 1.1916666666666667,
+      "mean_prediction_error": 0.41277777777777774,
+      "mean_retrieved": 0.0,
+      "mean_context_chars": 29.311666666666667,
+      "final_logical_memory_size": 8.0,
+      "storage_chars": 0.0,
+      "mean_latency_ms": 0.0,
+      "logical_to_active_ratio": 0.19837398373983742,
+      "summaries": 0.0,
+      "learn_100_200": 0.4633333333333334,
+      "post_drift_200_260": 0.005555555555555556,
+      "conflict_260_290": 0.45555555555555555,
+      "decay_300_400": 0.0
+    },
+    "working_memory_only": {
+      "condition": "working_memory_only",
+      "decisions": 400.0,
+      "decision_accuracy": 0.7658333333333333,
+      "mean_reward": 3.829166666666667,
+      "mean_prediction_error": 0.2495324916853174,
+      "mean_retrieved": 7.91,
+      "mean_context_chars": 395.8858333333333,
+      "final_logical_memory_size": 8.0,
+      "storage_chars": 0.0,
+      "mean_latency_ms": 0.0,
+      "logical_to_active_ratio": 0.016701461377870562,
+      "summaries": 0.0,
+      "learn_100_200": 0.77,
+      "post_drift_200_260": 0.8055555555555555,
+      "conflict_260_290": 0.7000000000000001,
+      "decay_300_400": 0.8166666666666668
+    },
+    "long_term": {
+      "condition": "long_term",
+      "decisions": 400.0,
+      "decision_accuracy": 0.7841666666666667,
+      "mean_reward": 3.920833333333333,
+      "mean_prediction_error": 0.18650971435216568,
+      "mean_retrieved": 12.8725,
+      "mean_context_chars": 396.80916666666667,
+      "final_logical_memory_size": 228.33333333333334,
+      "storage_chars": 10091.333333333334,
+      "mean_latency_ms": 0.0,
+      "logical_to_active_ratio": 0.4766831152961821,
+      "summaries": 0.0,
+      "learn_100_200": 0.8566666666666666,
+      "post_drift_200_260": 0.7555555555555555,
+      "conflict_260_290": 0.6666666666666666,
+      "decay_300_400": 0.8233333333333333
+    },
+    "plasticity": {
+      "condition": "plasticity",
+      "decisions": 400.0,
+      "decision_accuracy": 0.7825000000000001,
+      "mean_reward": 3.9125,
+      "mean_prediction_error": 0.18322954386237736,
+      "mean_retrieved": 12.8725,
+      "mean_context_chars": 396.2583333333334,
+      "final_logical_memory_size": 230.66666666666666,
+      "storage_chars": 10191.0,
+      "mean_latency_ms": 0.0,
+      "logical_to_active_ratio": 0.4808860115345471,
+      "summaries": 0.0,
+      "learn_100_200": 0.8533333333333334,
+      "post_drift_200_260": 0.7722222222222221,
+      "conflict_260_290": 0.6222222222222222,
+      "decay_300_400": 0.82
+    },
+    "consolidation": {
+      "condition": "consolidation",
+      "decisions": 400.0,
+      "decision_accuracy": 0.7608333333333333,
+      "mean_reward": 3.8041666666666667,
+      "mean_prediction_error": 0.2076624782743858,
+      "mean_retrieved": 12.8725,
+      "mean_context_chars": 394.415,
+      "final_logical_memory_size": 273.3333333333333,
+      "storage_chars": 11884.0,
+      "mean_latency_ms": 0.0,
+      "logical_to_active_ratio": 0.5714181507303971,
+      "summaries": 21.0,
+      "learn_100_200": 0.8333333333333334,
+      "post_drift_200_260": 0.7000000000000001,
+      "conflict_260_290": 0.5333333333333333,
+      "decay_300_400": 0.8166666666666668
+    }
+  }
+}

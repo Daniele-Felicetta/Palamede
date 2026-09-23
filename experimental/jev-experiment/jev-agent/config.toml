@@ -1,0 +1,51 @@
+# Jev-agent prototype configuration.
+# The agent is a persistent-state, memory-centric, neuromorphic-inspired
+# decision agent. It is NOT a neuromorphic system or an SNN.
+
+seed = 0
+backend = "heuristic"                    # heuristic | jev
+server_url = "http://127.0.0.1:8017"     # rizzo-flow server (backend = "jev")
+steps = 400
+max_reward = 5.0
+
+[flags]
+use_working_memory = true
+use_long_term = true
+use_plasticity = true
+use_consolidation = true
+use_replay = true
+
+[memory]
+working_capacity = 8
+ttl_seconds = 120.0
+decay = 0.995
+forget_threshold = 0.05
+ltm_decay_interval = 10
+consolidation_interval = 50
+consolidation_min_group = 3
+consolidation_threshold = 0.90
+replay_interval = 100
+replay_size = 10
+
+[retrieval]
+k = 5
+w_semantic = 0.45
+w_recency = 0.15
+w_importance = 0.20
+w_salience = 0.10
+w_frequency = 0.05
+w_context = 0.05
+recency_tau = 60.0
+
+[plasticity]
+learning_rate = 0.10
+temporal_tau = 30.0
+importance_cap = 2.0
+salience_cap = 1.0
+
+[context]
+max_memories = 6
+max_chars = 4000
+
+[state]
+latent_momentum = 0.9

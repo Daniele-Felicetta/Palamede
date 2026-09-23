@@ -169,6 +169,48 @@
   background: rgba(251, 191, 36, .08);
 }
 
+/* Link ai sottoprogetti jev-experiment (sezione Experimental) */
+.exp-link {
+  font: inherit;
+  color: var(--ochre);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.exp-link:hover {
+  text-decoration: underline;
+}
+
+/* JEV Hub: azioni avvia/ferma */
+.exp-hub-actions {
+  margin-top: 10px;
+}
+
+.exp-hub-btn {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--amber);
+  background: rgba(251, 191, 36, .08);
+  border: 1px solid rgba(251, 191, 36, .35);
+  border-radius: 6px;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+
+.exp-hub-btn:hover:not(:disabled) {
+  background: rgba(251, 191, 36, .16);
+}
+
+.exp-hub-btn:disabled {
+  opacity: .5;
+  cursor: default;
+}
+
 /* ── Lightbox a schermo pieno (galleria immagini) ── */
 .shot-open {
   display: block;

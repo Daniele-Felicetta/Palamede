@@ -39,6 +39,7 @@ import { createHistoryRoutes } from './lib/history.mjs'
 import { createStoriesRoutes } from './lib/stories.mjs'
 import { createKbRoutes } from './lib/kb.mjs'
 import { handleDoc } from './lib/docs.mjs'
+import { handleJev } from './lib/jev.mjs'
 import { serveStatic } from './lib/static.mjs'
 
 // ── coda mutex condivisa (un solo modello alla volta sulla GPU) ──────────
@@ -188,6 +189,11 @@ async function handleApi(req, res, path) {
   // ── documentazione del progetto (sezione Progetto nella UI) ───────────
   if (path === '/api/doc' && req.method === 'GET') {
     return handleDoc(req, res)
+  }
+
+  // ── JEV Hub: servizio dedicato che elenca/avvia i progetti jev (:4610) ──
+  if (path.startsWith('/api/jev')) {
+    return handleJev(req, res, path)
   }
 
   if (path.startsWith('/api/history')) {

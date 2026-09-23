@@ -1,0 +1,636 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>agent-encounter</title>
+<style>
+  :root {
+    --ink: #0e151b;
+    --panel: #16202a;
+    --panel-2: #111a22;
+    --line: #2a3947;
+    --text: #dfe8ee;
+    --muted: #8ba0ad;
+    --faint: #5d7280;
+    --lantern: #f0a52a;
+    --yes: #5ac07a;
+    --no: #cf5f5f;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --mono: ui-monospace, SFMono-Regular, "Cascadia Mono", "Cascadia Code", Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; min-height: 100%;
+    background: radial-gradient(120% 120% at 50% 0%, #16222b 0%, var(--ink) 70%);
+    color: var(--text); font-family: var(--mono); font-size: 13px; line-height: 1.5;
+  }
+  button { font-family: var(--mono); cursor: pointer; }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--lantern); outline-offset: 1px; }
+  .app { max-width: 1160px; margin: 0 auto; padding: 14px 18px 36px; }
+
+  header.hud { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+  .brand { font-family: var(--serif); font-size: 22px; line-height: 1; }
+  .brand b { font-weight: 600; }
+  .brand small { display: block; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); margin-top: 3px; }
+  .spacer { flex: 1; }
+  .badge { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 2px; padding: 4px 9px; font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+  .dot.ok { background: var(--yes); box-shadow: 0 0 7px rgba(90,192,122,0.6); }
+  .dot.load { background: var(--lantern); animation: pulse 1s infinite alternate; }
+  .dot.err { background: var(--no); }
+  @keyframes pulse { to { opacity: 0.3; } }
+  .res { display: flex; gap: 14px; align-items: center; font-size: 12.5px; }
+  .res .k { color: var(--faint); font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; display: block; }
+  .res b { font-size: 15px; font-variant-numeric: tabular-nums; }
+
+  .stage { position: relative; margin: 14px auto 0; max-width: 768px; }
+  canvas#game { display: block; width: 100%; image-rendering: pixelated; border: 1px solid var(--line); border-radius: 3px; background: #12181f; }
+  .prompt { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); background: rgba(14,21,27,0.92); border: 1px solid var(--line); padding: 6px 12px; font-size: 12px; border-radius: 2px; display: none; white-space: nowrap; }
+  .prompt.on { display: block; }
+  .toast { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); background: rgba(240,165,42,0.14); border: 1px solid rgba(240,165,42,0.5); color: var(--lantern); padding: 6px 14px; font-size: 12.5px; border-radius: 2px; opacity: 0; transition: opacity 160ms; pointer-events: none; }
+  .toast.on { opacity: 1; }
+  .minimap { position: absolute; right: 8px; top: 8px; border: 1px solid var(--line); background: rgba(14,21,27,0.82); border-radius: 2px; image-rendering: pixelated; }
+  .help { text-align: center; color: var(--faint); font-size: 11.5px; margin-top: 10px; }
+  .help kbd { border: 1px solid var(--line); border-radius: 3px; padding: 1px 5px; color: var(--muted); }
+
+  .panel { margin-top: 16px; border: 1px solid var(--line); background: var(--panel); border-radius: 3px; }
+  .panel[hidden] { display: none; }
+  .p-head { display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  .avatar { width: 32px; height: 44px; image-rendering: pixelated; }
+  .who { font-family: var(--serif); font-size: 17px; }
+  .who small { display: block; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+  .hearts { letter-spacing: 2px; color: var(--lantern); font-size: 14px; }
+  .p-body { padding: 14px 16px 18px; }
+  .p-body h4 { margin: 0 0 10px; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--faint); font-weight: 500; }
+
+  .decision { border: 1px solid var(--line); background: var(--panel-2); padding: 12px 14px; border-radius: 2px; }
+  .decision .q { font-family: var(--serif); font-size: 14.5px; margin-bottom: 10px; }
+  .choices { display: grid; gap: 8px; }
+  .choice { position: relative; display: flex; align-items: center; gap: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--text); padding: 9px 12px; text-align: left; border-radius: 2px; overflow: hidden; }
+  .choice:hover { border-color: var(--faint); }
+  .choice .bar { position: absolute; inset: 0 auto 0 0; opacity: 0.18; }
+  .choice .lab { position: relative; flex: 1; }
+  .choice .pct { position: relative; font-variant-numeric: tabular-nums; color: var(--muted); }
+  .choice.suggested { border-color: var(--lantern); }
+  .choice.suggested::after { content: "suggerita"; position: absolute; top: 4px; right: 8px; font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--lantern); }
+
+  .log { display: flex; flex-direction: column; gap: 10px; max-height: 300px; overflow-y: auto; padding-right: 4px; }
+  .bubble { max-width: 82%; padding: 9px 12px; border-radius: 3px; font-size: 13px; }
+  .bubble.npc { align-self: flex-start; background: var(--panel-2); border: 1px solid var(--line); border-left: 3px solid var(--lantern); }
+  .bubble.me { align-self: flex-end; background: #1b2a22; border: 1px solid #2d4a3a; }
+  .bubble .who2 { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); display: block; margin-bottom: 4px; }
+  .composer { display: flex; gap: 8px; margin-top: 12px; }
+  .composer input { flex: 1; background: var(--panel-2); border: 1px solid var(--line); color: var(--text); font-family: var(--mono); font-size: 13px; padding: 9px 11px; border-radius: 2px; }
+  .btn { border: 1px solid var(--line); background: var(--panel-2); color: var(--text); padding: 9px 14px; border-radius: 2px; }
+  .btn:hover { border-color: var(--faint); }
+  .btn.primary { background: var(--lantern); border-color: var(--lantern); color: #1a1206; font-weight: 600; }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .muted { color: var(--muted); font-size: 11.5px; }
+  .attitude { margin-top: 12px; }
+  .attitude .track { height: 8px; background: var(--panel-2); border: 1px solid var(--line); position: relative; }
+  .attitude .fill { position: absolute; inset: 0 auto 0 0; background: var(--lantern); transition: width 200ms; }
+  .narrative { font-family: var(--serif); font-size: 15px; padding: 12px 14px; border: 1px solid var(--line); border-left: 3px solid var(--lantern); background: var(--panel-2); border-radius: 2px; }
+
+  .overlay { position: fixed; inset: 0; background: rgba(14,21,27,0.9); display: flex; align-items: center; justify-content: center; z-index: 50; text-align: center; }
+  .overlay[hidden] { display: none; }
+  .overlay .box { max-width: 460px; padding: 24px; }
+  .overlay .spinner { width: 34px; height: 34px; margin: 0 auto 16px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--lantern); animation: spin 0.9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .dot.load, .overlay .spinner { animation: none; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="hud">
+    <div class="brand"><b>agent</b>-encounter<small>decisioni rizzo-flow · dialoghi Spark vanilla</small></div>
+    <div class="spacer"></div>
+    <span class="badge"><span class="dot" id="dot"></span><span id="modelLabel">avvio…</span></span>
+    <span class="badge" id="modeBadge">decisione: —</span>
+    <div class="res">
+      <div><span class="k">salute</span><b id="hp">—</b></div>
+      <div><span class="k">oro</span><b id="gold">—</b></div>
+      <div><span class="k">oggetti</span><b id="items" style="font-size:12px">—</b></div>
+    </div>
+  </header>
+
+  <div class="stage">
+    <canvas id="game"></canvas>
+    <canvas class="minimap" id="minimap" width="180" height="126"></canvas>
+    <div class="prompt" id="prompt"></div>
+    <div class="toast" id="toast"></div>
+  </div>
+  <div class="help"><kbd>frecce</kbd>/<kbd>WASD</kbd> muovi · <kbd>E</kbd> parla · <kbd>R</kbd> ricomincia</div>
+
+  <section class="panel" id="panel" hidden>
+    <div class="p-head">
+      <canvas class="avatar" id="avatar" width="32" height="44"></canvas>
+      <div class="who"><span id="npcName">—</span><small id="npcRole">—</small></div>
+      <div class="spacer"></div>
+      <div class="hearts" id="hearts"></div>
+      <button class="btn" id="closeBtn">chiudi</button>
+    </div>
+    <div class="p-body" id="pbody"></div>
+  </section>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="box">
+    <div class="spinner"></div>
+    <div id="overlayText">carico il modello Spark…</div>
+    <p class="muted" id="overlayHint">la prima richiesta compila i kernel e può richiedere fino a un minuto.</p>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  const VIEW_W = 768, VIEW_H = 512;
+  const FLOOR_COLORS = {
+    stone: "#a4a7b7", wood: "#b28352", wood_dark: "#8e6757", wood_red: "#a55a40",
+    sand: "#c9b98f", mint: "#cbe7df", cream: "#e3d797", coral: "#c68368",
+    brick: "#975351", tile: "#e0d9a2", aqua: "#98c7c8", herring: "#955442",
+  };
+  const CHAR_COLS = 3, CHAR_ROWS = 4, CHAR_PX = 144, CHAR_H = 384, FW = 48, FH = 96;
+  const DRAW_W = 32, DRAW_H = 64;
+
+  const state = {
+    snap: null,
+    sheets: {},        // key -> Image
+    actors: {},        // "player" / npc id -> offscreen canvas (3x4 frames)
+    cam: { x: 0, y: 0 },
+    facing: { x: 0, y: 1, row: 0 },
+    walkUntil: 0,
+    encounter: null,
+    dialogue: [],
+    round: 0,
+    busy: false,
+    view: "idle",
+  };
+
+  // ---------- api ----------
+  async function get(path) { return (await fetch(path)).json(); }
+  async function post(path, payload = {}) {
+    const res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return body;
+  }
+
+  function loadImage(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("asset non caricato: " + src));
+      img.src = src;
+    });
+  }
+
+  // ---------- rendering ----------
+  function setupCanvas() {
+    const canvas = $("#game");
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = VIEW_W * dpr; canvas.height = VIEW_H * dpr;
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    return ctx;
+  }
+
+  function drawTile(ctx, key, px, py) {
+    const snap = state.snap;
+    const ref = snap.map.tiles[key];
+    if (!ref) return;
+    const img = state.sheets[ref[0]];
+    if (!img) return;
+    const T = snap.map.tile;
+    ctx.drawImage(img, ref[1] * T, ref[2] * T, T, T, px, py, T, T);
+  }
+
+  function makeActorSheet(index, tint) {
+    const img = state.sheets.chars;
+    const canvas = document.createElement("canvas");
+    canvas.width = CHAR_COLS * FW;
+    canvas.height = CHAR_ROWS * FH;
+    const g = canvas.getContext("2d");
+    g.imageSmoothingEnabled = false;
+    g.drawImage(img, index * CHAR_PX, 0, CHAR_PX, CHAR_H, 0, 0, canvas.width, canvas.height);
+    if (tint) {
+      g.globalCompositeOperation = "source-atop";
+      g.globalAlpha = 0.9;
+      g.fillStyle = tint;
+      g.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    return canvas;
+  }
+
+  function drawChar(ctx, actor, px, py, frame, row) {
+    if (!actor) return;
+    ctx.drawImage(actor, frame * FW, row * FH, FW, FH, px, py - (DRAW_H - 32), DRAW_W, DRAW_H);
+  }
+
+  function frameFor() {
+    const walking = performance.now() < state.walkUntil;
+    if (!walking) return 1;
+    return [0, 1, 2, 1][Math.floor(performance.now() / 140) % 4];
+  }
+
+  function render() {
+    const snap = state.snap;
+    const canvas = $("#game");
+    const ctx = canvas.getContext("2d");
+    if (!snap) { requestAnimationFrame(render); return; }
+    const T = snap.map.tile;
+    const worldW = snap.map.w * T, worldH = snap.map.h * T;
+    const p = snap.player;
+
+    // camera follows the player, clamped to the world
+    const targetX = Math.max(0, Math.min(worldW - VIEW_W, p.x * T + T / 2 - VIEW_W / 2));
+    const targetY = Math.max(0, Math.min(worldH - VIEW_H, p.y * T + T / 2 - VIEW_H / 2));
+    state.cam.x += (targetX - state.cam.x) * 0.18;
+    state.cam.y += (targetY - state.cam.y) * 0.18;
+    const camX = Math.round(state.cam.x), camY = Math.round(state.cam.y);
+
+    ctx.fillStyle = "#12181f";
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    ctx.save();
+    ctx.translate(-camX, -camY);
+
+    const x0 = Math.floor(camX / T), x1 = Math.ceil((camX + VIEW_W) / T);
+    const y0 = Math.floor(camY / T), y1 = Math.ceil((camY + VIEW_H) / T);
+    const palette = snap.map.palette;
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        if (x < 0 || y < 0 || x >= snap.map.w || y >= snap.map.h) continue;
+        drawTile(ctx, palette[snap.map.ground[y][x]], x * T, y * T);
+        const obj = snap.map.objects[y][x];
+        if (obj >= 0) drawTile(ctx, palette[obj], x * T, y * T);
+      }
+    }
+    // revealed cache
+    if (snap.cache.revealed && !snap.cache.taken) {
+      drawTile(ctx, "cache", snap.cache.x * T, snap.cache.y * T);
+    }
+
+    // interaction ring on the adjacent agent
+    const adj = adjacentNpc();
+    if (adj) {
+      const t = performance.now() / 1000;
+      ctx.strokeStyle = "rgba(240,165,42,0.9)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(adj.x * T + 16, adj.y * T + 30, 13 + Math.sin(t * 5) * 1.5, 6, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.lineWidth = 1;
+    }
+
+    // agents
+    snap.npcs.forEach((npc) => {
+      drawChar(ctx, state.actors[npc.id], npc.x * T, npc.y * T, 1, 0);
+      ctx.font = "10px " + getComputedStyle(document.body).fontFamily;
+      ctx.textAlign = "center";
+      const w = ctx.measureText(npc.name).width + 10;
+      ctx.fillStyle = "rgba(14,21,27,0.78)";
+      ctx.fillRect(npc.x * T + 16 - w / 2, npc.y * T - 46, w, 13);
+      ctx.fillStyle = "#dfe8ee";
+      ctx.fillText(npc.name, npc.x * T + 16, npc.y * T - 36);
+      ctx.textAlign = "left";
+    });
+
+    // player
+    drawChar(ctx, state.actors.player, p.x * T, p.y * T, frameFor(), state.facing.row);
+    ctx.restore();
+
+    requestAnimationFrame(render);
+  }
+
+  function drawMinimap() {
+    const snap = state.snap;
+    if (!snap) return;
+    const mm = $("#minimap"), ctx = mm.getContext("2d");
+    const sx = mm.width / snap.map.w, sy = mm.height / snap.map.h;
+    ctx.clearRect(0, 0, mm.width, mm.height);
+    ctx.fillStyle = "#0c1116";
+    ctx.fillRect(0, 0, mm.width, mm.height);
+    for (let y = 0; y < snap.map.h; y++) {
+      for (let x = 0; x < snap.map.w; x++) {
+        const key = snap.map.palette[snap.map.ground[y][x]];
+        ctx.fillStyle = FLOOR_COLORS[key] || "#4a5560";
+        ctx.fillRect(x * sx, y * sy, Math.ceil(sx), Math.ceil(sy));
+      }
+    }
+    snap.npcs.forEach((npc) => {
+      ctx.fillStyle = "#ef5f5f";
+      ctx.fillRect(npc.x * sx - 1, npc.y * sy - 1, 4, 4);
+    });
+    if (snap.cache.revealed && !snap.cache.taken) {
+      ctx.fillStyle = "#f0a52a";
+      ctx.fillRect(snap.cache.x * sx - 1, snap.cache.y * sy - 1, 4, 4);
+    }
+    ctx.fillStyle = "#5ab0ff";
+    ctx.fillRect(snap.player.x * sx - 1, snap.player.y * sy - 1, 4, 4);
+  }
+
+  function adjacentNpc() {
+    const snap = state.snap;
+    if (!snap) return null;
+    const p = snap.player;
+    return snap.npcs.find((n) => Math.abs(n.x - p.x) + Math.abs(n.y - p.y) === 1) || null;
+  }
+
+  // ---------- movement ----------
+  const ROWS = { down: 0, left: 1, right: 2, up: 3 };
+  async function move(dx, dy) {
+    if (state.busy || state.view !== "idle") return;
+    state.busy = true;
+    state.facing = { x: dx, y: dy, row: dy < 0 ? ROWS.up : dy > 0 ? ROWS.down : dx < 0 ? ROWS.left : ROWS.right };
+    state.walkUntil = performance.now() + 220;
+    try {
+      const res = await post("/api/move", { dx, dy });
+      state.snap.player = res.player;
+      state.snap.cache = res.cache;
+      if (res.reward) { toast(res.reward.text); drawMinimap(); }
+    } catch (e) { toast(e.message); }
+    finally { state.busy = false; updatePrompt(); }
+  }
+
+  function updatePrompt() {
+    const adj = adjacentNpc();
+    const prompt = $("#prompt");
+    if (adj && state.view === "idle") { prompt.textContent = `Premi E per parlare con ${adj.name}`; prompt.classList.add("on"); }
+    else prompt.classList.remove("on");
+  }
+
+  let toastTimer = null;
+  function toast(text) {
+    const el = $("#toast");
+    el.textContent = text; el.classList.add("on");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove("on"), 2600);
+  }
+
+  function renderHud() {
+    const p = state.snap.player;
+    $("#hp").textContent = `${p.hp}/${p.max_hp}`;
+    $("#gold").textContent = p.gold;
+    const items = Object.entries(p.items).filter(([, c]) => c > 0);
+    $("#items").textContent = items.length ? items.map(([n, c]) => `${n}×${c}`).join(" ") : "—";
+  }
+
+  // ---------- encounter panel ----------
+  function openPanel() { $("#panel").hidden = false; }
+  function closePanel() {
+    $("#panel").hidden = true;
+    state.view = "idle"; state.encounter = null; state.dialogue = []; state.round = 0;
+    updatePrompt();
+  }
+
+  function drawAvatar(npc) {
+    const av = $("#avatar"), ctx = av.getContext("2d");
+    ctx.clearRect(0, 0, av.width, av.height);
+    ctx.imageSmoothingEnabled = false;
+    const actor = state.actors[npc.id];
+    if (actor) ctx.drawImage(actor, FW, 0, FW, 69, 0, 0, av.width, av.height);
+  }
+
+  function renderNpcHeader(npc) {
+    $("#npcName").textContent = npc.name;
+    $("#npcRole").textContent = `${npc.role} · ${npc.talks} incontri`;
+    const hearts = Math.round((npc.relationship + 3) / 6 * 5);
+    $("#hearts").textContent = "♥".repeat(hearts) + "♡".repeat(5 - hearts);
+    drawAvatar(npc);
+  }
+
+  function decisionChoices(decision, labels, onPick) {
+    const entries = Object.entries(decision.probabilities).sort((a, b) => b[1] - a[1]);
+    const wrap = document.createElement("div");
+    wrap.className = "choices";
+    entries.forEach(([id, p]) => {
+      const btn = document.createElement("button");
+      btn.className = "choice" + (id === decision.suggestion ? " suggested" : "");
+      const color = id === "true" ? "var(--yes)" : id === "false" ? "var(--no)" : "var(--lantern)";
+      btn.innerHTML = `<span class="bar" style="width:${(p * 100).toFixed(1)}%;background:${color}"></span>
+        <span class="lab">${esc(labels[id] || decision.legend[id] || id)}</span>
+        <span class="pct">${(p * 100).toFixed(1)}%</span>`;
+      btn.addEventListener("click", () => onPick(id));
+      wrap.appendChild(btn);
+    });
+    return wrap;
+  }
+
+  function decisionMeta(decision) {
+    const note = decision.source === "rizzo"
+      ? "decisione rizzo-flow · probabilità non calibrate"
+      : "decisione locale (modello non disponibile)";
+    return `<div class="muted" style="margin-top:8px">${note}</div>`;
+  }
+
+  function setMode(mode) { $("#modeBadge").textContent = "decisione: " + (mode === "rizzo" ? "rizzo-flow" : "locale"); }
+
+  function renderEngage() {
+    const { npc, decision } = state.encounter;
+    renderNpcHeader(npc);
+    const pbody = $("#pbody");
+    pbody.innerHTML = `<h4>Valutazione</h4>`;
+    const card = document.createElement("div");
+    card.className = "decision";
+    card.innerHTML = `<div class="q">Vale la pena avvicinarsi e parlare con ${esc(npc.name)}?</div>`;
+    card.appendChild(decisionChoices(decision, { true: `Sì, parla con ${npc.name}`, false: "No, prosegui senza parlare" },
+      (id) => id === "true" ? startTalk() : decline()));
+    card.insertAdjacentHTML("beforeend", decisionMeta(decision));
+    pbody.appendChild(card);
+  }
+
+  async function openEncounter(npcId) {
+    state.busy = true;
+    try {
+      const res = await post("/api/encounter", { npc_id: npcId });
+      state.encounter = res; state.view = "engage";
+      setMode(res.mode); openPanel(); renderEngage();
+    } catch (e) { toast(e.message); }
+    finally { state.busy = false; updatePrompt(); }
+  }
+
+  async function decline() {
+    try { await post("/api/decline", { npc_id: state.encounter.npc.id }); toast("Hai proseguito senza parlare."); }
+    catch (e) { toast(e.message); }
+    await refresh(); closePanel();
+  }
+
+  async function startTalk() { state.view = "talk"; state.dialogue = []; renderTalk(); await sendLine(""); }
+
+  function renderTalk() {
+    const npc = state.encounter.npc;
+    renderNpcHeader(npc);
+    const pbody = $("#pbody");
+    pbody.innerHTML = `
+      <h4>Dialogo</h4>
+      <div class="log" id="log"></div>
+      <div class="composer">
+        <input id="line" type="text" placeholder="Scrivi cosa dici…" autocomplete="off" />
+        <button class="btn primary" id="send">Invia</button>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <span class="muted" id="roundInfo">scambio 0</span>
+        <div class="spacer" style="flex:1"></div>
+        <button class="btn" id="finish">Concludi e scegli un'azione</button>
+      </div>
+      <div class="attitude" id="attitude" hidden>
+        <div class="muted" id="attitudeLabel">atteggiamento</div>
+        <div class="track"><div class="fill" id="attitudeFill" style="width:50%"></div></div>
+      </div>`;
+    $("#send").addEventListener("click", () => sendLine($("#line").value));
+    $("#line").addEventListener("keydown", (e) => { if (e.key === "Enter") sendLine($("#line").value); });
+    $("#finish").addEventListener("click", () => openActions());
+    renderDialogue();
+    $("#line").focus();
+  }
+
+  function renderDialogue() {
+    const log = $("#log");
+    if (!log) return;
+    log.innerHTML = state.dialogue.map((m) =>
+      `<div class="bubble ${m.who === "me" ? "me" : "npc"}">${m.who === "npc" ? `<span class="who2">${esc(state.encounter.npc.name)}</span>` : ""}${esc(m.text)}</div>`).join("");
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function typewrite(text) {
+    const entry = { who: "npc", text: "" };
+    state.dialogue.push(entry);
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { entry.text = text; renderDialogue(); return Promise.resolve(); }
+    return new Promise((resolve) => {
+      let i = 0;
+      const tick = setInterval(() => {
+        entry.text = text.slice(0, ++i); renderDialogue();
+        if (i >= text.length) { clearInterval(tick); resolve(); }
+      }, 16);
+    });
+  }
+
+  async function sendLine(line) {
+    if (state.busy) return;
+    state.busy = true;
+    const input = $("#line");
+    if (input) input.value = "";
+    if (line.trim()) { state.dialogue.push({ who: "me", text: line.trim() }); renderDialogue(); }
+    try {
+      const res = await post("/api/talk", { npc_id: state.encounter.npc.id, line });
+      state.encounter.npc = res.npc;
+      setMode(res.mode);
+      renderNpcHeader(res.npc);
+      await typewrite(res.line);
+      renderAttitude(res.attitude);
+      state.round += 1;
+      const info = $("#roundInfo");
+      if (info) info.textContent = `scambio ${state.round}`;
+      if (state.round >= 4) { const f = $("#finish"); if (f) f.textContent = "Concludi e scegli un'azione (dialogo lungo)"; }
+    } catch (e) {
+      state.dialogue.push({ who: "npc", text: "…" }); renderDialogue(); toast(e.message);
+    } finally { state.busy = false; }
+  }
+
+  function renderAttitude(attitude) {
+    const box = $("#attitude");
+    if (!box) return;
+    box.hidden = false;
+    const score = typeof attitude.value === "number" ? attitude.value : 2;
+    $("#attitudeFill").style.width = `${(score / 4) * 100}%`;
+    $("#attitudeLabel").textContent = `atteggiamento · ${(attitude.legend[attitude.suggestion] || "").split(":")[0].toLowerCase()}`;
+  }
+
+  async function openActions() {
+    state.view = "action";
+    const pbody = $("#pbody");
+    pbody.innerHTML = `<h4>Azione</h4><div class="muted">Il modello valuta cosa conviene fare…</div>`;
+    try {
+      const res = await post("/api/actions", { npc_id: state.encounter.npc.id });
+      state.encounter.actionDecision = res.decision;
+      setMode(res.mode); renderNpcHeader(res.npc);
+      pbody.innerHTML = `<h4>Azione</h4>`;
+      const card = document.createElement("div");
+      card.className = "decision";
+      card.innerHTML = `<div class="q">Cosa conviene fare ora con ${esc(res.npc.name)}?</div>`;
+      card.appendChild(decisionChoices(res.decision,
+        Object.fromEntries(res.available.map((id) => [id, labelFor(id)])), (id) => resolveAction(id)));
+      card.insertAdjacentHTML("beforeend", decisionMeta(res.decision));
+      pbody.appendChild(card);
+    } catch (e) { pbody.innerHTML = `<div class="muted">${esc(e.message)}</div>`; }
+  }
+
+  function labelFor(actionId) {
+    return {
+      give_potion: "Offri una pozione", trade: "Proponi uno scambio",
+      ask_rumor: "Chiedi un'informazione", challenge: "Sfidala a duello", leave: "Congedati",
+    }[actionId] || actionId;
+  }
+
+  async function resolveAction(actionId) {
+    try {
+      const res = await post("/api/resolve", { npc_id: state.encounter.npc.id, action: actionId });
+      setMode(res.mode);
+      $("#pbody").innerHTML = `<h4>Esito</h4><div class="narrative">${esc(res.narrative)}</div>`;
+      await refresh();
+      toast(res.narrative);
+      setTimeout(closePanel, 2200);
+    } catch (e) { toast(e.message); }
+  }
+
+  // ---------- boot ----------
+  async function refresh() {
+    state.snap = await get("/api/state");
+    renderHud(); drawMinimap(); updatePrompt();
+  }
+
+  async function pollStatus() {
+    const dot = $("#dot"), label = $("#modelLabel"), overlay = $("#overlay");
+    try {
+      const s = await get("/api/status");
+      const model = s.model || {};
+      if (model.state === "ready") { dot.className = "dot ok"; label.textContent = "Spark pronto"; overlay.hidden = true; }
+      else if (model.state === "error") { dot.className = "dot err"; label.textContent = "modello non disponibile · decisioni locali"; overlay.hidden = true; }
+      else { dot.className = "dot load"; label.textContent = "carico Spark…"; overlay.hidden = false; $("#overlayText").textContent = model.detail || "carico il modello…"; }
+    } catch { overlay.hidden = true; }
+  }
+
+  function bindInput() {
+    const keys = {
+      ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0],
+      w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0],
+    };
+    document.addEventListener("keydown", (e) => {
+      if (e.target.matches("input, textarea")) return;
+      if (!$("#overlay").hidden) return;
+      const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      if (key === "e") { const adj = adjacentNpc(); if (adj && state.view === "idle") { e.preventDefault(); openEncounter(adj.id); } return; }
+      if (key === "r") { resetGame(); return; }
+      if (keys[key]) { e.preventDefault(); move(keys[key][0], keys[key][1]); }
+    });
+  }
+
+  async function resetGame() { await post("/api/reset"); await refresh(); closePanel(); toast("Nuova partita."); }
+
+  async function boot() {
+    setupCanvas();
+    const snap = await get("/api/state");
+    state.snap = snap;
+    state.sheets = {
+      rb: await loadImage(snap.map.sheets.rb),
+      in: await loadImage(snap.map.sheets.in),
+      chars: await loadImage("assets/characters.png"),
+    };
+    state.actors.player = makeActorSheet(0, null);
+    snap.npcs.forEach((npc) => { state.actors[npc.id] = makeActorSheet(npc.sprite, npc.tint); });
+    renderHud(); drawMinimap(); render(); bindInput();
+    $("#closeBtn").addEventListener("click", async () => { await refresh(); closePanel(); });
+    pollStatus(); setInterval(pollStatus, 2000);
+  }
+
+  boot().catch((e) => { $("#overlayText").textContent = "Avvio fallito: " + e.message; });
+})();
+</script>
+</body>
+</html>

@@ -23,6 +23,12 @@ const TEXT_MODELS = [
     file: join(ROOT, 'models', 'ornith-1.5-9b', 'Ornith-1.5-9B-Q5_K_M.gguf') },
   { id: 'k2-7b', name: 'K2 Horizon 7B · Q4_K_M', moe: false,
     file: join(ROOT, 'models', 'k2-7b', 'K2-Horizon-7B-Q4_K_M.gguf') },
+  // K2 Horizon MoVA 36B-A4B: sparse MoE 100×8 + Mixture-of-Value attention
+  // (64 esperti di valore, top-4). Architettura `k2-horizon` del fork llama.cpp
+  // bundle (commit 35999d1); `mova: true` abilita l'offload del banco
+  // attn_v_exps su CPU via `-ot` (--n-cpu-moe muove SOLO gli esperti FFN).
+  { id: 'k2-36b', name: 'K2 Horizon 36B-A4B · Q4_K_M', moe: true, mova: true,
+    file: join(ROOT, 'models', 'k2-36b', 'K2-Horizon-MoVA-36B-A4B-Q4_K_M.gguf') },
   { id: 'bonsai-27b', name: 'Bonsai 27B · Q1_0', moe: false,
     file: join(ROOT, 'models', 'bonsai-27b', 'Bonsai-27B-Q1_0.gguf') },
   // LFM2.5 VL 3B: vision-language (mmproj) per Bandersketch e chat multimodale.
@@ -54,7 +60,7 @@ export function textStatus() {
     model: textServer.model,
     params: textServer.params,
     pid: textServer.proc ? textServer.proc.pid : null,
-    models: TEXT_MODELS.map((m) => ({ id: m.id, name: m.name, moe: m.moe, file: m.file })),
+    models: TEXT_MODELS.map((m) => ({ id: m.id, name: m.name, moe: m.moe, mova: !!m.mova, file: m.file })),
   }
 }
 
@@ -81,6 +87,7 @@ export async function startText(cfg) {
   // cpuMoe: 0 = tutto su GPU, N>0 = primi N layer di esperti su RAM,
   // -1 = tutti gli esperti su RAM (coesistenza con i modelli immagine).
   const cpuMoe = Number.isFinite(Number(cfg.cpuMoe)) ? Math.max(-1, Number(cfg.cpuMoe)) : 0
+  const movaCpu = cfg.movaCpu === true
   const mtp = !!cfg.mtp
   const thinking = cfg.thinking === true
 
@@ -98,6 +105,9 @@ export async function startText(cfg) {
   // tutti gli esperti su RAM (libera la VRAM per i modelli immagine).
   if (model.moe && cpuMoe === -1) args.push('--cpu-moe')
   else if (model.moe && cpuMoe > 0) args.push('--n-cpu-moe', String(cpuMoe))
+  // MoVA (K2 Horizon): sposta il banco di esperti dell'attenzione (attn_v_exps)
+  // su CPU per liberare VRAM. --n-cpu-moe non copre questo banco.
+  if (model.mova && movaCpu) args.push('-ot', 'attn_v_exps=CPU')
   if (mtp) args.push('--spec-type', 'draft-mtp')
   args.push('--reasoning', thinking ? 'on' : 'off')
 
@@ -105,11 +115,11 @@ export async function startText(cfg) {
   mkdirSync(join(ROOT, 'outputs'), { recursive: true })
 
   textServer.model = model.id
-  textServer.params = { context, kv: kv || 'f16', mtp, cpuMoe, gpuLayers, thinking }
+  textServer.params = { context, kv: kv || 'f16', mtp, cpuMoe, movaCpu, gpuLayers, thinking }
   textServer.ready = false
   const { proc } = spawnLogged({
     exe: LLAMA, args, cwd: ROOT, logFile: TEXT_LOG,
-    header: `\n--- avvio ${model.id} ctx=${context} kv=${kv || 'f16'} mtp=${mtp} cpuMoe=${cpuMoe} ngl=${gpuLayers} think=${thinking ? 'on' : 'off'} ---\n`,
+    header: `\n--- avvio ${model.id} ctx=${context} kv=${kv || 'f16'} mtp=${mtp} cpuMoe=${cpuMoe} movaCpu=${movaCpu ? 'on' : 'off'} ngl=${gpuLayers} think=${thinking ? 'on' : 'off'} ---\n`,
   })
   textServer.proc = proc
   textServer.proc.on('exit', () => {

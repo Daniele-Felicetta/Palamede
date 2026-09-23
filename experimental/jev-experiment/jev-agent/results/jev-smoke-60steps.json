@@ -1,0 +1,21 @@
+{
+  "backend": "rizzo-flow rizzo-spark-x2.5-4b-q8",
+  "steps": 60,
+  "accuracy": 0.5833333333333334,
+  "latency_p50_p95_ms": [
+    374.74849994760007,
+    399.7744000516832
+  ],
+  "actions": {
+    "X": 25,
+    "Z": 1,
+    "Y": 34
+  },
+  "memory": {
+    "working_memory_size": 8,
+    "ltm_size": 64,
+    "logical_memory_size": 72,
+    "active_context_chars": 448,
+    "steps": 60
+  }
+}

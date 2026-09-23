@@ -1,0 +1,143 @@
+{
+  "config": {
+    "seed": 0,
+    "backend": "heuristic",
+    "server_url": "http://127.0.0.1:8017",
+    "steps": 400,
+    "max_reward": 5.0,
+    "memory": {
+      "working_capacity": 8,
+      "ttl_seconds": 120.0,
+      "decay": 0.995,
+      "forget_threshold": 0.05,
+      "ltm_decay_interval": 10,
+      "consolidation_interval": 50,
+      "consolidation_min_group": 3,
+      "consolidation_threshold": 0.9,
+      "replay_interval": 100,
+      "replay_size": 10
+    },
+    "retrieval": {
+      "k": 5,
+      "w_semantic": 0.45,
+      "w_recency": 0.15,
+      "w_importance": 0.2,
+      "w_salience": 0.1,
+      "w_frequency": 0.05,
+      "w_context": 0.05,
+      "recency_tau": 60.0
+    },
+    "plasticity": {
+      "learning_rate": 0.1,
+      "temporal_tau": 30.0,
+      "importance_cap": 2.0,
+      "salience_cap": 1.0
+    },
+    "context": {
+      "max_memories": 6,
+      "max_chars": 4000
+    },
+    "state": {
+      "latent_momentum": 0.9
+    }
+  },
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "results": {
+    "no_memory": {
+      "condition": "no_memory",
+      "decisions": 400.0,
+      "decision_accuracy": 0.22999999999999998,
+      "mean_reward": 1.15,
+      "mean_prediction_error": 0.41,
+      "mean_retrieved": 0.0,
+      "mean_context_chars": 99.9345,
+      "final_logical_memory_size": 8.0,
+      "storage_chars": 0.0,
+      "mean_latency_ms": 0.0,
+      "logical_to_active_ratio": 0.07233889674256647,
+      "summaries": 0.0,
+      "learn_100_200": 0.42400000000000004,
+      "post_drift_200_260": 0.006666666666666666,
+      "conflict_260_290": 0.4066666666666666,
+      "decay_300_400": 0.0
+    },
+    "working_memory_only": {
+      "condition": "working_memory_only",
+      "decisions": 400.0,
+      "decision_accuracy": 0.7474999999999999,
+      "mean_reward": 3.7375,
+      "mean_prediction_error": 0.24885025721457996,
+      "mean_retrieved": 7.909999999999999,
+      "mean_context_chars": 466.01849999999996,
+      "final_logical_memory_size": 8.0,
+      "storage_chars": 0.0,
+      "mean_latency_ms": 0.0,
+      "logical_to_active_ratio": 0.014508914288398511,
+      "summaries": 0.0,
+      "learn_100_200": 0.746,
+      "post_drift_200_260": 0.7933333333333333,
+      "conflict_260_290": 0.7,
+      "decay_300_400": 0.788
+    },
+    "long_term": {
+      "condition": "long_term",
+      "decisions": 400.0,
+      "decision_accuracy": 0.771,
+      "mean_reward": 3.8549999999999995,
+      "mean_prediction_error": 0.19528837378214467,
+      "mean_retrieved": 12.872499999999999,
+      "mean_context_chars": 467.65950000000004,
+      "final_logical_memory_size": 230.2,
+      "storage_chars": 10179.4,
+      "mean_latency_ms": 0.0,
+      "logical_to_active_ratio": 0.4201223601352728,
+      "summaries": 0.0,
+      "learn_100_200": 0.834,
+      "post_drift_200_260": 0.7533333333333333,
+      "conflict_260_290": 0.6733333333333333,
+      "decay_300_400": 0.79
+    },
+    "plasticity": {
+      "condition": "plasticity",
+      "decisions": 400.0,
+      "decision_accuracy": 0.77,
+      "mean_reward": 3.85,
+      "mean_prediction_error": 0.19086121937965528,
+      "mean_retrieved": 12.872499999999999,
+      "mean_context_chars": 466.8275,
+      "final_logical_memory_size": 231.6,
+      "storage_chars": 10237.2,
+      "mean_latency_ms": 0.0,
+      "logical_to_active_ratio": 0.42191586650603047,
+      "summaries": 0.0,
+      "learn_100_200": 0.828,
+      "post_drift_200_260": 0.76,
+      "conflict_260_290": 0.6666666666666667,
+      "decay_300_400": 0.788
+    },
+    "consolidation": {
+      "condition": "consolidation",
+      "decisions": 400.0,
+      "decision_accuracy": 0.74,
+      "mean_reward": 3.7,
+      "mean_prediction_error": 0.22017073149730307,
+      "mean_retrieved": 12.872499999999999,
+      "mean_context_chars": 465.23,
+      "final_logical_memory_size": 282.0,
+      "storage_chars": 12248.8,
+      "mean_latency_ms": 0.0,
+      "logical_to_active_ratio": 0.5142073752069596,
+      "summaries": 21.6,
+      "learn_100_200": 0.8119999999999999,
+      "post_drift_200_260": 0.6833333333333333,
+      "conflict_260_290": 0.48,
+      "decay_300_400": 0.79
+    }
+  }
+}

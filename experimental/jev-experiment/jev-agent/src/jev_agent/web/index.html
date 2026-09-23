@@ -1,0 +1,931 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>jev-agent · banco di prova</title>
+<style>
+  :root {
+    --ink: #0c1116;
+    --panel: #121a21;
+    --panel-2: #0f161c;
+    --grid: #22303a;
+    --grid-soft: #1a242c;
+    --text: #dbe6ec;
+    --muted: #8298a4;
+    --faint: #5b707c;
+    --signal: #f0a52a;
+    --ok: #f0a52a;
+    --bad: #55666f;
+    --x: #2fb6c9;
+    --y: #9a7bf2;
+    --z: #ef5f5f;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --mono: ui-monospace, SFMono-Regular, "Cascadia Mono", "Cascadia Code", Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    background: var(--ink);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--signal); }
+
+  .app { max-width: 1440px; margin: 0 auto; padding: 0 20px 64px; }
+
+  /* ---------- header ---------- */
+  header.bar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 16px 0 14px;
+    background: linear-gradient(var(--ink) 78%, transparent);
+    border-bottom: 1px solid var(--grid);
+  }
+
+  .wordmark {
+    font-family: var(--serif);
+    font-size: 26px;
+    letter-spacing: 0.2px;
+    line-height: 1;
+  }
+  .wordmark b { font-weight: 600; }
+
+  .tagline {
+    color: var(--muted);
+    font-size: 11.5px;
+    letter-spacing: 0.02em;
+    max-width: 42ch;
+    border-left: 1px solid var(--grid);
+    padding-left: 16px;
+  }
+
+  .bar .spacer { flex: 1; }
+
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11.5px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--faint);
+    box-shadow: 0 0 0 3px rgba(255,255,255,0.03);
+  }
+  .dot.up { background: var(--x); box-shadow: 0 0 8px rgba(47,182,201,0.6); }
+  .dot.down { background: var(--z); }
+
+  /* ---------- controls ---------- */
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 16px 22px;
+    padding: 18px 0 16px;
+    border-bottom: 1px solid var(--grid);
+  }
+
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field > label {
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+  .field .hint { font-size: 10.5px; color: var(--faint); }
+
+  select, input[type="number"], input[type="text"] {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--grid);
+    border-radius: 2px;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    padding: 7px 9px;
+    min-width: 96px;
+  }
+  select:focus-visible, input:focus-visible, button:focus-visible {
+    outline: 2px solid var(--signal);
+    outline-offset: 1px;
+  }
+
+  button {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    letter-spacing: 0.02em;
+    color: var(--text);
+    background: var(--panel-2);
+    border: 1px solid var(--grid);
+    border-radius: 2px;
+    padding: 8px 14px;
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--faint); }
+  button.primary {
+    background: var(--signal);
+    border-color: var(--signal);
+    color: #1a1206;
+    font-weight: 600;
+  }
+  button.primary:hover { filter: brightness(1.08); }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .flags { display: flex; gap: 14px; flex-wrap: wrap; }
+  .flag { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--muted); }
+  .flag input { accent-color: var(--signal); }
+
+  .transport { display: flex; align-items: center; gap: 10px; }
+  .scrub { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 220px; }
+  .scrub input[type="range"] { width: 100%; accent-color: var(--signal); }
+  .stepnum { color: var(--muted); font-variant-numeric: tabular-nums; min-width: 88px; text-align: right; }
+
+  /* ---------- hero tape ---------- */
+  .tape-card {
+    margin-top: 18px;
+    border: 1px solid var(--grid);
+    background: var(--panel-2);
+  }
+  .tape-head {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--grid);
+  }
+  .tape-head h2 {
+    margin: 0;
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 15px;
+    letter-spacing: 0.02em;
+  }
+  .tape-head .legend { display: flex; gap: 14px; margin-left: auto; font-size: 11px; color: var(--muted); flex-wrap: wrap; }
+  .legend .k { display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+
+  .tape-wrap {
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-color: var(--grid) transparent;
+  }
+  .tape-inner { position: relative; height: 96px; }
+  #tape { display: block; height: 96px; }
+
+  .playhead {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 2px;
+    background: var(--text);
+    box-shadow: 0 0 10px rgba(219,230,236,0.5);
+    pointer-events: none;
+    transition: transform 90ms linear;
+  }
+  .playhead::before {
+    content: "";
+    position: absolute; top: -1px; left: -3px;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 6px solid var(--text);
+  }
+
+  /* ---------- panels ---------- */
+  .grid {
+    display: grid;
+    grid-template-columns: 1.05fr 1fr 1.1fr;
+    gap: 1px;
+    background: var(--grid);
+    border: 1px solid var(--grid);
+    border-top: none;
+  }
+  .panel { background: var(--panel); padding: 14px 16px 18px; min-width: 0; }
+  .panel h3 {
+    margin: 0 0 12px;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--faint);
+    font-weight: 500;
+  }
+
+  /* observation */
+  .obs {
+    background: var(--panel-2);
+    border: 1px solid var(--grid-soft);
+    border-left: 2px solid var(--signal);
+    padding: 9px 11px;
+    font-size: 12.5px;
+    min-height: 38px;
+    word-break: break-word;
+  }
+  .obs .noise { color: var(--faint); }
+  .obs .cue { color: var(--signal); font-weight: 600; }
+
+  .meta-row {
+    display: flex; gap: 18px; flex-wrap: wrap;
+    margin: 12px 0 14px;
+  }
+  .metric .k { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); }
+  .metric .v { font-size: 17px; font-variant-numeric: tabular-nums; }
+  .metric .v.dim { color: var(--muted); }
+
+  /* probability bars */
+  .bars { display: flex; flex-direction: column; gap: 9px; margin-top: 4px; }
+  .bar-row { display: grid; grid-template-columns: 20px 1fr 54px; align-items: center; gap: 10px; }
+  .bar-row .act { font-weight: 600; }
+  .track { height: 12px; background: var(--panel-2); border: 1px solid var(--grid-soft); position: relative; overflow: hidden; }
+  .fill { position: absolute; inset: 0 auto 0 0; transition: width 110ms linear; }
+  .bar-row .pct { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .bar-row.chosen .act { color: var(--signal); }
+  .bar-row.chosen .track { border-color: var(--signal); }
+
+  details.ctx { margin-top: 14px; }
+  details.ctx summary {
+    cursor: pointer; color: var(--faint); font-size: 11px;
+    letter-spacing: 0.06em; list-style: none;
+  }
+  details.ctx summary::-webkit-details-marker { display: none; }
+  details.ctx summary::before { content: "▸ "; }
+  details.ctx[open] summary::before { content: "▾ "; }
+  pre.ctx-body {
+    margin: 8px 0 0;
+    background: var(--panel-2);
+    border: 1px solid var(--grid-soft);
+    padding: 10px;
+    font-size: 11.5px;
+    color: var(--muted);
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 220px;
+    overflow: auto;
+  }
+
+  /* charts */
+  .chart { width: 100%; height: 128px; display: block; }
+  .chart-cap { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 8px; font-variant-numeric: tabular-nums; }
+  .chart-cap .k { display: inline-flex; align-items: center; gap: 6px; }
+
+  /* memory inspector */
+  .inspector { margin-top: 18px; border: 1px solid var(--grid); background: var(--panel); }
+  .inspector .head {
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    padding: 12px 16px; border-bottom: 1px solid var(--grid);
+  }
+  .inspector h3 { margin: 0; }
+  .inspector .head .spacer { flex: 1; }
+  .mems { max-height: 420px; overflow: auto; }
+  .mem {
+    display: grid;
+    grid-template-columns: 54px 1fr auto auto;
+    gap: 12px;
+    align-items: center;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--grid-soft);
+    font-size: 12px;
+  }
+  .mem:last-child { border-bottom: none; }
+  .mem.retrieved { background: rgba(240,165,42,0.07); box-shadow: inset 2px 0 0 var(--signal); }
+  .mem .imp { display: flex; align-items: center; gap: 6px; }
+  .imp-track { width: 34px; height: 6px; background: var(--panel-2); border: 1px solid var(--grid-soft); }
+  .imp-fill { height: 100%; background: var(--signal); }
+  .mem .body { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+  .mem .chip {
+    font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--muted); border: 1px solid var(--grid); padding: 1px 6px; border-radius: 2px;
+  }
+  .mem .chip.summary { color: var(--y); border-color: rgba(154,123,242,0.4); }
+  .mem .acc { color: var(--faint); font-variant-numeric: tabular-nums; min-width: 40px; text-align: right; }
+
+  .empty { color: var(--faint); padding: 28px 16px; text-align: center; }
+  .error { color: var(--z); padding: 12px 16px; border: 1px solid rgba(239,95,95,0.35); background: rgba(239,95,95,0.06); margin-top: 16px; }
+
+  @media (max-width: 1080px) {
+    .grid { grid-template-columns: 1fr; }
+    .tagline { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .playhead, .fill { transition: none; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="bar">
+    <div class="wordmark"><b>jev</b>-agent</div>
+    <div class="tagline">La memoria cresce, il contesto attivo no. Ogni passo è una decisione tipizzata, senza generare testo.</div>
+    <div class="spacer"></div>
+    <div class="status">
+      <span class="dot" id="rizzoDot"></span>
+      <span id="rizzoLabel">verifico rizzo-flow…</span>
+    </div>
+  </header>
+
+  <section class="controls">
+    <div class="field">
+      <label for="backend">Backend decisione</label>
+      <select id="backend">
+        <option value="heuristic">euristico (offline)</option>
+        <option value="jev">rizzo-flow (Jev)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="profile">Memoria</label>
+      <select id="profile">
+        <option value="full_memory">completa</option>
+        <option value="working_memory_only">solo working</option>
+        <option value="no_memory">nessuna</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="seed">Seme</label>
+      <input id="seed" type="number" value="0" min="0" step="1" />
+    </div>
+    <div class="field">
+      <label for="steps">Passi</label>
+      <input id="steps" type="number" value="400" min="10" max="2000" step="10" />
+    </div>
+    <div class="field">
+      <label>Flag</label>
+      <div class="flags" id="flags"></div>
+    </div>
+    <div class="spacer" style="flex:1"></div>
+    <div class="field">
+      <label>&nbsp;</label>
+      <button class="primary" id="run">Esegui</button>
+    </div>
+  </section>
+
+  <section class="tape-card">
+    <div class="tape-head">
+      <h2>Nastro delle decisioni</h2>
+      <span class="legend">
+        <span class="k"><span class="swatch" style="background:var(--x)"></span>X</span>
+        <span class="k"><span class="swatch" style="background:var(--y)"></span>Y</span>
+        <span class="k"><span class="swatch" style="background:var(--z)"></span>Z</span>
+        <span class="k"><span class="swatch" style="background:var(--ok)"></span>ricompensa</span>
+        <span class="k"><span class="swatch" style="background:var(--z)"></span>errore</span>
+      </span>
+    </div>
+    <div class="tape-wrap" id="tapeWrap">
+      <div class="tape-inner" id="tapeInner">
+        <canvas id="tape" width="0" height="96"></canvas>
+        <div class="playhead" id="playhead" style="display:none"></div>
+      </div>
+    </div>
+    <div class="controls" style="border-bottom:none;padding:12px 14px">
+      <div class="transport">
+        <button id="play" disabled>▶</button>
+        <button id="prev" disabled>◀ passo</button>
+        <button id="next" disabled>passo ▶</button>
+      </div>
+      <div class="scrub">
+        <span style="color:var(--muted)">velocità</span>
+        <select id="speed" style="min-width:80px">
+          <option value="1">1×</option>
+          <option value="4" selected>4×</option>
+          <option value="16">16×</option>
+        </select>
+        <input id="scrub" type="range" min="0" max="0" value="0" disabled />
+      </div>
+      <div class="stepnum" id="stepnum">— / —</div>
+    </div>
+  </section>
+
+  <div class="grid">
+    <section class="panel">
+      <h3>Decisione</h3>
+      <div class="obs" id="obs"><span class="noise">in attesa di un'esecuzione…</span></div>
+      <div class="meta-row">
+        <div class="metric"><div class="k">esito</div><div class="v dim" id="mOutcome">—</div></div>
+        <div class="metric"><div class="k">confidenza</div><div class="v" id="mConf">—</div></div>
+        <div class="metric"><div class="k">errore pred.</div><div class="v" id="mPE">—</div></div>
+        <div class="metric"><div class="k">ricompensa</div><div class="v" id="mRew">—</div></div>
+      </div>
+      <div class="bars" id="bars"></div>
+      <details class="ctx">
+        <summary>contesto attivo passato al modello (<span id="ctxLen">0</span> caratteri)</summary>
+        <pre class="ctx-body" id="ctxBody">—</pre>
+      </details>
+    </section>
+
+    <section class="panel">
+      <h3>Memoria</h3>
+      <svg class="chart" id="memChart" viewBox="0 0 600 128" preserveAspectRatio="none"></svg>
+      <div class="chart-cap">
+        <span class="k"><span class="swatch" style="background:var(--signal)"></span>memoria logica <b id="capLogical">—</b></span>
+        <span class="k"><span class="swatch" style="background:var(--x)"></span>contesto attivo <b id="capActive">—</b></span>
+      </div>
+      <div class="meta-row" style="margin-top:16px">
+        <div class="metric"><div class="k">L1 working</div><div class="v" id="mL1">—</div></div>
+        <div class="metric"><div class="k">L2 lungo termine</div><div class="v" id="mL2">—</div></div>
+        <div class="metric"><div class="k">L3 sintesi</div><div class="v" id="mL3">—</div></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h3>Prestazione</h3>
+      <svg class="chart" id="perfChart" viewBox="0 0 600 128" preserveAspectRatio="none"></svg>
+      <div class="chart-cap">
+        <span class="k"><span class="swatch" style="background:var(--signal)"></span>accuratezza (media mobile 20) <b id="capAcc">—</b></span>
+        <span class="k">ricompensa media <b id="capRew">—</b></span>
+      </div>
+      <div class="meta-row" style="margin-top:16px">
+        <div class="metric"><div class="k">accuratezza totale</div><div class="v" id="mAcc">—</div></div>
+        <div class="metric"><div class="k">ricompensa media</div><div class="v" id="mMeanRew">—</div></div>
+        <div class="metric"><div class="k">mem. recuperate / passo</div><div class="v" id="mRet">—</div></div>
+      </div>
+    </section>
+  </div>
+
+  <section class="inspector">
+    <div class="head">
+      <h3 style="letter-spacing:0.18em;font-size:10px;color:var(--faint)">ISPETTORE MEMORIA</h3>
+      <input id="filter" type="text" placeholder="filtra per testo…" style="min-width:220px" />
+      <label class="flag"><input type="checkbox" id="onlyRetrieved" /> solo recuperate</label>
+      <div class="spacer"></div>
+      <span class="chart-cap" style="margin:0"><span class="k" id="memCount">0 memorie</span></span>
+    </div>
+    <div class="mems" id="mems"><div class="empty">Esegui la simulazione per popolare la memoria.</div></div>
+  </section>
+
+  <div id="error"></div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const ACTIONS = { X: "#2fb6c9", Y: "#9a7bf2", Z: "#ef5f5f" };
+  const CUE = { A: "#f0a52a", B: "#2fb6c9", R: "#ef5f5f" };
+  const CELL = 15, TAPE_H = 96, LABEL_BAND = 18;
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const state = {
+    cfg: null,
+    data: null,
+    step: 0,
+    playing: false,
+    timer: null,
+    speed: 4,
+    onlyRetrieved: false,
+  };
+
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+  ));
+
+  // ---------- init ----------
+  async function init() {
+    const cfg = await fetch("/api/config").then((r) => r.json());
+    state.cfg = cfg;
+    $("#seed").value = cfg.defaults.seed;
+    $("#steps").value = cfg.defaults.steps;
+    $("#backend").value = cfg.defaults.backend === "jev" ? "jev" : "heuristic";
+    buildFlags(cfg.flags);
+    applyProfile($("#profile").value, false);
+    wire();
+    checkHealth();
+    window.addEventListener("resize", debounce(() => {
+      if (state.data) { drawCharts(state.data); }
+    }, 120));
+  }
+
+  function buildFlags(flags) {
+    const host = $("#flags");
+    host.innerHTML = Object.entries(flags).map(([k, v]) => `
+      <label class="flag"><input type="checkbox" data-flag="${k}" ${v ? "checked" : ""} />${k.replace("use_", "")}</label>
+    `).join("");
+  }
+
+  function currentFlags() {
+    const flags = {};
+    document.querySelectorAll("[data-flag]").forEach((el) => { flags[el.dataset.flag] = el.checked; });
+    return flags;
+  }
+
+  function applyProfile(name, syncCheckboxes = true) {
+    const profile = state.cfg.profiles[name];
+    if (!profile) return;
+    if (syncCheckboxes) {
+      document.querySelectorAll("[data-flag]").forEach((el) => { el.checked = !!profile[el.dataset.flag]; });
+    } else if (name === "full_memory") {
+      // defaults already applied by buildFlags
+    }
+  }
+
+  function wire() {
+    $("#run").addEventListener("click", run);
+    $("#profile").addEventListener("change", (e) => applyProfile(e.target.value));
+    $("#play").addEventListener("click", togglePlay);
+    $("#prev").addEventListener("click", () => { pause(); setStep(state.step - 1); });
+    $("#next").addEventListener("click", () => { pause(); setStep(state.step + 1); });
+    $("#speed").addEventListener("change", (e) => { state.speed = Number(e.target.value); if (state.playing) restartTimer(); });
+    $("#scrub").addEventListener("input", (e) => { pause(); setStep(Number(e.target.value)); });
+    $("#backend").addEventListener("change", () => {
+      if ($("#backend").value === "jev" && Number($("#steps").value) > 200) $("#steps").value = 120;
+    });
+    $("#filter").addEventListener("input", renderMemories);
+    $("#onlyRetrieved").addEventListener("change", (e) => {
+      state.onlyRetrieved = e.target.checked;
+      renderMemories();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.target.matches("input, select, textarea")) return;
+      if (e.code === "Space") { e.preventDefault(); togglePlay(); }
+      else if (e.code === "ArrowRight") { pause(); setStep(state.step + 1); }
+      else if (e.code === "ArrowLeft") { pause(); setStep(state.step - 1); }
+    });
+  }
+
+  async function checkHealth() {
+    const dot = $("#rizzoDot"), label = $("#rizzoLabel");
+    try {
+      const { rizzo } = await fetch("/api/health").then((r) => r.json());
+      if (rizzo.up) {
+        dot.className = "dot up";
+        const ids = (rizzo.models && (rizzo.models.data || rizzo.models.models || [])) || [];
+        const name = ids[0] && (ids[0].id || ids[0]) || "rizzo-flow";
+        label.textContent = "rizzo-flow attivo · " + name;
+      } else {
+        dot.className = "dot down";
+        label.textContent = "rizzo-flow non raggiungibile";
+      }
+    } catch {
+      dot.className = "dot down";
+      label.textContent = "rizzo-flow non raggiungibile";
+    }
+  }
+
+  // ---------- run ----------
+  async function run() {
+    const backend = $("#backend").value;
+    if (backend === "jev") {
+      const { rizzo } = await fetch("/api/health").then((r) => r.json());
+      if (!rizzo.up) {
+        showError("Il backend rizzo-flow non è raggiungibile su " + state.cfg.defaults.server_url +
+          ". Avvialo con: rizzo serve --bits 8 (dalla cartella rizzo-flow), oppure usa il backend euristico.");
+        return;
+      }
+    }
+    pause();
+    clearError();
+    const btn = $("#run");
+    btn.disabled = true;
+    btn.textContent = "in corso…";
+    try {
+      const payload = {
+        backend,
+        seed: Number($("#seed").value) || 0,
+        steps: Number($("#steps").value) || 400,
+        flags: currentFlags(),
+      };
+      const res = await fetch("/api/simulate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const body = await res.json();
+      if (!res.ok) { showError(body.error || "errore sconosciuto"); return; }
+      loadRun(body);
+    } catch (err) {
+      showError("Richiesta fallita: " + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Esegui";
+    }
+  }
+
+  function loadRun(data) {
+    state.data = data;
+    const n = data.trace.length;
+    $("#scrub").max = String(Math.max(0, n - 1));
+    ["play", "prev", "next", "scrub"].forEach((id) => { $("#" + id).disabled = false; });
+    drawTape(data);
+    drawCharts(data);
+    renderMemories();
+    updateSummary(data);
+    setStep(0);
+    if (!reduceMotion && n > 1) startPlay();
+  }
+
+  // ---------- tape ----------
+  function drawTape(data) {
+    const canvas = $("#tape");
+    const dpr0 = window.devicePixelRatio || 1;
+    const n = data.trace.length;
+    const w = n * CELL;
+    // very long tapes would exceed the max canvas dimension at 2× DPR
+    const dpr = w * dpr0 > 16000 ? 1 : dpr0;
+    canvas.width = Math.max(1, Math.round(w * dpr));
+    canvas.height = Math.round(TAPE_H * dpr);
+    canvas.style.width = w + "px";
+    canvas.style.height = TAPE_H + "px";
+    $("#tapeInner").style.width = w + "px";
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, TAPE_H);
+
+    // phase bands
+    const phases = state.cfg.phases;
+    ctx.font = "10px " + getComputedStyle(document.body).fontFamily;
+    phases.forEach((p) => {
+      const x0 = p.from * CELL, x1 = Math.min(p.to, n) * CELL;
+      if (x1 <= x0) return;
+      ctx.fillStyle = "rgba(255,255,255,0.018)";
+      if (p.name === "conflict") ctx.fillStyle = "rgba(239,95,95,0.05)";
+      if (p.name === "decay") ctx.fillStyle = "rgba(154,123,242,0.045)";
+      ctx.fillRect(x0, LABEL_BAND, x1 - x0, TAPE_H - LABEL_BAND);
+      ctx.fillStyle = "rgba(130,152,164,0.55)";
+      ctx.fillText(p.name.toUpperCase(), x0 + 5, 12);
+      ctx.strokeStyle = "rgba(34,48,58,0.9)";
+      ctx.beginPath(); ctx.moveTo(x0 + 0.5, 0); ctx.lineTo(x0 + 0.5, TAPE_H); ctx.stroke();
+    });
+
+    const blockTop = 34, blockH = 34;
+    for (let i = 0; i < n; i++) {
+      const t = data.trace[i];
+      const x = i * CELL;
+      // reward tick
+      if (t.reward > 0) {
+        const h = 10 + (LABEL_BAND - 12) * Math.min(1, t.reward / 5);
+        ctx.fillStyle = "rgba(240,165,42,0.85)";
+        ctx.fillRect(x + 3, LABEL_BAND - h, CELL - 6, h);
+      }
+      // cue glyph
+      const glyph = t.cue && /^[ABR]$/.test(t.cue) ? t.cue : "·";
+      ctx.fillStyle = CUE[glyph] || "rgba(130,152,164,0.45)";
+      ctx.font = "9px " + getComputedStyle(document.body).fontFamily;
+      ctx.fillText(glyph, x + 4, 30);
+      // action block
+      const conf = Math.max(0, Math.min(1, t.confidence || 0));
+      ctx.globalAlpha = 0.28 + 0.72 * conf;
+      ctx.fillStyle = ACTIONS[t.action] || "rgba(130,152,164,0.5)";
+      ctx.fillRect(x + 1, blockTop, CELL - 2, blockH);
+      ctx.globalAlpha = 1;
+      // hit / miss border
+      if (t.ok) {
+        ctx.fillStyle = "rgba(240,165,42,0.95)";
+        ctx.fillRect(x + 1, blockTop, CELL - 2, 2);
+      } else {
+        ctx.fillStyle = "rgba(239,95,95,0.9)";
+        ctx.fillRect(x + 1, blockTop + blockH - 2, CELL - 2, 2);
+      }
+    }
+
+    // axis ticks every 50
+    ctx.fillStyle = "rgba(130,152,164,0.5)";
+    ctx.font = "9px " + getComputedStyle(document.body).fontFamily;
+    for (let s = 0; s <= n; s += 50) {
+      const x = s * CELL;
+      ctx.fillRect(x, TAPE_H - 6, 1, 6);
+      ctx.fillText(String(s), Math.min(x + 3, w - 24), TAPE_H - 1);
+    }
+  }
+
+  function movePlayhead() {
+    const ph = $("#playhead");
+    if (!state.data) { ph.style.display = "none"; return; }
+    ph.style.display = "block";
+    ph.style.transform = `translateX(${state.step * CELL}px)`;
+    const wrap = $("#tapeWrap");
+    const cx = state.step * CELL;
+    if (state.playing || cx < wrap.scrollLeft || cx > wrap.scrollLeft + wrap.clientWidth - 30) {
+      wrap.scrollLeft = Math.max(0, cx - wrap.clientWidth / 2);
+    }
+  }
+
+  $("#tapeWrap").addEventListener("click", (e) => {
+    if (!state.data) return;
+    const rect = $("#tape").getBoundingClientRect();
+    const step = Math.floor((e.clientX - rect.left) / CELL);
+    pause();
+    setStep(step);
+  });
+
+  // ---------- step ----------
+  function setStep(i) {
+    if (!state.data) return;
+    const n = state.data.trace.length;
+    const step = Math.max(0, Math.min(n - 1, i));
+    state.step = step;
+    const t = state.data.trace[step];
+
+    $("#scrub").value = String(step);
+    $("#stepnum").textContent = `passo ${step + 1} / ${n}`;
+    movePlayhead();
+    renderDecision(t);
+    renderMemories();
+    drawChartCursor();
+  }
+
+  function renderDecision(t) {
+    const text = t.text || "";
+    let html = esc(text);
+    const cueMatch = text.match(/^signal\s+(\S+)/i);
+    if (cueMatch) {
+      const cue = esc(cueMatch[1]).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      html = html.replace(new RegExp(cue), (m) => `<span class="cue">${m}</span>`);
+    }
+    $("#obs").innerHTML = html;
+
+    $("#mOutcome").textContent = t.ok ? "corretto" : "mancato";
+    $("#mOutcome").className = "v" + (t.ok ? "" : " dim");
+    $("#mConf").textContent = (t.confidence * 100).toFixed(0) + "%";
+    $("#mPE").textContent = t.prediction_error.toFixed(2);
+    $("#mRew").textContent = t.reward.toFixed(2);
+
+    const order = ["X", "Y", "Z"];
+    const bars = order.map((a) => {
+      const p = t.probabilities[a] ?? 0;
+      const chosen = a === t.action;
+      return `<div class="bar-row ${chosen ? "chosen" : ""}">
+        <span class="act" style="color:${ACTIONS[a]}">${a}</span>
+        <span class="track"><span class="fill" style="width:${(p * 100).toFixed(1)}%;background:${ACTIONS[a]}"></span></span>
+        <span class="pct">${(p * 100).toFixed(1)}%</span>
+      </div>`;
+    }).join("");
+    $("#bars").innerHTML = bars;
+
+    $("#ctxLen").textContent = (t.context || "").length;
+    $("#ctxBody").textContent = t.context || "—";
+
+    $("#mL1").textContent = t.memory.L1_working_memory_size;
+    $("#mL2").textContent = t.memory.L2_ltm_size;
+    $("#mL3").textContent = t.memory.L3_summary_count;
+  }
+
+  function updateSummary(data) {
+    const s = data.summary;
+    $("#capLogical").textContent = s.final_logical_memory_size;
+    $("#capActive").textContent = Math.round(s.mean_context_chars) + " car.";
+    $("#capAcc").textContent = (s.decision_accuracy * 100).toFixed(1) + "%";
+    $("#capRew").textContent = s.mean_reward.toFixed(2);
+    $("#mAcc").textContent = (s.decision_accuracy * 100).toFixed(1) + "%";
+    $("#mMeanRew").textContent = s.mean_reward.toFixed(2);
+    $("#mRet").textContent = s.mean_retrieved.toFixed(1);
+  }
+
+  // ---------- playback ----------
+  function intervalFor(speed) {
+    return speed >= 16 ? 18 : speed >= 4 ? 60 : 180;
+  }
+  function startPlay() {
+    state.playing = true;
+    $("#play").textContent = "❚❚";
+    restartTimer();
+  }
+  function restartTimer() {
+    clearInterval(state.timer);
+    state.timer = setInterval(() => {
+      if (state.step >= state.data.trace.length - 1) { pause(); return; }
+      setStep(state.step + 1);
+    }, intervalFor(state.speed));
+  }
+  function pause() {
+    state.playing = false;
+    clearInterval(state.timer);
+    state.timer = null;
+    $("#play").textContent = "▶";
+  }
+  function togglePlay() {
+    if (!state.data) return;
+    if (state.playing) pause();
+    else if (state.step >= state.data.trace.length - 1) { setStep(0); startPlay(); }
+    else startPlay();
+  }
+
+  // ---------- charts ----------
+  function drawCharts(data) {
+    drawLineChart($("#memChart"), data.trace, [
+      { pick: (t) => t.memory.logical_memory_size, color: "#f0a52a" },
+      { pick: (t) => t.memory.L0_active_context_chars, color: "#2fb6c9" },
+    ], { yMin: 0 });
+    drawLineChart($("#perfChart"), data.trace, [
+      { pick: (t, i, arr) => rolling(arr, i, 20, (r) => (r.ok ? 1 : 0)), color: "#f0a52a", fill: true },
+    ], { yMin: 0, yMax: 1 });
+    drawChartCursor();
+  }
+
+  function rolling(arr, i, win, fn) {
+    const lo = Math.max(0, i - win + 1);
+    let acc = 0;
+    for (let k = lo; k <= i; k++) acc += fn(arr[k]);
+    return acc / (i - lo + 1);
+  }
+
+  function drawLineChart(svg, trace, series, opts) {
+    const W = 600, H = 128, pad = 8;
+    const n = trace.length;
+    let max = opts.yMax;
+    if (max == null) {
+      max = 0;
+      series.forEach((s) => trace.forEach((t, i) => {
+        const v = s.pick(t, i, trace);
+        if (v > max) max = v;
+      }));
+      max = max || 1;
+    }
+    const min = opts.yMin ?? 0;
+    const xOf = (i) => pad + (W - 2 * pad) * (n <= 1 ? 0 : i / (n - 1));
+    const yOf = (v) => H - pad - (H - 2 * pad) * ((v - min) / (max - min || 1));
+
+    // phase bands
+    const phases = state.cfg.phases;
+    let bandSvg = "";
+    phases.forEach((p) => {
+      const x0 = pad + (W - 2 * pad) * Math.max(0, Math.min(1, p.from / Math.max(1, n - 1)));
+      const x1 = pad + (W - 2 * pad) * Math.max(0, Math.min(1, p.to / Math.max(1, n - 1)));
+      if (x1 <= x0) return;
+      const c = p.name === "conflict" ? "rgba(239,95,95,0.07)" : p.name === "decay" ? "rgba(154,123,242,0.06)" : "rgba(255,255,255,0.02)";
+      bandSvg += `<rect x="${x0.toFixed(1)}" y="${pad}" width="${(x1 - x0).toFixed(1)}" height="${H - 2 * pad}" fill="${c}" />`;
+    });
+
+    let paths = "";
+    series.forEach((s) => {
+      let d = "";
+      for (let i = 0; i < n; i++) {
+        const v = s.pick(trace[i], i, trace);
+        d += (i === 0 ? "M" : "L") + xOf(i).toFixed(1) + " " + yOf(v).toFixed(1) + " ";
+      }
+      if (s.fill) {
+        const area = d + `L${xOf(n - 1).toFixed(1)} ${yOf(min).toFixed(1)} L${xOf(0).toFixed(1)} ${yOf(min).toFixed(1)} Z`;
+        paths += `<path d="${area}" fill="${s.color}" opacity="0.14" />`;
+      }
+      paths += `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="1.5" vector-effect="non-scaling-stroke" />`;
+    });
+
+    svg.innerHTML =
+      `<rect x="0" y="0" width="${W}" height="${H}" fill="none" />` +
+      bandSvg +
+      `<line x1="${pad}" y1="${H - pad}" x2="${W - pad}" y2="${H - pad}" stroke="rgba(34,48,58,0.9)" />` +
+      paths +
+      `<line id="cursor" x1="${pad}" y1="${pad}" x2="${pad}" y2="${H - pad}" stroke="rgba(219,230,236,0.55)" stroke-width="1" vector-effect="non-scaling-stroke" />`;
+  }
+
+  function drawChartCursor() {
+    if (!state.data) return;
+    const n = state.data.trace.length;
+    const W = 600, pad = 8;
+    const x = pad + (W - 2 * pad) * (n <= 1 ? 0 : state.step / (n - 1));
+    ["#memChart", "#perfChart"].forEach((id) => {
+      const c = document.querySelector(id + " #cursor");
+      if (c) { c.setAttribute("x1", x.toFixed(1)); c.setAttribute("x2", x.toFixed(1)); }
+    });
+  }
+
+  // ---------- memory inspector ----------
+  function renderMemories() {
+    const data = state.data;
+    if (!data) return;
+    const q = $("#filter").value.trim().toLowerCase();
+    const retrieved = new Set((data.trace[state.step] || {}).retrieved_ids || []);
+    let mems = data.memories.slice().sort((a, b) => b.importance - a.importance || b.timestamp - a.timestamp);
+    if (state.onlyRetrieved) mems = mems.filter((m) => retrieved.has(m.id));
+    if (q) mems = mems.filter((m) => m.content.toLowerCase().includes(q));
+
+    $("#memCount").textContent = mems.length + (mems.length === 1 ? " memoria" : " memorie");
+    if (!mems.length) {
+      $("#mems").innerHTML = `<div class="empty">Nessuna memoria corrisponde al filtro.</div>`;
+      return;
+    }
+    const maxImp = 2.0;
+    $("#mems").innerHTML = mems.map((m) => `
+      <div class="mem ${retrieved.has(m.id) ? "retrieved" : ""}">
+        <span class="imp">
+          <span class="imp-track"><span class="imp-fill" style="width:${Math.min(100, (m.importance / maxImp) * 100).toFixed(0)}%"></span></span>
+          <span style="color:var(--muted);font-variant-numeric:tabular-nums">${m.importance.toFixed(2)}</span>
+        </span>
+        <span class="body" title="${esc(m.content)}">${esc(m.content)}</span>
+        <span class="chip ${m.kind === "summary" ? "summary" : ""}">${m.kind}</span>
+        <span class="acc">${m.access_count}×</span>
+      </div>
+    `).join("");
+  }
+
+  // ---------- misc ----------
+  function showError(msg) {
+    $("#error").innerHTML = `<div class="error">${esc(msg)}</div>`;
+  }
+  function clearError() { $("#error").innerHTML = ""; }
+  function debounce(fn, ms) {
+    let h; return (...a) => { clearTimeout(h); h = setTimeout(() => fn(...a), ms); };
+  }
+
+  init().catch((err) => showError("Avvio fallito: " + err.message));
+})();
+</script>
+</body>
+</html>

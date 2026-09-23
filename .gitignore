@@ -49,6 +49,9 @@ outputs/
 # Fonti raw + wiki compilata dal modello: contenuto personale, non versionato.
 knowledge/
 
+# ── JEV Hub: log dei progetti sperimentali avviati ──────────────
+experimental/jev-hub/logs/
+
 # ── Varie ───────────────────────────────────────────────────────
 *.log
 .env

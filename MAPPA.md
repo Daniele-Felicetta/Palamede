@@ -12,7 +12,7 @@
 
 <!-- GEN:ALBERO -->
 ```text
-Palamede/                       (repo git · aggiornata: 2026-09-02 02:05)
+Palamede/                       (repo git · aggiornata: 2026-09-24 00:41)
 ├── backends/
 ├── experimental/
 ├── frontend/
@@ -25,6 +25,7 @@ Palamede/                       (repo git · aggiornata: 2026-09-02 02:05)
 ├── scripts/
 ├── src-tauri/
 ├── tools/   (gitignored)
+├── venv/   (gitignored)
 ├── .editorconfig
 ├── .gitignore
 ├── MAPPA.md
@@ -96,6 +97,12 @@ Palamede/                       (repo git · aggiornata: 2026-09-02 02:05)
 - `scripts/build-launcher.ps1` / `build-bundle.ps1` — pipeline di build del launcher .NET (csc.exe).
 - `palamede.bundle` / `runtime.stamp` — artefatti del flusso .NET.
 - Sostituito da src-tauri (Tauri v2): NIENTE codice attivo dipende da legacy/.
+
+## Experimental — experimental/
+
+- `jev-experiment/` — copia del progetto sperimentale jev (senza `.venv`/`node_modules`/`.git`/cache/gguf): `agent-encounter/`, `jev-agent/`, `my-jev/`, `rizzo-flow/`, `Modern tiles_Free/`.
+- `jev-hub/server.mjs` — **servizio Node dedicato** (porta `4610`, env `JEV_HUB_PORT`/`JEV_ROOT`) che elenca e avvia i progetti jev dal loro percorso originale (`Desktop/jev-experiment`, dove stanno i `.venv` e i pesi Spark): rizzo-flow (:8017), jev-agent (:8018), agent-encounter (:8019), my-jev (:5173). Espone `GET /api/projects` e `POST /api/projects/<id>/start|stop`.
+- Integrazione: `hub/lib/jev.mjs` avvia il servizio jev-hub come subprocess e inoltra `/api/jev/*`; la pagina Experimental mostra il pannello **JEV Hub** (stato + avvia/ferma + apri UI). MiniCPM (usato da my-jev) vive in `models/minicpm5-2b/`.
 
 ## Cartelle dati (gitignored)
 

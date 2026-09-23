@@ -1,14 +1,17 @@
 <script lang="ts">
-  import { chatStream, startChat, stopChat } from '../api'
-  import type { ChatMessage } from '../api'
+  import { onMount } from 'svelte'
+  import { chatStream, startChat, stopChat, retrieveKb } from '../api'
+  import type { ChatMessage, KbChunkHit, KbRetrieveResult } from '../api'
   import { store } from '../store.svelte'
   import { Text } from '../lib/text'
-  import { buildKbContext } from '../lib/kbContext'
+  import { buildGroundingSystem, extractCites, citedChunks } from '../lib/rag'
   import Markdown from '../components/Markdown.svelte'
   import ReasonBlock from '../components/ReasonBlock.svelte'
+  import SourceCards from '../components/SourceCards.svelte'
+  import SourceView from '../components/SourceView.svelte'
   import { Button, ChatState, EmptyState, Field, Hintline, ModelPlate } from '../components/ui'
 
-  interface Msg extends ChatMessage { pending?: boolean; reason?: string }
+  interface Msg extends ChatMessage { pending?: boolean; reason?: string; retr?: KbRetrieveResult | null; cites?: number[] }
 
   // Testo leggibile di un messaggio: i contenuti multimodali (array di parti)
   // si riducono alle sole parti testuali.
@@ -28,13 +31,30 @@
   let settings = $state(Text.defaultsFor(Text.DEFAULT_MODEL))
   let settingsOpen = $state(false)
 
-  // knowledge base (llm-wiki): se attiva, ogni domanda cerca le pagine
-  // rilevanti e le inietta come contesto di sistema.
+  // knowledge base RAG: se attiva, ogni domanda recupera i frammenti rilevanti
+  // (ibrido + rerank) e li inietta come contesto di sistema grounded.
   let kbOn = $state(false)
 
   let messages = $state<Msg[]>([])
   let input = $state('')
   let sending = $state(false)
+
+  // fonte aperta dal click su una citazione [n] (modale con chunk evidenziato)
+  let openSrc = $state<{ name: string; path: string; start?: number; end?: number } | null>(null)
+
+  // click delegato sulle citazioni [n] (markdown le rende come <button class="rag-cite">)
+  onMount(() => {
+    const h = (e: MouseEvent) => {
+      const el = e.target as HTMLElement
+      const c = el.closest('.rag-cite') as HTMLElement | null
+      if (!c?.dataset.cite) return
+      const wrap = el.closest('[data-idx]') as HTMLElement | null
+      const m = wrap ? messages[Number(wrap.dataset.idx)] : undefined
+      if (m) openCiteFrom(Number(c.dataset.cite), m)
+    }
+    document.addEventListener('click', h)
+    return () => document.removeEventListener('click', h)
+  })
 
   // contatore tok/s: stima live durante la generazione, preciso a fine stream
   let stats = $state<{ tps: number; tokens: number | null; live: boolean } | null>(null)
@@ -81,11 +101,11 @@
     try { store.chat = await stopChat() } catch (e) { err = String(e) } finally { busy = false }
   }
 
-  // Contesto knowledge base per una domanda (lib/kbContext.ts): cerca le
-  // pagine wiki rilevanti e le inietta come system prompt. Null → chat liscia.
-  const kbContext = async (text: string): Promise<string | null> => {
+  // Retrieval knowledge base: se "knowledge on", prima di ogni domanda recupera
+  // i frammenti rilevanti. Null → chat liscia (o knowledge off).
+  const kbRetrieval = async (text: string): Promise<KbRetrieveResult | null> => {
     if (!kbOn) return null
-    return buildKbContext(text)
+    try { return await retrieveKb(text, 5) } catch { return null }
   }
 
   async function send(e: { preventDefault(): void }) {
@@ -94,19 +114,20 @@
     if (!text || sending || !status?.ready) return
     input = ''
     err = ''
+    const retr = await kbRetrieval(text)
+    const system = retr ? buildGroundingSystem(retr) : undefined
     const history: ChatMessage[] = [
       ...messages.filter((m) => !m.pending).map((m) => ({ role: m.role, content: m.content })),
       { role: 'user', content: text },
     ]
-    messages = [...messages, { role: 'user', content: text }, { role: 'assistant', content: '', pending: true }]
+    messages = [...messages, { role: 'user', content: text }, { role: 'assistant', content: '', pending: true, retr }]
     sending = true
     stats = null
     genStart = performance.now()
     chars = 0
     stick = true
     try {
-      const system = await kbContext(text)
-      const stream = await chatStream(history, settings.temperature, system ?? undefined)
+      const stream = await chatStream(history, settings.temperature, system)
       Text.stream(
         stream,
         (type, t) => {
@@ -119,7 +140,7 @@
             else last.content += t
           }
         },
-        (st) => { if (st) stats = { tps: st.tps, tokens: st.tokens, live: false }; for (const m of messages) if (m.pending) m.pending = false },
+        (st) => { if (st) stats = { tps: st.tps, tokens: st.tokens, live: false }; for (const m of messages) if (m.pending) { m.pending = false; m.cites = extractCites(m.content as string) } },
         (er) => { err = er.message; for (const m of messages) if (m.pending) m.pending = false },
       )
     } catch (er) {
@@ -153,6 +174,22 @@
     } finally {
       busy = false
     }
+  }
+
+  function openCiteFrom(n: number, m: Msg) {
+    const chunk = m.retr?.chunks[n - 1]
+    if (!chunk) return
+    openSrc = { name: chunk.source, path: 'raw/' + chunk.source, start: chunk.start, end: chunk.end }
+  }
+
+  function openCited(chunk: KbChunkHit) {
+    openSrc = { name: chunk.source, path: 'raw/' + chunk.source, start: chunk.start, end: chunk.end }
+  }
+
+  // focus il modale all'apertura (per chiudere con Escape via tastiera)
+  function focusModal(node: HTMLElement) {
+    node.focus()
+    return {}
   }
 </script>
 
@@ -287,10 +324,13 @@
                    <span class="avatar" aria-hidden="true">O</span>
                   <div class="msg-body">
                     {#if m.reason}<ReasonBlock text={m.reason} streaming={!!m.pending} />{/if}
-                    <div class="msg-text">
-                      <Markdown text={msgText(m)} />
+                    <div class="msg-text" data-idx={i}>
+                      <Markdown text={msgText(m)} cites={!!m.retr && (m.cites?.length ?? 0) > 0} />
                        {#if m.pending}<span class="caret" aria-hidden="true"></span>{/if}
                     </div>
+                    {#if m.retr && !m.pending && (m.cites?.length ?? 0) > 0}
+                      <SourceCards items={citedChunks(m.retr, msgText(m))} onopen={openCited} />
+                    {/if}
                   </div>
                 </div>
               {/if}
@@ -317,7 +357,7 @@
             bind:value={input}
             onkeydown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(e) } }}
             placeholder={status?.ready
-              ? (kbOn ? 'Domanda con contesto knowledge base… (Invio invia)' : 'Chiedi qualcosa a Ornith… (Invio invia, Shift+Invio a capo)')
+              ? (kbOn ? 'Domanda con le tue fonti… (Invio invia)' : 'Chiedi qualcosa a Ornith… (Invio invia, Shift+Invio a capo)')
               : 'Server spento: premi "avvia" qui sopra.'}
             aria-label="Messaggio"
             rows={2}
@@ -334,9 +374,26 @@
         <Hintline err={!!err}>{err}</Hintline>
         {#if kbOn && !err}
           <Hintline cls="kb-note">
-            knowledge on — prima di ogni domanda cerco le pagine wiki rilevanti in knowledge/
+            knowledge on — prima di ogni domanda recupero i frammenti rilevanti dalle tue fonti in knowledge/
           </Hintline>
         {/if}
       </div>
     </div>
   </div>
+
+  {#if openSrc}
+    <div class="chat-modal" role="dialog" aria-modal="true" aria-label={openSrc.name} tabindex="-1"
+      use:focusModal
+      onclick={(e) => { if (e.target === e.currentTarget) openSrc = null }}
+      onkeydown={(e) => { if (e.key === 'Escape') openSrc = null }}>
+      <div class="chat-modal-card">
+        <div class="chat-modal-head">
+          <span class="chat-modal-title">{openSrc.name}</span>
+          <Button variant="side" onclick={() => openSrc = null}>chiudi</Button>
+        </div>
+        <div class="chat-modal-body">
+          <SourceView path={openSrc.path} start={openSrc.start} end={openSrc.end} />
+        </div>
+      </div>
+    </div>
+  {/if}

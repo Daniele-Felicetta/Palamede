@@ -5,10 +5,21 @@
   // codice, link, barrato). Tutto l'HTML è escapato PRIMA di essere iniettato
   // con {@html}, quindi il rendering resta sicuro esattamente come l'originale
   // React che costruiva elementi.
-  let { text }: { text: string } = $props()
+  let { text, cites = false }: { text: string; cites?: boolean } = $props()
 
   function esc(s: string): string {
     return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+  }
+
+  // Testo semplice escapato; con `cites` i marker [n] diventano bottoni
+  // cliccabili (il click lo gestisce un listener delegato in Chat/Rag).
+  function renderPlain(s: string): string {
+    if (!cites) return esc(s)
+    return s.split(/(\[\d{1,3}\])/).map((p) => {
+      const c = p.match(/^\[(\d{1,3})\]$/)
+      if (c) return `<button type="button" class="rag-cite" data-cite="${c[1]}">${esc(p)}</button>`
+      return esc(p)
+    }).join('')
   }
 
   // Solo http/https (e ancore/relative): niente javascript:/data:/vbscript:
@@ -55,7 +66,7 @@
           const href = safeHref(s)
           if (href) return `<a href="${href}" target="_blank" rel="noreferrer">${href}</a>`
         }
-        return esc(s)
+        return renderPlain(s)
       }).join('')
     }).join('')
   }

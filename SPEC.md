@@ -11,9 +11,11 @@ qualità ed esempi generati dai modelli stessi.
 Stato attuale: **Immagini, Chat e RAG sono funzionanti** — quattro modelli
 immagine (Bonsai 4B ternary, Z-Image Turbo Q4_K_M, Klein 4B FLUX.2 e
 Qwen-Image 2.1 Q4_K_M), chat locale con Ornith
-1.5 (35B-A3B e 9B) via llama.cpp, e una **knowledge base llm-wiki** (pattern
-Karpathy) in `knowledge/` con fonti raw/ compilate dal modello in pagine
-interconnesse, usate come contesto nella chat. Il **3D è integrato**: la
+1.5 (35B-A3B e 9B) via llama.cpp, e una **knowledge base RAG in stile
+NotebookLM** in `knowledge/`: le fonti vengono spezzate in chunk ed embedded
+localmente (Ollama `embeddinggemma`), interrogate con retrieval ibrido e
+rerank dedicato (MiniCPM 2B), con risposte grounded e citazioni `[n]`
+cliccabili. Il **3D è integrato**: la
 pipeline image-to-3D TRELLIS.2 produce un asset 3D completo da una singola
 immagine (GLB texturizzato + STL). La sezione **MCP** resta bozza con wiki.
 
@@ -65,7 +67,7 @@ Browser ── http://127.0.0.1:4600 ── hub/server.mjs (Node, zero deps)
                                      ├─ POST /api/chat/start  → avvia llama-server (parametri)
                                      ├─ POST /api/chat/stop   → ferma llama-server
                                      ├─ POST /api/chat        → chat streaming (SSE)
-                                     ├─ GET/POST /api/kb/*    → knowledge base llm-wiki
+                                     ├─ GET/POST /api/kb/*    → knowledge base RAG (chunk/embed/retrieve/rerank)
                                      │
                                      ├─ UNICO backend: backends/modelserver.py :8000
                                      │    ├─ bonsai → GpuPipeline gemlite in-process
@@ -74,7 +76,12 @@ Browser ── http://127.0.0.1:4600 ── hub/server.mjs (Node, zero deps)
                                      ├─ chat: tools/llama-cpp/llama-server.exe :8121
                                      │    (Ornith 1.5 35B-A3B / 9B, start su richiesta)
                                      │
-                                     └─ knowledge/ (gitignored): raw/ + wiki/ + index/log
+                                     ├─ rerank: tools/llama-cpp/llama-server.exe :8123
+                                     │    (MiniCPM 2B, start lazy + idle timeout 60s)
+                                     │
+                                     ├─ embeddings: Ollama locale :11434 (embeddinggemma)
+                                     │
+                                     └─ knowledge/ (gitignored): raw/ + rag/chunks.json
 ```
 
 ### Un solo backend, caricamento dinamico
@@ -216,29 +223,29 @@ mostra il ragionamento in un blocco a parte).
 
 Il toggle "Thinking" nel pannello impostazioni della chat passa `--reasoning on|off` a llama-server (default: off, nessun ragionamento).
 
-### Knowledge base llm-wiki (sezione RAG, `knowledge/`)
+### Knowledge base RAG (sezione RAG, `knowledge/`)
 
-Pattern **LLM Wiki di Karpathy** invece del RAG vettoriale: le fonti grezze
-vivono in `knowledge/raw/`, il modello le **compila** in pagine markdown
-interconnesse in `knowledge/wiki/` con `index.md` (indice) e `log.md`
-(registro append-only). La conoscenza è "compilata una volta" durante
-l'ingest, non re-derivata a ogni domanda.
+RAG vettoriale in stile **NotebookLM**: le fonti grezze vivono in
+`knowledge/raw/`, vengono spezzate in **chunk** (per paragrafi/sezioni
+markdown, target ~600 caratteri con overlap ~150) ed **embedded** localmente
+via Ollama `embeddinggemma` (`/api/embed`). L'indice è un JSON hand-rolled in
+`knowledge/rag/chunks.json` (riscritto atomicamente, zero dipendenze npm).
 
-- La cartella `knowledge/` è gitignored (contenuto personale) e nasce al
-  primo accesso con uno `SCHEMA.md` seed che istruisce il modello su come
-  mantenere la wiki (stile pagine, formato di output a blocchi `<<<FILE>>>`).
-- **Ingest**: la pagina RAG invia una fonte a `POST /api/kb/ingest`, il hub
-  chiama llama-server (non-streaming) con system prompt = SCHEMA + fonte +
-  index attuale; il modello risponde con i blocchi `<<<FILE wiki/...>>>`,
-  `<<<INDEX>>>` e `<<<LOG>>>` che il hub scrive su disco.
-- **Query nella chat**: toggle "knowledge on" → ogni domanda cerca le pagine
-  wiki rilevanti (keyword search RAG-naive su `wiki/`, pesata per lunghezza
-  dei termini) e le inietta come system prompt con l'istruzione di citare.
-  L'`index.md` è il fallback quando nessuna pagina risulta rilevante.
-- **Embeddings**: su questa macchina `embeddinggemma` è già installato su
-  Ollama (`/api/embed`) — la UI lo segnala come "pronto per RAG vettoriale",
-  ma la ricerca corrente è keyword (zero dipendenze). L'upgrade vettoriale
-  è la strada quando la wiki cresce oltre ~centinaia di pagine.
+- **Ingest**: la pagina RAG salva la fonte in `raw/` (paste o drag&drop
+  `.md/.txt`, max 300KB) e la indicizza subito (chunk + embed). All'avvio del
+  hub le fonti in `raw/` non ancora indicizzate vengono processate in coda
+  (migrazione automatica).
+- **Retrieval ibrido**: coseno vettoriale + BM25-lite fusi con **RRF** → top-20
+  chunk; poi un **rerank** con il modello dedicato **MiniCPM 2B** (llama-server
+  separato su `:8123`, start lazy alla prima richiesta e idle timeout ~60s per
+  liberare la VRAM) seleziona i top 3–5 chunk davvero rilevanti. Se Ollama o il
+  reranker sono giù, il sistema degrada senza errori (keyword-only / top ibridi).
+- **Chat grounded**: toggle "knowledge on" → ogni domanda fa
+  `POST /api/kb/retrieve` e il modello risponde **solo dai frammenti
+  recuperati**, citando `[n]`. Le citazioni sono cliccabili: aprono la fonte
+  con il chunk evidenziato (offset assoluti salvati a ogni chunk).
+- **Rimozione**: eliminare una fonte da `raw/` rimuove anche i suoi chunk e
+  vettori dall'indice (nessun ricalcolo globale).
 
 ## Contratti API del hub
 
@@ -313,19 +320,22 @@ avrebbe rotto il JSON (la sidebar mostrava `nullW`/`NaN°C`). Se la CPU esce a
 
 | Endpoint | Descrizione |
 |---|---|
-| `GET /api/kb/status` | stato: conteggi raw/wiki, contenuto index.md, log.md, SCHEMA.md, stato chat |
-| `GET /api/kb/files?area=raw\|wiki` | elenco file (ricorsivo, path relativi) |
+| `GET /api/kb/status` | stato: n fonti, n chunk, n embedded, lista fonti indicizzate, stato chat, stato Ollama, stato reranker |
+| `GET /api/kb/files?area=raw` | elenco file in `raw/` (path relativi) |
 | `GET /api/kb/read?path=…` | contenuto di un file (solo dentro `knowledge/`, path traversal → 403) |
-| `POST /api/kb/save` | `{path, content}` — scrive in `raw/` o `wiki/` (solo .md/.txt) |
-| `POST /api/kb/delete` | `{path}` — elimina una fonte in `raw/` |
-| `GET /api/kb/search?q=…` | keyword search sulle pagine wiki → `{pages: [path…]}` |
-| `POST /api/kb/ingest` | `{source}` — compila una fonte raw/ nella wiki via llama-server |
-| `GET /api/kb/embeddings` | disponibilità Ollama (embeddinggemma) per il futuro RAG vettoriale |
+| `POST /api/kb/save` | `{path, content}` — scrive in `raw/` (solo .md/.txt, max 300KB) |
+| `POST /api/kb/upload` | `{name, content}` — salva in `raw/` E indicizza subito (chunk+embed) |
+| `POST /api/kb/delete` | `{path}` — elimina la fonte da `raw/` e i suoi chunk dall'indice |
+| `POST /api/kb/ingest` | `{source}` — (re)indicizza una fonte di `raw/` (idempotente) |
+| `GET /api/kb/search?q=…` | retrieval ibrido (senza rerank) → `{chunks: [hit…]}` |
+| `POST /api/kb/retrieve` | `{query, topK}` — ibrido + rerank MiniCPM → `{reranked, chunks, sources}` (per la chat grounded) |
+| `GET /api/kb/embeddings` | disponibilità Ollama (embeddinggemma) |
+| `GET /api/kb/rerank` · `POST /api/kb/rerank/start\|stop` | stato / start lazy / stop del reranker MiniCPM (:8123) |
 
-L'ingest richiede **llama-server attivo** (stesso modello della chat); la
-risposta del modello viene parsata sui blocchi `<<<FILE …>>>` / `<<<INDEX>>>` /
-`<<<LOG>>>` e scritta su disco; se il formato non è rispettato la risposta
-grezza finisce in `wiki/sources/<nome>-raw.md` con un errore esplicito.
+L'ingest dipende solo da **Ollama** (embedding): se è spento i chunk vengono
+indicizzati senza vettore e la ricerca degrada a keyword (un nuovo ingest li
+ri-embedda). Il rerank è **best-effort**: mai blocca la chat, e il server
+MiniCPM si spegne da solo dopo ~60s di inattività per liberare la VRAM.
 
 | | Bonsai (gemlite in-process) | Z-Image (sd-server :8123) |
 |---|---|---|
@@ -373,8 +383,8 @@ Pagine:
 |---|---|
 | `/` | Home hub: eroe compatto (headline + **registro di bordo live**: backend, modello in VRAM, barra GPU) · **card Applicazioni subito visibili** · sotto, **Le applicazioni nel dettaglio** con le descrizioni · in coda **Misure sul banco** |
 | `/images` | Generatore funzionante (due modelli) + gallery locale + wiki dei due modelli con esempi reali |
-| `/chat` | **Chat funzionante**: Ornith 35B-A3B / 9B / 9B-Q5, streaming con ragionamento mostrato, impostazioni (contesto, KV quant, MTP, layer MoE su CPU, layer GPU, temperatura, toggle thinking (default off)), avvio/stop server, **toggle knowledge on** per usare la wiki come contesto |
-| `/rag` | **Knowledge base llm-wiki funzionante**: aggiungi fonti in `knowledge/raw/`, compilale nella wiki col modello, ispeziona pagine/index/log/schema, cerca nelle pagine |
+| `/chat` | **Chat funzionante**: Ornith 35B-A3B / 9B / 9B-Q5, streaming con ragionamento mostrato, impostazioni (contesto, KV quant, MTP, layer MoE su CPU, layer GPU, temperatura, toggle thinking (default off)), avvio/stop server, **toggle knowledge on** per rispondere dalle tue fonti con citazioni `[n]` cliccabili |
+| `/rag` | **Knowledge base RAG funzionante** (stile NotebookLM): aggiungi fonti (paste o drag&drop `.md/.txt`), indicizzazione chunk+embedding, chat grounded con citazioni, fonte aperta con il chunk citato evidenziato |
 | `/3d` | **Generatore 3D funzionante**: upload immagine, qualità 512/1024, viewer three.js, download GLB + STL, sezione Server per start/stop del server TRELLIS. |
 | `/mcp` | Bozza: wiki del tipo di modello + checklist requisiti + stato non installato. |
 

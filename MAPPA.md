@@ -53,7 +53,7 @@ Palamede/                       (repo git · aggiornata: 2026-09-24 00:41)
 - `src/main.ts` — entry Svelte 5, monta `App.svelte` (auto-routing da `pages/*.svelte`).
 - `src/App.svelte` — auto-routing **lazy** (ogni `pages/*.svelte` è un chunk separato; fallback Home + stati caricamento/errore).
 - `src/api/` — client per domini (`http`, `image`, `chat`, `history`, `story`, `kb`, `trellis`, `doc`; `index.ts` riesporta tutto, gli import `from '../api'` restano validi).
-- `src/lib/` — logica riusabile: `images` (formati, lettura file, downscale per VLM), `text` (registri modelli, parser SSE), `download` (saveBlob/downloadUrl/dataUrlToBytes), `viewer3d` (viewer orbitale three.js), `kbContext` (system prompt dalla wiki).
+- `src/lib/` — logica riusabile: `images` (formati, lettura file, downscale per VLM), `text` (registri modelli, parser SSE), `download` (saveBlob/downloadUrl/dataUrlToBytes), `viewer3d` (viewer orbitale three.js), `rag` (prompt grounded, parsing citazioni, evidenziazione chunk).
 - `src/styles/` — CSS a sezioni (`tokens`, `base`, `layout`, `home`, `images`, `chat`, `wiki`, `shell`, `rag`, `misc`) importate in ordine da `styles.css` (stessa cascata di prima, file navigabili).
 - `src/styles/tokens.css` — design tokens (variabili dark/light). Niente font da CDN: l'officina è offline, i token ripiegano sui font di sistema.
 - `src/router.svelte.ts` — router hash-based (`route` $state + `navigate()`).
@@ -62,15 +62,15 @@ Palamede/                       (repo git · aggiornata: 2026-09-24 00:41)
 - `src/desktop.ts` — ponte opzionale verso Tauri (`notify`), no-op in browser.
 - `src/data/sections.ts` — fonte delle sezioni/nav (8 route, flag live).
 - `src/data/wiki.ts` — contenuti wiki modelli (BONSAI/ZIMAGE/KLEIN/ORNITH/DRAFTS).
-- `src/components/` — Layout (shell+metriche), Markdown (renderer zero-dep con escaping + allowlist http/https), WikiEntry, Shot, ReasonBlock, Draft + `ui/` (design system).
-- `src/pages/` — Home, Images (3 modelli+img2img+gallery), Chat (streaming SSE Ornith + knowledge), Rag (kb llm-wiki), 3d (viewer three.js + GLB/STL), Games, Experimental, Progetto.
+- `src/components/` — Layout (shell+metriche), Markdown (renderer zero-dep con escaping + allowlist http/https + citazioni `[n]` cliccabili), WikiEntry, Shot, ReasonBlock, Draft, SourceView (fonte con chunk evidenziato), SourceCards (card delle fonti citate) + `ui/` (design system).
+- `src/pages/` — Home, Images (3 modelli+img2img+gallery), Chat (streaming SSE Ornith + knowledge grounded con citazioni), Rag (RAG stile NotebookLM: fonti, chat con le fonti, evidenziazione chunk), 3d (viewer three.js + GLB/STL), Games, Experimental, Progetto.
 - `public/` — palamede_icon.png, examples/ (8 immagini committate).
 - Config: `package.json` (svelte 5 + three), `vite.config.ts` (proxy /api→:4600, three in chunk a parte), `tsconfig.json` (build ristretta a `src/`: la UI viva è `src/components/ui/`), `svelte.config.js`, `index.html`.
 
 ## Hub Node.js — hub/
 
 - `server.mjs` — solo wiring: statici, router `/api/*`, bootstrap (la logica vive in `lib/`).
-- `lib/` — moduli single-responsibility, zero dipendenze: `root` (env+path), `http` (json/proxy/body), `guards` (anti drive-by), `queue` (mutex GPU), `proc` (spawn/log/kill), `metrics`, `proxy` (stream SSE), `chat` (llama-server), `trellis` (:8124), `lmstudio`, `history`, `kb` (llm-wiki), `docs`, `static`.
+- `lib/` — moduli single-responsibility, zero dipendenze: `root` (env+path), `http` (json/proxy/body), `guards` (anti drive-by), `queue` (mutex GPU), `proc` (spawn/log/kill), `metrics`, `proxy` (stream SSE), `chat` (llama-server :8121), `rerank` (MiniCPM :8123, start lazy + idle timeout), `rag` (chunking/embedding/retrieval ibrido), `trellis` (:8124), `lmstudio`, `history`, `kb` (route RAG), `docs`, `static`.
 
 ## Backend Python — backends/
 
@@ -111,8 +111,8 @@ Palamede/                       (repo git · aggiornata: 2026-09-24 00:41)
 | `models/` | pesi: bonsai-image-4B, z-image gguf+TE+VAE, klein-4b, ornith 35b/9b. `_inutilizzati/` = animatediff + ltx-2.5 + wan2.1 (VAE incluso) + klein-9b (sospesi, non referenziati dal codice). `trellis-deps/` = dinov3 (DINOv3 ViT, Meta AI, feature extraction) + rmbg2 (BRIA RMBG-2.0 / BiRefNet, rimozione sfondo), dipendenze di visione locali non referenziate dal codice. `TRELLIS.2/` = codice sorgente del progetto TRELLIS.2 di Microsoft (~37,5 MB, 2201 file, licenza MIT; pipeline image-to-3D + texturing) — **integrato** via `backends/trellis_server.py` (patch per backend `sdpa` e fix transformers 5.16). `TRELLIS.2-4B/` = pesi ufficiali 4B in safetensors (~15,12 GB, 22 file) per la generazione 3D da immagine — **integrati** (backend TRELLIS operativo). |
 | `reference/` | repo/pesi sorgente esterni, mai toccati in scrittura. |
 | `tools/` | sd-cpp (sd-server.exe, sd-cli.exe), llama-cpp (llama-server.exe). |
-| `knowledge/` | llm-wiki: raw/, wiki/, index.md, log.md, SCHEMA.md. |
-| `outputs/` | history/ (immagini), videos/, *.log runtime. |
+| `knowledge/` | RAG stile NotebookLM: `raw/` (fonti), `rag/chunks.json` (chunk + vettori + indice). |
+| `outputs/` | history/ (immagini), videos/, `*.log` runtime (incl. rerank-server.log). |
 
 ## Convenzioni
 

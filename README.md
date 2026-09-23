@@ -9,9 +9,10 @@ esempi generati dai modelli stessi.
 **Stato**: **Immagini**, **Chat** e **RAG** sono operative: quattro
 modelli immagine (**Bonsai 4B ternary**, **Z-Image Turbo Q4_K_M**, **Klein 4B
 FLUX.2** e **Qwen-Image 2.1 Q4_K_M**), chat
-locale con **Ornith 1.5** via llama.cpp, e una **knowledge base
-llm-wiki** (pattern Karpathy) in `knowledge/` — fonti grezze compilate dal
-modello in pagine interconnesse, usate come contesto nella chat. Il **3D** è
+locale con **Ornith 1.5** via llama.cpp, e una **knowledge base RAG in stile
+NotebookLM** in `knowledge/` — fonti spezzate in chunk ed embedded localmente,
+interrogate con retrieval ibrido + rerank (MiniCPM 2B) e risposte grounded con
+citazioni cliccabili. Il **3D** è
 ora **operativo**: la pipeline image-to-3D **TRELLIS.2** genera un asset 3D
 (completo di mesh + materiali PBR) da una singola immagine, esportato in GLB
 texturizzato e STL (solo geometria); la pagina `/3d` ha viewer three.js e
@@ -156,28 +157,31 @@ Invoke-RestMethod -Uri 'http://127.0.0.1:4600/api/image' -Method Post `
 | `POST /api/chat/start` | avvia llama-server `{model, context, kv, mtp, cpuMoe, gpuLayers}` |
 | `POST /api/chat/stop` | ferma llama-server |
 | `POST /api/chat` | chat streaming SSE (accetta anche `messages` con `system`) |
-| `GET/POST /api/kb/*` | knowledge base llm-wiki: status, files, read, save, delete, search, ingest, embeddings |
+| `GET/POST /api/kb/*` | knowledge base RAG: status, files, read, save, upload, delete, ingest, search, retrieve, embeddings, rerank |
 
 La coda mutex è condivisa: **mai due generazioni simultanee sulla GPU**,
 e il backend stesso libera la VRAM quando cambi modello.
 
-### Knowledge base (llm-wiki) — sezione RAG
+### Knowledge base (RAG) — sezione RAG
 
-Pattern **LLM Wiki** di Karpathy invece del classico RAG: le fonti grezze
-stanno in `knowledge/raw/`, il modello le compila in pagine markdown
-interconnesse in `knowledge/wiki/` con `index.md` e `log.md`. Niente
-embeddings a piccola scala — la chat cerca le pagine rilevanti con una
-keyword search e le usa come contesto.
+RAG vettoriale in stile **NotebookLM**: le fonti grezze stanno in
+`knowledge/raw/`, vengono spezzate in **chunk** ed **embedded** localmente
+(Ollama `embeddinggemma`). Ogni domanda recupera i frammenti rilevanti
+(retrieval ibrido coseno + keyword fusi con RRF, poi **rerank** col modello
+dedicato MiniCPM 2B, llama-server separato `:8123` che si spegne da solo
+dopo ~60s di inattività) e il modello risponde **solo da quelli**, citando
+`[n]` cliccabili che aprono la fonte con il passaggio evidenziato.
 
-1. Vai su **RAG** → aggiungi una fonte (incolla testo in `knowledge/raw/`).
-2. Avvia la **Chat** (il modello serve anche per la compilazione).
-3. Torna su **RAG** → premi **compila** sulla fonte: il modello scrive le
-   pagine wiki, aggiorna l'indice e il registro.
-4. In **Chat** attiva **knowledge on**: ogni domanda cerca le pagine
-   rilevanti e le inietta come contesto, con citazioni.
+1. Vai su **RAG** → aggiungi una fonte (incolla testo o drag&drop `.md/.txt`):
+   viene salvata in `knowledge/raw/` e indicizzata subito.
+2. In **RAG** chiedi direttamente nella chat "con le tue fonti" — oppure
+3. In **Chat** attiva **knowledge on**: ogni domanda recupera i frammenti
+   rilevanti dalle tue fonti e risponde con citazioni.
 
-`embeddinggemma` è già installato su Ollama: la UI lo segnala come pronto per
-l'upgrade al RAG vettoriale quando la wiki crescerà.
+Se Ollama è spento l'ingest salva i chunk senza vettore e la ricerca degrada
+a keyword (un nuovo "ri-embed" li embedda); se il reranker è giù, restano i
+top del ranking ibrido. Eliminare una fonte rimuove anche i suoi chunk
+dall'indice.
 
 ## Benchmark misurati (RTX 5060 Ti 16 GB, GPU dedicata)
 

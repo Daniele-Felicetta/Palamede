@@ -47,9 +47,9 @@
   gap: 12px;
 }
 
-.chat-head-top {
+.chat-head-row {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
   gap: 10px 18px;
   flex-wrap: wrap;
@@ -123,37 +123,104 @@
   border-color: var(--ochre);
 }
 
-/* ── Selettore modello ── */
-.chat-plates {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+/* ── Barra modello (collassata) ── */
+.model-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  color: var(--paper);
+  transition: border-color .15s;
+}
+
+.model-bar:hover {
+  border-color: var(--ochre);
+}
+
+.model-bar-name {
+  display: flex;
+  align-items: center;
   gap: 8px;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
 }
 
-.chat-plate {
-  padding: 10px 13px;
+.model-bar-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
-.chat-plate .pname {
-  font-size: 13.5px;
+.model-bar-caret {
+  margin-left: auto;
+  color: var(--paper-faint);
+  flex: none;
+  transition: transform .15s;
 }
 
-.chat-plate .pstamps {
-  margin-top: 5px;
+.model-bar-caret.up {
+  transform: rotate(180deg);
 }
 
-.chat-plate .pdown {
-  margin-top: 5px;
-  font-size: 11px;
+/* ── Selettore modelli (espanso) ── */
+.chat-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 8px;
+  animation: reveal .16s ease;
 }
 
-.chat-plate.active {
+.pick {
+  text-align: left;
+  background: var(--ink-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+  color: var(--paper);
+  transition: border-color .12s, box-shadow .12s;
+}
+
+.pick:hover:not(:disabled) {
+  border-color: var(--paper-dim);
+}
+
+.pick.sel {
+  border-color: var(--ochre);
+  box-shadow: 0 0 0 1px var(--ochre), 0 0 16px rgba(139, 147, 255, .12);
+}
+
+.pick.on {
   border-color: var(--moss);
   box-shadow: 0 0 0 1px var(--moss);
 }
 
-.chat-plate.active:hover {
-  border-color: var(--moss);
+.pick:disabled {
+  opacity: .55;
+  cursor: default;
+}
+
+.pick-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 13.5px;
+}
+
+.pick-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
 }
 
 /* ── Pannello impostazioni ── */
@@ -238,6 +305,31 @@
 
 .chat-empty {
   margin: auto;
+  max-width: 46ch;
+  line-height: 1.6;
+}
+
+.chat-empty .empty-title {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 17px;
+  color: var(--paper);
+  letter-spacing: -0.2px;
+  margin-bottom: 6px;
+}
+
+.chat-empty p {
+  margin: 0;
+}
+
+.chat-empty strong {
+  color: var(--ochre);
+  font-weight: 600;
+}
+
+.chat-empty .empty-note {
+  margin-top: 8px;
+  color: var(--amber);
 }
 
 .bubble.user {
@@ -585,29 +677,12 @@
     font-size: 18px;
   }
 
-  .chat-plates {
-    gap: 6px;
-  }
-
-  .chat-plate {
-    padding: 8px 11px;
-  }
-
-  .chat-plate .pname {
-    font-size: 12.5px;
-  }
-
-  .chat-plate .pstamps {
-    margin-top: 3px;
-  }
-
-  .chat-plate .pstamps .stamp {
-    font-size: 9.5px;
-    padding: 2px 5px;
-  }
-
-  .chat-plate .pdown {
+  .model-bar-tags {
     display: none;
+  }
+
+  .chat-picker {
+    grid-template-columns: 1fr;
   }
 
   .chat-log {

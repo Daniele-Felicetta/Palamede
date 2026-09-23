@@ -133,13 +133,13 @@
       </div>
     </div>
     <div class="exp-item">
-      <span class="exp-state prova">in corso</span>
+      <span class="exp-state sostituito">fatto</span>
       <div class="exp-body">
         <h4>RAG vettoriale — embeddinggemma</h4>
         <p>
-          La knowledge base cerca per keyword; <code>embeddinggemma</code> è già
-          pronto su Ollama per l'upgrade al RAG vettoriale quando la wiki
-          cresce.
+          La knowledge base ora è un vero RAG (stile NotebookLM): chunk +
+          embedding locale (<code>embeddinggemma</code> su Ollama), retrieval
+          ibrido e rerank MiniCPM, risposte con citazioni cliccabili.
         </p>
       </div>
     </div>

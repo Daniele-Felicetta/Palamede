@@ -154,13 +154,6 @@ main {
     max-width: 1800px;
   }
 
-  .chat-log,
-  .composer-box,
-  .chat-composer .chat-stats,
-  .chat-composer .hintline {
-    max-width: 940px;
-  }
-
   .lede,
   .sec-sub {
     max-width: none;

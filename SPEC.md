@@ -208,6 +208,32 @@ con parametri scelti dalla UI:
 - **layer GPU** (`-ngl`), default 99 (full offload);
 - `--flash-attn on`, `--no-warmup`.
 
+K2 Horizon (7B dense e 36B-A4B MoVA): supporto `k2-horizon` presente nel
+fork llama.cpp bundle (MBZUAI-IFM, commit 35999d1) — l'upstream ufficiale non
+ha ancora la architettura (PR in corso). Il 36B-A4B è un *Mixture-of-Values*:
+`--n-cpu-moe` muove solo gli esperti FFN, il banco dell'attenzione
+(`attn_v_exps`, ~3 GB in Q4_K_M) si sposta su CPU solo con
+`-ot "attn_v_exps=CPU"` (toggle "Attention MoVA su CPU" nella UI).
+
+Misurazioni reali (RTX 5060 Ti 16 GB, GGUF 20,8 GB):
+
+| Config | Prompt (pp128) | Generazione (tg32) | VRAM modello |
+|---|---|---|---|
+| MoVA su CPU + 45 esperti MoE su CPU | ~98 t/s | ~22 t/s | ~3,6 GB |
+| MoVA su GPU + 45 esperti MoE su CPU (default) | ~120 t/s | ~28 t/s | ~6,8 GB |
+| MoVA su GPU + 30 esperti MoE su CPU | — | ~33–38 t/s | ~11,5 GB |
+
+Il default tiene il banco MoVA su GPU (più veloce, coesiste coi modelli
+immagine). Per i 30–40 t/s vanno scaricati i modelli immagine (il chat occupa
+quasi tutta la VRAM). Il toggle "Attention MoVA su CPU" libera ~3 GB a costo
+di ~24% di generazione.
+
+La UI offre un selettore **Profilo VRAM** (K2 36B) che imposta insieme
+`cpuMoe` + `movaCpu`: *Coesistenza* (~3,6 GB, 22 t/s), *Coesistenza veloce*
+(~6,8 GB, 28 t/s, default), *Velocità max* (~13 GB, 40 t/s, richiede GPU
+libera dai modelli immagine). I controlli numerici restano come override
+"personalizzato".
+
 Il server è **spento a default** e parte su `POST /api/chat/start` (porta
 :8121, log in `outputs/text-server.log`). La risposta è **streaming SSE**
 OpenAI-compatible; Ornith è un modello *reasoning*, quindi i token di pensiero

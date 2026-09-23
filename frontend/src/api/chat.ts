@@ -6,6 +6,7 @@ export interface ChatModelInfo {
   id: string
   name: string
   moe: boolean
+  mova?: boolean
 }
 
 export interface ChatParams {
@@ -13,6 +14,7 @@ export interface ChatParams {
   kv: string
   mtp: boolean
   cpuMoe: number
+  movaCpu: boolean
   gpuLayers: number
   thinking: boolean
 }

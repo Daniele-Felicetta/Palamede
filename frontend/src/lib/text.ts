@@ -11,7 +11,7 @@
 //   let m: Text.ModelId = 'ornith-9b'
 
 export namespace Text {
-  export type ModelId = 'ornith-35b' | 'ornith-9b' | 'ornith-9b-q5' | 'k2-7b' | 'bonsai-27b' | 'lfm-vl-3b' | 'gemma-4-26b'
+  export type ModelId = 'ornith-35b' | 'ornith-9b' | 'ornith-9b-q5' | 'k2-7b' | 'k2-36b' | 'bonsai-27b' | 'lfm-vl-3b' | 'gemma-4-26b'
 
   /** Dati canonici per-modello. */
   export interface Model {
@@ -21,11 +21,13 @@ export namespace Text {
     quant: string     // quantizzazione, es. 'Q4_K_M'
     vramGB: string    // peso disco, es. '20.2 GB'
     moe: boolean      // Mixture of Experts
+    mova: boolean     // Mixture-of-Value attention (K2 Horizon)
     context: number   // contesto consigliato
     kv: string        // KV cache consigliata
     gpuLayers: number // default layer su GPU
     mtp: boolean      // default multi-token prediction
     cpuMoe: number    // default layer MoE su CPU
+    movaCpu: boolean  // default: banco MoVA dell'attenzione su CPU
     temperature: number
     thinking: boolean // ragionamento interno (thinking) del modello
   }
@@ -38,6 +40,8 @@ export namespace Text {
       quant: 'Q4_K_M',
       vramGB: '20.2 GB',
       moe: true,
+      mova: false,
+      movaCpu: false,
       context: 8192,
       kv: 'q8_0',
       gpuLayers: 99,
@@ -53,6 +57,8 @@ export namespace Text {
       quant: 'Q4_K_M',
       vramGB: '5.2 GB',
       moe: false,
+      mova: false,
+      movaCpu: false,
       context: 8192,
       kv: 'q8_0',
       gpuLayers: 99,
@@ -68,6 +74,8 @@ export namespace Text {
       quant: 'Q5_K_M',
       vramGB: '6.1 GB',
       moe: false,
+      mova: false,
+      movaCpu: false,
       context: 8192,
       kv: 'q8_0',
       gpuLayers: 99,
@@ -83,11 +91,30 @@ export namespace Text {
       quant: 'Q4_K_M',
       vramGB: '5.2 GB',
       moe: false,
+      mova: false,
+      movaCpu: false,
       context: 8192,
       kv: 'q8_0',
       gpuLayers: 99,
       mtp: false,
       cpuMoe: 0,
+      temperature: 0.7,
+      thinking: true,
+    },
+    {
+      id: 'k2-36b',
+      name: 'K2 Horizon 36B-A4B',
+      family: 'IFM · MoVA · MoE 4B attivi',
+      quant: 'Q4_K_M',
+      vramGB: '20.8 GB',
+      moe: true,
+      mova: true,
+      context: 8192,
+      kv: 'q8_0',
+      gpuLayers: 99,
+      mtp: false,
+      cpuMoe: 45,
+      movaCpu: false,
       temperature: 0.7,
       thinking: true,
     },
@@ -98,6 +125,8 @@ export namespace Text {
       quant: 'Q1_0',
       vramGB: '3.5 GB',
       moe: false,
+      mova: false,
+      movaCpu: false,
       context: 8192,
       kv: 'q8_0',
       gpuLayers: 99,
@@ -113,6 +142,8 @@ export namespace Text {
       quant: 'Q5_K_XL',
       vramGB: '1.8 GB',
       moe: false,
+      mova: false,
+      movaCpu: false,
       context: 16384,
       kv: 'q8_0',
       gpuLayers: 99,
@@ -128,6 +159,8 @@ export namespace Text {
       quant: 'IQ3_S',
       vramGB: '10.5 GB',
       moe: true,
+      mova: false,
+      movaCpu: false,
       context: 4096,
       kv: 'q4_0',
       gpuLayers: 99,
@@ -147,6 +180,28 @@ export namespace Text {
     ['q4_0', 'q4_0 · più veloce, qualità ok'],
     ['f16', 'off · massima precisione'],
   ] as const
+
+  /** Profili VRAM preselezionati per i modelli MoVA (K2 36B): impastano
+   *  cpuMoe + movaCpu in una scelta comprensibile. Misure reali su RTX 5060 Ti
+   *  16 GB (llama-bench, generazione). */
+  export interface VramProfile {
+    id: string
+    label: string
+    hint: string
+    cpuMoe: number
+    movaCpu: boolean
+  }
+
+  export const K2_36B_PROFILES: VramProfile[] = [
+    { id: 'coexist', label: 'Coesistenza (Immagini + chat)', hint: '~3,6 GB · 22 t/s', cpuMoe: 45, movaCpu: true },
+    { id: 'coexist-fast', label: 'Coesistenza veloce', hint: '~6,8 GB · 28 t/s', cpuMoe: 45, movaCpu: false },
+    { id: 'max-speed', label: 'Velocità max (GPU al chat)', hint: '~13 GB · 40 t/s', cpuMoe: 25, movaCpu: false },
+  ]
+
+  /** Profili VRAM disponibili per un modello (solo MoVA per ora). */
+  export function vramProfilesFor(id: string): VramProfile[] {
+    return supportsMova(id) ? K2_36B_PROFILES : []
+  }
 
   export function get(id: string): Model | undefined {
     return MODELS.find((m) => m.id === id)
@@ -173,6 +228,11 @@ export namespace Text {
     return isMoe(id)
   }
 
+  /** Solo i modelli MoVA (K2 Horizon) hanno il banco dell'attenzione su CPU. */
+  export function supportsMova(id: string): boolean {
+    return get(id)?.mova ?? false
+  }
+
   /** Stamp "Q4_K_M · 20.2 GB" per le piastrelle modello (fallback: l'id). */
   export function modelStamp(id: string): string {
     const m = get(id)
@@ -185,6 +245,7 @@ export namespace Text {
     kv: string
     mtp: boolean
     cpuMoe: number
+    movaCpu: boolean
     gpuLayers: number
     temperature: number
     thinking: boolean
@@ -195,6 +256,7 @@ export namespace Text {
       kv: m.kv,
       mtp: m.mtp,
       cpuMoe: m.cpuMoe,
+      movaCpu: m.movaCpu,
       gpuLayers: m.gpuLayers,
       temperature: m.temperature,
       thinking: m.thinking,

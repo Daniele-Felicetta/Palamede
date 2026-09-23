@@ -140,6 +140,14 @@
       "source": "K2 Horizon 7B chat (llama.cpp)"
     },
     {
+      "path": "k2-36b/K2-Horizon-MoVA-36B-A4B-Q4_K_M.gguf",
+      "size": 22368011616,
+      "sha256": "513dd78590ac29135a7cea5a99865d57d65291b1f857a8904fb9b1878d4f4cbd",
+      "format": "gguf",
+      "enforce": true,
+      "source": "K2 Horizon MoVA 36B-A4B chat (llama.cpp)"
+    },
+    {
       "path": "bonsai-image-4B-ternary-gemlite/text_encoder-hqq-4bit/qmodel.pt",
       "size": 2822340711,
       "sha256": "57ecb803e88313f896b24f2f6fedddcb2966c174801f8d89115f4fbae99be48a",

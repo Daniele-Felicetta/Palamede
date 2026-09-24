@@ -82,8 +82,12 @@
   const apply = async () => {
     busy = true; err = ''
     try {
-      messages = []
-      store.chat = await startChat({ model, ...settings })
+      // Nuove impostazioni su server già attivo: riavvia mantenendo la chat a
+      // schermo. Da spento (o al primo avvio) si riparte da una chat vuota.
+      if (!status?.running) messages = []
+      const cpuMoe = Text.supportsCpuMoe(model) ? settings.cpuMoe : 0
+      const movaCpu = Text.supportsMova(model) ? settings.movaCpu : false
+      store.chat = await startChat({ model, ...settings, cpuMoe, movaCpu })
     } catch (e) {
       err = e instanceof Error ? e.message : String(e)
     } finally {
@@ -190,6 +194,21 @@
     const active = status?.running && status?.model === id
     return active ? (status.ready ? 'on' : 'busy') : (model === id ? 'sel' : 'off')
   }
+
+  // Le impostazioni correnti differiscono da quelle in uso dal server attivo?
+  // (confronto solo i parametri che il server riporta). Serve a mostrare il
+  // pulsante "applica" quando a server acceso l'utente tocca i controlli.
+  let settingsDirty = $derived.by(() => {
+    const p = status?.params
+    if (!status?.running || !p) return false
+    return p.context !== settings.context
+      || p.kv !== settings.kv
+      || !!p.mtp !== !!settings.mtp
+      || p.cpuMoe !== settings.cpuMoe
+      || !!p.movaCpu !== !!settings.movaCpu
+      || p.gpuLayers !== settings.gpuLayers
+      || !!p.thinking !== !!settings.thinking
+  })
 </script>
 
 <header class="chat-head">
@@ -201,6 +220,7 @@
           {status?.running ? (status.ready ? 'pronto' : 'in caricamento…') : 'spento'}
         </ChatState>
         {#if status?.running}
+          {#if settingsDirty}<Button cls="chat-tool" toggled onclick={apply} disabled={busy}>{busy ? 'riavvio…' : 'applica'}</Button>{/if}
           <Button variant="ghost" onclick={stop} disabled={busy}>ferma</Button>
         {:else}
           <Button onclick={apply} disabled={busy}>{busy ? 'avvio…' : 'avvia'}</Button>
@@ -327,7 +347,9 @@
         <p class="chat-note">Profilo a piena velocità: serve ~13 GB di VRAM solo per il chat — scarica prima il modello immagine (pagina Immagini), altrimenti non parte.</p>
       {/if}
       <Hintline>{status?.running
-        ? Text.statusLine(status)
+        ? (settingsDirty
+          ? 'Impostazioni modificate: premi "applica" per riavviare il modello con i nuovi valori (la chat si svuota).'
+          : Text.statusLine(status))
         : 'Scegli un modello qui sopra e premi "avvia" (o apri il selettore e clicca la sua scheda per caricarlo sulla GPU).'}</Hintline>
     </div>
   </div>

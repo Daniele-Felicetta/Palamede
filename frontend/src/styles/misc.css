@@ -336,3 +336,10 @@
   font-size: 11px;
   color: var(--paper-dim);
 }
+
+/* ── Pagina Extra: sezioni impilate (Progetto · Experimental · Giochi) ── */
+.extra-stack > .extra-sep {
+  margin: 40px 0;
+  border: none;
+  border-top: 1px solid var(--line);
+}

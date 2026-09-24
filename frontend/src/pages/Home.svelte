@@ -66,7 +66,7 @@
 <section class="experimental" aria-label="Sperimentazioni">
   <SectionHead
     title="Sperimentazioni"
-    sub="Il riepilogo delle prove in officina: quello che abbiamo tentato e accantonato, e quello che stiamo provando adesso. La cronologia completa con i motivi e i rischi sta nella sezione Experimental."
+    sub="Il riepilogo delle prove in officina: quello che abbiamo tentato e accantonato, e quello che stiamo provando adesso. La cronologia completa con i motivi e i rischi sta nella pagina Extra."
   />
 
   <h3 class="exp-group">Provato e accantonato</h3>
@@ -147,10 +147,10 @@
   <p class="exp-go">
     <a
       class="app-go"
-      href="#/experimental"
-      onclick={(e) => { e.preventDefault(); navigate('/experimental') }}
+      href="#/extra"
+      onclick={(e) => { e.preventDefault(); navigate('/extra') }}
     >
-      la cronologia completa nella sezione Experimental →
+      la cronologia completa nella pagina Extra →
     </a>
   </p>
 </section>

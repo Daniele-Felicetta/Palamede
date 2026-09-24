@@ -65,7 +65,7 @@ Palamede/                       (repo git · aggiornata: 2026-09-24 13:00)
 - `src/data/sections.ts` — fonte delle sezioni/nav (8 route, flag live).
 - `src/data/wiki.ts` — contenuti wiki modelli (BONSAI/ZIMAGE/KLEIN/ORNITH/DRAFTS).
 - `src/components/` — Layout (shell+metriche), Markdown (renderer zero-dep con escaping + allowlist http/https + citazioni `[n]` cliccabili), WikiEntry, Shot, ReasonBlock, Draft, SourceView (fonte con chunk evidenziato), SourceCards (card delle fonti citate) + `ui/` (design system).
-- `src/pages/` — Home, Images (3 modelli+img2img+gallery), Chat (streaming SSE Ornith + knowledge grounded con citazioni), Rag (RAG stile NotebookLM: fonti, chat con le fonti, evidenziazione chunk), 3d (viewer three.js + GLB/STL), Games, Experimental, Progetto.
+- `src/pages/` — Home, Images (3 modelli+img2img+gallery), Chat (streaming SSE Ornith + knowledge grounded con citazioni), Rag (RAG stile NotebookLM: fonti, chat con le fonti, evidenziazione chunk), 3d (viewer three.js + GLB/STL), Extra (Progetto + Experimental + Giochi impilati; le vecchie rotte `/progetto`, `/experimental`, `/games` restano auto-routate ma fuori dalla nav).
 - `public/` — palamede_icon.png, examples/ (8 immagini committate).
 - Config: `package.json` (svelte 5 + three), `vite.config.ts` (proxy /api→:4600, three in chunk a parte), `tsconfig.json` (build ristretta a `src/`: la UI viva è `src/components/ui/`), `svelte.config.js`, `index.html`.
 

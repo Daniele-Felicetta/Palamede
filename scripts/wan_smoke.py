@@ -1,7 +1,10 @@
 import sys
 import time
+from pathlib import Path
 
-sys.path.insert(0, r"C:\Users\danie\Desktop\Palamede\reference\wan2.1")
+ROOT = Path(__file__).resolve().parents[1]
+
+sys.path.insert(0, str(ROOT / "reference" / "wan2.1"))
 print("PY-START", flush=True)
 t0 = time.perf_counter()
 
@@ -11,14 +14,14 @@ print(f"CFG-OK +{time.perf_counter()-t0:.0f}s", flush=True)
 from wan.text2video import WanT2V
 print(f"IMPORT-OK +{time.perf_counter()-t0:.0f}s", flush=True)
 
-sys.path.insert(0, r"C:\Users\danie\Desktop\Palamede\backends")
+sys.path.insert(0, str(ROOT / "backends"))
 from wan_attention import apply_sdpa_fallback
 apply_sdpa_fallback()
 print("SDPA-FALLBACK-ON", flush=True)
 
 wan = WanT2V(
     config=WAN_CONFIGS["t2v-1.3B"],
-    checkpoint_dir=r"C:\Users\danie\Desktop\Palamede\models\wan2.1-t2v-1.3b",
+    checkpoint_dir=str(ROOT / "models" / "wan2.1-t2v-1.3b"),
     device_id=0,
     t5_cpu=True,
 )

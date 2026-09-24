@@ -204,6 +204,10 @@ delle pagine **Immagini** e in `SPEC.md`.
   vive in `backends/gemlite_loader.py`.
 - Scaricare/installare **SOLO da fonti ufficiali** (repo ufficiali PyPI,
   canale PyTorch ufficiale, download ufficiali): MAI utenti terzi su
-  HuggingFace/GitHub né wheel precompilati da repo non ufficiali. Per TRELLIS.2
+  HuggingFace/GitHub nǸ wheel precompilati da repo non ufficiali. Per TRELLIS.2
   le dipendenze native (`o_voxel`, `flex_gemm`, `cumesh`) si compilano da
   sorgente dai repo ufficiali, senza wheel di terze parti.
+
+## Licenza
+
+MIT — vedi [LICENSE](LICENSE).

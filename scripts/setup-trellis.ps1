@@ -35,7 +35,7 @@ $ErrorActionPreference = 'Stop'
 # ---------------------------------------------------------------------------
 # Costanti / percorsi (verificati)
 # ---------------------------------------------------------------------------
-$RepoRoot        = "C:\Users\danie\Desktop\Palamede"
+$RepoRoot        = Split-Path -Parent $PSScriptRoot
 $VenvPython      = Join-Path $RepoRoot "reference\bonsai\.venv\Scripts\python.exe"
 $TrellisSrcDir   = Join-Path $RepoRoot "models\TRELLIS.2"
 $OvoxelDir       = Join-Path $TrellisSrcDir "o-voxel"
@@ -84,7 +84,7 @@ function Test-FileExist {
 function Get-UvCommand {
     $cmd = Get-Command uv -ErrorAction SilentlyContinue
     if ($cmd) { return $cmd.Source }
-    throw "uv non trovato in PATH. Installa uv o aggiungi il path a C:\Users\danie\AppData\Local\Programs\Python\Python310\Scripts"
+    throw "uv non trovato in PATH. Installa uv (https://docs.astral.sh/uv/) o aggiungilo al PATH."
 }
 
 function Test-ModuleImport {

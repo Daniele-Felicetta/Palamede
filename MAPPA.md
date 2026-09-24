@@ -12,7 +12,7 @@
 
 <!-- GEN:ALBERO -->
 ```text
-Palamede/                       (repo git · aggiornata: 2026-09-24 00:41)
+Palamede/                       (repo git · aggiornata: 2026-09-24 13:00)
 ├── backends/
 ├── experimental/
 ├── frontend/
@@ -27,7 +27,9 @@ Palamede/                       (repo git · aggiornata: 2026-09-24 00:41)
 ├── tools/   (gitignored)
 ├── venv/   (gitignored)
 ├── .editorconfig
+├── .gitattributes
 ├── .gitignore
+├── LICENSE
 ├── MAPPA.md
 ├── Palamede.exe   (gitignored)
 ├── palamede_icon.ico   (gitignored)

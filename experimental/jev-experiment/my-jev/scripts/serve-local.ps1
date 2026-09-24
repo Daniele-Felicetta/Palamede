@@ -11,9 +11,10 @@ if (-not $Server) {
 	$Server = (Join-Path $PSScriptRoot '..\tools\llama-cpp\llama-server.exe')
 }
 if (-not $Model) {
-	$shared = 'C:\Users\danie\Desktop\Palamede\models\minicpm5-2b\MiniCPM5-2B-Q4_K_M.gguf'
+	# modelli condivisi di Palamede (my-jev vive in Palamede/experimental/jev-experiment/)
+	$shared = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..\..\models\minicpm5-2b\MiniCPM5-2B-Q4_K_M.gguf') -ErrorAction SilentlyContinue)
 	$local = (Join-Path $PSScriptRoot '..\models\MiniCPM5-2B-Q4_K_M.gguf')
-	if (Test-Path $shared) { $Model = $shared } else { $Model = $local }
+	if ($shared -and (Test-Path $shared)) { $Model = $shared } else { $Model = $local }
 }
 
 if (-not (Test-Path $Server)) {

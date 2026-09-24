@@ -1,0 +1,30 @@
+# Normalizzazione dei fine riga: git salva LF nel repo, lavora con CRLF su
+# Windows. Evita i warning "LF will be replaced by CRLF" e mantiene coerenti
+# i file di script tra piattaforme.
+* text=auto eol=lf
+
+# Script Windows: restano CRLF nel working tree (cmd/PowerShell li preferiscono).
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binari: mai convertiti.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.gif binary
+*.ico binary
+*.glb binary
+*.stl binary
+*.gguf binary
+*.safetensors binary
+*.pt binary
+*.pth binary
+*.exe binary
+*.dll binary
+*.lock binary
+
+# Conflitti di merge: preferisci marcare i conflitti nei file generati/vendor.
+package-lock.json merge=binary
+pnpm-lock.yaml merge=binary

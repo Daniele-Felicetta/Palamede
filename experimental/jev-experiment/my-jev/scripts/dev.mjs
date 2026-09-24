@@ -41,13 +41,14 @@ function isPortOpen(port) {
 
 const k2Model = [
 	resolve(root, 'models', 'K2-Horizon-7B-Q4_K_M.gguf'),
-	'C:\\Users\\danie\\Desktop\\Palamede\\models\\k2-7b\\K2-Horizon-7B-Q4_K_M.gguf'
+	// modelli condivisi di Palamede (my-jev vive in Palamede/experimental/jev-experiment/)
+	resolve(root, '..', '..', '..', 'models', 'k2-7b', 'K2-Horizon-7B-Q4_K_M.gguf')
 ].find(existsSync);
 
 // MiniCPM now lives in Palamede's models/ (shared with the main app): prefer
 // that copy, fall back to a local models/ dir if present.
 const minicpmModel = [
-	'C:\\Users\\danie\\Desktop\\Palamede\\models\\minicpm5-2b\\MiniCPM5-2B-Q4_K_M.gguf',
+	resolve(root, '..', '..', '..', 'models', 'minicpm5-2b', 'MiniCPM5-2B-Q4_K_M.gguf'),
 	resolve(root, 'models', 'MiniCPM5-2B-Q4_K_M.gguf')
 ].find(existsSync);
 

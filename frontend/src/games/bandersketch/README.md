@@ -1,7 +1,7 @@
 # Bandersketch
 
 Mini-repo del gioco di generazione di storie, raggiungibile da
-`/games` → **BanderSketch** (rotta `/bandersketch`).
+`/games` → **Bandersketch** (rotta `/bandersketch`).
 
 ## Cos'è
 
@@ -50,13 +50,28 @@ bandersketch/
 
 ## Dipendenze
 
-- **Runtime**: hub :4600, server chat :8121 (Ornith 1.5 35B-A3B con visione,
-  esperti MoE su RAM, GGUF in `models/ornith-1.5-35b/`), backend immagini
+- **Runtime**: hub :4600, server chat :8121 (narratore scelto nel setup:
+  default **Gemma 4 26B-A4B**, con visione e mmproj in `models/gemma-4-26b/`;
+  alternative Ornith 1.5 9B/35B in `models/`), backend immagini
   (:8000). Il gioco avvia da solo il server chat se non è già attivo con il
   narratore; se il hub non è attivo, il gioco mostra il messaggio d'errore
   nella riga di hint.
 - **Import**: riusa componenti dell'app (`ui`, `Shot`) tramite percorsi
   relativi (`../../../` fino a `frontend/src/`).
+
+## Narratore cloud (feature di sviluppo)
+
+Bandersketch può usare **Gemini** (Google AI Studio) come narratore cloud. È
+spento di default: senza `PALAMEDE_DEV=1` non compare nell'app. La chiave resta
+sul server (hub) e non arriva mai al browser:
+
+1. crea una chiave su <https://aistudio.google.com/apikey>;
+2. copia `.env.example` in `.env` alla radice del progetto e imposta sia
+   `PALAMEDE_DEV=1` sia `PALAMEDE_GEMINI_API_KEY=…` (oppure usa le variabili
+   d'ambiente di sistema);
+3. riavvia l'hub: le voci "Gemini …" compaiono nel setup.
+
+Senza flag/chiave il gioco usa i narratori locali (default **Gemma 4 26B**).
 
 ## Estendere
 

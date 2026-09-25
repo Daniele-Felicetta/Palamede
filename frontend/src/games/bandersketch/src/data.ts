@@ -1,7 +1,7 @@
 // Dati della repo Bandersketch: generi, stili grafici e i prompt del narratore.
 //
-// Filosofia dei prompt (validata sul modello): il narratore (Ornith-9B con
-// visione) scrive bene SOLO quando gli si dà un frammento narrativo da
+// Filosofia dei prompt (validata sul modello): il narratore (default Gemma 4
+// 26B con visione) scrive bene SOLO quando gli si dà un frammento narrativo da
 // continuare — mai istruzioni ("scrivi…", "inventa…", "niente…"), che lo
 // fanno deragliare in modalità assistente. Il ruolo è fissato dal system
 // prompt (NARRATOR_SYSTEM), i messaggi sono solo scene che finiscono con un
@@ -129,7 +129,7 @@ export function geminiLabel(id: string): string {
   return GEMINI_NARRATORS.find((n) => n.id === id)?.label ?? id;
 }
 
-// ── narratore (Ornith-9B + mmproj, via llama-server) ──────────────────────
+// ── narratore (Gemma 4 26B + mmproj, via llama-server) ────────────────────
 
 // System prompt di ruolo: dice al modello di continuare il testo ricevuto e
 // fissa i divieti (fuori scena, elenchi, domande, titoli) SENZA trasformare

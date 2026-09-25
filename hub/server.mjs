@@ -1,7 +1,8 @@
 // Palamede hub — wiring: statici + router /api + bootstrap.
 // La logica vive in hub/lib/* (root/http/guards/queue/proc/metrics/proxy/
-// chat/trellis/lmstudio/history/kb/docs/static): qui solo composizione delle
-// route e avvio del server. Zero dipendenze (node:http/fetch nativi).
+// chat/rerank/rag/kb/trellis/chats/stories/lmstudio/gemini/jev/history/docs/
+// static/bench/catalog/downloader): qui solo composizione delle route e avvio
+// del server. Zero dipendenze (node:http/fetch nativi).
 //
 // Architettura: UN solo backend (backends/modelserver.py, :8000) che
 // carica/scarica il modello su POST /select. Il hub resta:
@@ -9,17 +10,21 @@
 //   - GET  /api/health          stato del modello server
 //   - GET  /api/models          stato modelli (cosa è caricato)
 //   - POST /api/select          carica/scarica il modello (coda mutex)
-//   - POST /api/image           generazione (coda mutex)
-//   - GET  /api/metrics         CPU/RAM/GPU (cache, ~2s)
+//   - POST /api/image           generazione immagini (coda mutex)
+//   - GET  /api/metrics         CPU/RAM/GPU (cache, ~2.5s)
 //   - GET  /api/chat/status     stato del server chat (llama-server)
 //   - POST /api/chat/start      avvia llama-server con i parametri scelti
 //   - POST /api/chat/stop       ferma llama-server
 //   - POST /api/chat            chat streaming (SSE pass-through)
-//   - GET/POST /api/kb/*        knowledge base llm-wiki (status/files/read/save/delete/search/ingest/embeddings)
-//   - POST /api/3d/start|stop   server TRELLIS image-to-3D (:8124)
-//   - POST /api/3d/generate     generazione 3D (coda mutex)
-  //   - GET  /api/history*        cronologia immagini persistente
-  //   - GET/POST /api/stories*   archivio partite Bandersketch (testi+tavole)
+//   - GET/POST /api/kb/*        knowledge base RAG (chunk/embed/retrieve/rerank)
+//   - GET/POST /api/3d/*        server TRELLIS image-to-3D (:8124) + file generati
+//   - GET/POST /api/history*    cronologia immagini persistente
+//   - GET/POST /api/chats*      conversazioni chat persistite
+//   - GET/POST /api/stories*    archivio partite Bandersketch (testi+tavole)
+//   - GET  /api/narrators      narratore cloud disponibile? (chiave in env)
+//   - POST /api/narrate        narratore cloud opzionale (Gemini)
+//   - GET/POST /api/lmstudio/*  proxy a LM Studio locale (:1234)
+//   - GET/POST /api/jev/*       JEV Hub (:4610): progetti experimental
 //
 // Avvio: node hub/server.mjs   (porta: env PALAMEDE_PORT, default 4600)
 
@@ -76,7 +81,7 @@ async function handleApi(req, res, path) {
   }
 
   if (path === '/api/models' && req.method === 'GET') {
-    // annota ogni modello col fato che i file siano presenti (available):
+    // annota ogni modello col fatto che i file siano presenti (available):
     // il frontend nasconde le card dei modelli non scaricati.
     try {
       const r = await fetch(BACKEND + '/models', { signal: AbortSignal.timeout(10_000) })

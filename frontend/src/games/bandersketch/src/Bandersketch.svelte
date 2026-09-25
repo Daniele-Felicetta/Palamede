@@ -104,10 +104,10 @@
       : ({ cpuMoe: -1, context: 4096, kv: "q4_0" } as const),
   );
 
-  // Parametri della partita: genere dalla rotta /bandersnatch/<genere>,
+  // Parametri della partita: genere dalla rotta /bandersketch/<genere>,
   // stile e nome dalla sessione impostata nel setup.
   const genreFromRoute = $derived.by(() => {
-    const m = /^\/bandersnatch\/([^/]+)$/.exec(route.path);
+    const m = /^\/bandersketch\/([^/]+)$/.exec(route.path);
     if (!m) return "";
     try {
       return decodeURIComponent(m[1]);

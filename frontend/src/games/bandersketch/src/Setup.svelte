@@ -25,18 +25,20 @@
   // Voci cloud (Gemini): visibili solo se l'hub ha la chiave. Lista ufficiale
   // dal server, fallback a quella locale se l'hub non risponde.
   let cloudNarrators = $state<{ id: string; label: string; hint: string }[]>([]);
+  let cloudConfigured = $state(false);
   const narratorOptions = $derived([...NARRATOR_MODELS, ...cloudNarrators]);
 
   onMount(() => {
     refreshArchive();
     narratorsStatus()
       .then((s) => {
-        cloudNarrators = s?.gemini?.configured ? s.gemini.models : [];
+        cloudConfigured = !!s?.gemini?.configured;
+        cloudNarrators = cloudConfigured ? s.gemini.models : [];
         if (narratorId.startsWith("gemini-") && !cloudNarrators.some((n) => n.id === narratorId)) {
           narratorId = DEFAULT_NARRATOR;
         }
       })
-      .catch(() => { cloudNarrators = []; });
+      .catch(() => { cloudConfigured = false; cloudNarrators = []; });
   });
 
   // Archivio partite: riesamina storie e tavole per scovare problemi.
@@ -107,7 +109,7 @@
     gameSession.size = sizeId;
     gameSession.narrator = narratorId;
     saveSession();
-    navigate(`/bandersnatch/${encodeURIComponent(genre)}`);
+    navigate(`/bandersketch/${encodeURIComponent(genre)}`);
   };
 </script>
 
@@ -209,7 +211,7 @@
 
   <SectionHead
     title="Narratore"
-    sub="Chi racconta la storia. Default: Gemma 4 26B. Le voci cloud compaiono se l'hub ha la chiave."
+    sub="Chi racconta la storia. Default: Gemma 4 26B. Le voci cloud compaiono solo in modalità sviluppo (PALAMEDE_DEV=1 + chiave)."
   />
   <Panel
     style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem 1.5rem;"
@@ -225,6 +227,15 @@
       </Button>
     {/each}
   </Panel>
+
+  {#if !cloudConfigured}
+    <p class="hintline">
+      Narratore cloud (feature di sviluppo): imposta <code>PALAMEDE_DEV=1</code> e
+      <code>PALAMEDE_GEMINI_API_KEY=…</code> nel file <code>.env</code> alla radice
+      (copia <code>.env.example</code>), poi riavvia Palamede. Senza, si usano i
+      narratori locali.
+    </p>
+  {/if}
 
   <div style="margin-top: 22px;">
     <Button variant="go" onclick={start} disabled={!canStart}>

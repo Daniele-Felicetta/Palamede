@@ -42,7 +42,7 @@ async function tick() {
     try { store.health = await getHealth() } catch (e) { errs.push('health: ' + (e instanceof Error ? e.message : String(e))) }
     try { store.models = await getModels() } catch (e) { errs.push('models: ' + (e instanceof Error ? e.message : String(e))) }
     try { store.metrics = await getMetrics() } catch (e) { errs.push('metrics: ' + (e instanceof Error ? e.message : String(e))) }
-    try { store.chat = await getChatStatus() } catch { /* chat non ancora supportata dal hub */ }
+    try { store.chat = await getChatStatus() } catch { /* hub non ancora pronto */ }
     // stato del server 3D: silenzioso (il hub risponde anche a server spento)
     try { store.trellis = await get3DStatus() } catch { /* hub non vivo */ }
     store.lastError = errs.length ? errs.join(' · ') : null

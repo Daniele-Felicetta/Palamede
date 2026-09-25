@@ -35,7 +35,7 @@
 {#if !embed}
   <Eyebrow>Progetto · documentazione</Eyebrow>
   <h1>Il progetto</h1>
-  <p class="lede">Mappa di struttura, README operativo e specifica tecnica: tutta la documentazione dell'officina, qui dentro.</p>
+  <p class="lede">Mappa di struttura, README operativo, specifica tecnica e sicurezza: tutta la documentazione dell'officina, qui dentro.</p>
 {/if}
 
 <Tabs

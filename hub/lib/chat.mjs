@@ -43,7 +43,7 @@ const TEXT_MODEL_DEFS = [
   { id: 'gemma-4-26b', name: 'Gemma 4 26B-A3.8B · IQ3_S', moe: true,
     file: join(ROOT, 'models', 'gemma-4-26b', 'gemma-4-26B-A4B-it-UD-IQ3_S.gguf'),
     mmproj: 'mmproj-Q8_0.gguf' },
-  // MiniCPM5 2B: dense compatto (usato anche come reranker RAG su :8123).
+  // MiniCPM5 2B: dense compatto (usato anche come reranker RAG su :8125).
   { id: 'minicpm5-2b', name: 'MiniCPM5 2B · Q4_K_M', moe: false,
     file: join(ROOT, 'models', 'minicpm5-2b', 'MiniCPM5-2B-Q4_K_M.gguf') },
 ]
@@ -107,7 +107,7 @@ export async function startText(cfg) {
   if (!model) throw new Error(`modello chat sconosciuto: ${cfg.model}`)
   const context = Math.min(65536, Math.max(1024, Number(cfg.context) || 8192))
   const kv = cfg.kv === 'f16' ? null : (['q8_0', 'q4_0', 'q5_0', 'iq4_nl'].includes(cfg.kv) ? cfg.kv : 'q8_0')
-  const gpuLayers = Math.max(-1, Number(cfg.gpuLayers) ?? 99)
+  const gpuLayers = Number.isFinite(Number(cfg.gpuLayers)) ? Math.max(-1, Number(cfg.gpuLayers)) : 99
   // cpuMoe: 0 = tutto su GPU, N>0 = primi N layer di esperti su RAM,
   // -1 = tutti gli esperti su RAM (coesistenza con i modelli immagine).
   const cpuMoe = Number.isFinite(Number(cfg.cpuMoe)) ? Math.max(-1, Number(cfg.cpuMoe)) : 0

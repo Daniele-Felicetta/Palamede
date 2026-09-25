@@ -40,13 +40,13 @@ __pycache__/
 *.pyc
 
 # ── Output di generazione (la UI salva qui) ─────────────────────
-# NB: gli esempi della wiki vivono in frontend/public/examples e SONNO
+# NB: gli esempi della wiki vivono in frontend/public/examples e sono
 # versionati: niente wildcard *.png globali.
 outputs/
 .serve-logs/
 
-# ── Knowledge base dell'utente (llm-wiki) ───────────────────────
-# Fonti raw + wiki compilata dal modello: contenuto personale, non versionato.
+# ── Knowledge base dell'utente (RAG) ────────────────────────────
+# Fonti raw + indice chunk/embedding: contenuto personale, non versionato.
 knowledge/
 
 # ── JEV Hub: log dei progetti sperimentali avviati ──────────────
@@ -56,3 +56,5 @@ experimental/jev-hub/logs/
 *.log
 .env
 .env.*
+# l'esempio è versionato: serve a sapere quali chiavi opzionali esistono
+!.env.example

@@ -675,7 +675,7 @@
         <Hintline err={!!err}>{err}</Hintline>
         {#if kbOn && !err}
           <Hintline cls="kb-note">
-            knowledge on — prima di ogni domanda recupero i frammenti rilevanti dalle tue fonti in knowledge/
+            knowledge on — prima di ogni domanda recupero i frammenti rilevanti dalle tue fonti in knowledge/raw/
           </Hintline>
         {/if}
       </div>

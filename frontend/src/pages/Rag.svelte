@@ -209,7 +209,7 @@
       <Stamp ok={!!emb.available} title="Ollama /api/embed: embeddinggemma">
         embeddings {emb.available ? 'on' : 'off'}
       </Stamp>
-      <Stamp ok={!!status?.rerank?.ready} title="MiniCPM 2B :8123, start lazy + idle timeout">
+      <Stamp ok={!!status?.rerank?.ready} title="MiniCPM 2B :8125, start lazy + idle timeout">
         rerank {status?.rerank?.ready ? 'pronto' : status?.rerank?.running ? 'in caricamento' : 'idle'}
       </Stamp>
     </div>

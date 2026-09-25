@@ -26,7 +26,7 @@ $Root = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
 Write-Host '== build Palamede (Tauri) ==' -ForegroundColor Cyan
 
 if (-not $SkipFrontend) {
-    Write-Host '- frontend (Vite + React)' -ForegroundColor Yellow
+    Write-Host '- frontend (Vite + Svelte)' -ForegroundColor Yellow
     Push-Location (Join-Path $Root 'frontend')
     try {
         npm run build

@@ -9,8 +9,9 @@ esempi generati dai modelli stessi.
 **Stato**: **Immagini**, **Chat** e **RAG** sono operative: quattro
 modelli immagine (**Bonsai 4B ternary**, **Z-Image Turbo Q4_K_M**, **Klein 4B
 FLUX.2** e **Qwen-Image 2.1 Q4_K_M**), chat
-locale con **nove modelli testuali** (Ornith 1.5, K2 Horizon, Bonsai 27B,
-LFM2.5 VL, Gemma 4 26B, MiniCPM5 2B) via llama.cpp, un **Banco di prova** che
+locale con **nove modelli testuali** (Ornith 1.5 35B-A3B e 9B Q4/Q5, K2
+Horizon 7B e 36B-A4B, Bonsai 27B, LFM2.5 VL 3B, Gemma 4 26B e MiniCPM5 2B)
+via llama.cpp, un **Banco di prova** che
 ne misura qualità e velocità, e una **knowledge base RAG in stile
 NotebookLM** in `knowledge/` — fonti spezzate in chunk ed embedded localmente,
 interrogate con retrieval ibrido + rerank (MiniCPM 2B) e risposte grounded con
@@ -18,7 +19,9 @@ citazioni cliccabili. Il **3D** è
 ora **operativo**: la pipeline image-to-3D **TRELLIS.2** genera un asset 3D
 (completo di mesh + materiali PBR) da una singola immagine, esportato in GLB
 texturizzato e STL (solo geometria); la pagina `/3d` ha viewer three.js e
-download dei file. La sezione **MCP** resta bozza con wiki.
+download dei file. La pagina **Extra** raccoglie Progetto, Banco,
+Experimental e **Giochi** (Bandersketch, visual novel generativa con
+narratore locale, e in opzione cloud). La sezione **MCP** resta bozza con wiki.
 
 ## Requisiti
 
@@ -32,11 +35,11 @@ download dei file. La sezione **MCP** resta bozza con wiki.
 Le cartelle in sintesi; per l'albero completo, manutenuto automaticamente,
 vedi **MAPPA.md** (si rigenera con `.\scripts\gen-mappa.ps1`).
 
-- `backends/` — modelserver.py (unico backend dinamico) + gemlite_loader.py + requirements.txt
-- `hub/` — server.mjs: statici + proxy + metriche + coda GPU + chat + knowledge + 3D
+- `backends/` — modelserver.py (modelli immagine) + gemlite_loader.py + trellis_server.py (3D) + wan_server.py (video, prova non cablata) + requirements.txt
+- `hub/` — server.mjs: statici + proxy + metriche + coda GPU + chat/knowledge/3D + giochi (storie) + narratori + JEV
 - `frontend/` — Vite + Svelte 5 + TS (la UI)
 - `src-tauri/` — app desktop nativa Tauri v2 (tray + notifiche + Job Object)
-- `scripts/` — setup, copy-models, start-*, stop-all, build, watch, gen-mappa
+- `scripts/` — setup, install-models, copy-models, start-*, stop-all, build, watch, bench, gen-mappa
 - `legacy/` — vecchio launcher .NET archiviato (non più usato)
 - gitignored: `reference/`, `models/`, `tools/`, `knowledge/`, `outputs/`
   - `models/trellis-deps/` contiene anche DINOv3 (Meta) + BRIA RMBG-2.0 (BiRefNet): dipendenze di visione non ancora usate dal codice.
@@ -166,13 +169,35 @@ Invoke-RestMethod -Uri 'http://127.0.0.1:4600/api/image' -Method Post `
 | `GET /api/downloader/status` | stato e progresso del download in corso |
 | `POST /api/downloader/cancel` | annulla il download in corso |
 | `GET /api/chat/status` | stato del server chat (llama-server) |
-| `POST /api/chat/start` | avvia llama-server `{model, context, kv, mtp, cpuMoe, gpuLayers}` |
+| `POST /api/chat/start` | avvia llama-server `{model, context, kv, mtp, cpuMoe, movaCpu, gpuLayers, thinking}` |
 | `POST /api/chat/stop` | ferma llama-server |
 | `POST /api/chat` | chat streaming SSE (accetta anche `messages` con `system`) |
 | `GET/POST /api/kb/*` | knowledge base RAG: status, files, read, save, upload, delete, ingest, search, retrieve, embeddings, rerank |
+| `GET /api/preview` | ultimo frame di preview del denoise del modello sd-server attivo (204 se assente) |
+| `GET/POST /api/3d/*` | generazione 3D TRELLIS.2: status, start, stop, generate, `file/<id>.{glb,stl}` |
+| `GET/POST /api/history*` | cronologia immagini persistente (`outputs/history`) |
+| `GET/POST /api/stories*` | archivio partite Bandersketch, testi + tavole (`outputs/stories`) |
+| `GET/POST /api/chats*` | conversazioni chat persistite (`outputs/chats`) |
+| `GET /api/narrators` · `POST /api/narrate` | narratore cloud opzionale (Gemini via AI Studio; richiede `PALAMEDE_GEMINI_API_KEY`) |
+| `GET/POST /api/lmstudio/*` | proxy a LM Studio locale (`:1234`) per modelli vision-language |
+| `GET/POST /api/jev/*` | JEV Hub: elenco e avvio dei progetti sperimentali (servizio `:4610`) |
 
 La coda mutex è condivisa: **mai due generazioni simultanee sulla GPU**,
 e il backend stesso libera la VRAM quando cambi modello.
+
+Il **narratore cloud** di Bandersketch è una **feature di sviluppo**, spenta di
+default: senza il flag `PALAMEDE_DEV=1` non compare nell'app e `/api/narrate`
+risponde 503. Per attivarlo:
+
+1. crea una chiave su <https://aistudio.google.com/apikey>;
+2. copia `.env.example` in `.env` nella radice e imposta sia `PALAMEDE_DEV=1`
+   sia `PALAMEDE_GEMINI_API_KEY=…` (oppure usa le variabili d'ambiente di
+   sistema, che hanno la precedenza);
+3. riavvia l'hub (o `Palamede.exe`).
+
+La chiave resta **server-side**: non è nel bundle, non viene mai esposta al
+client e `.env` è gitignored. Senza flag/chiave il gioco usa i soli narratori
+locali.
 
 ### Knowledge base (RAG) — sezione RAG
 
@@ -180,7 +205,7 @@ RAG vettoriale in stile **NotebookLM**: le fonti grezze stanno in
 `knowledge/raw/`, vengono spezzate in **chunk** ed **embedded** localmente
 (Ollama `embeddinggemma`). Ogni domanda recupera i frammenti rilevanti
 (retrieval ibrido coseno + keyword fusi con RRF, poi **rerank** col modello
-dedicato MiniCPM 2B, llama-server separato `:8123` che si spegne da solo
+dedicato MiniCPM 2B, llama-server separato `:8125` che si spegne da solo
 dopo ~60s di inattività) e il modello risponde **solo da quelli**, citando
 `[n]` cliccabili che aprono la fonte con il passaggio evidenziato.
 
@@ -216,7 +241,7 @@ delle pagine **Immagini** e in `SPEC.md`.
   vive in `backends/gemlite_loader.py`.
 - Scaricare/installare **SOLO da fonti ufficiali** (repo ufficiali PyPI,
   canale PyTorch ufficiale, download ufficiali): MAI utenti terzi su
-  HuggingFace/GitHub nǸ wheel precompilati da repo non ufficiali. Per TRELLIS.2
+  HuggingFace/GitHub né wheel precompilati da repo non ufficiali. Per TRELLIS.2
   le dipendenze native (`o_voxel`, `flex_gemm`, `cumesh`) si compilano da
   sorgente dai repo ufficiali, senza wheel di terze parti.
 

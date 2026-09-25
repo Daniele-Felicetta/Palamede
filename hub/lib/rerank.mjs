@@ -1,6 +1,10 @@
 // Palamede hub — reranker RAG dedicato (MiniCPM 2B via llama-server).
-// Istanza SEPARATA dalla chat (porta propria RERANK_PORT, default 8123):
+// Istanza SEPARATA dalla chat (porta propria RERANK_PORT, default 8125):
 // NON registra modelli in chat.mjs (lo fa l'altro branch), vive qui.
+// NB: la porta del reranker NON deve coincidere con quella di sd-server
+// (modelserver.py, default 8123): sd-server resta in ascolto finché un
+// modello immagine è caricato, e un reranker sulla stessa porta non
+// riuscirebbe a partire.
 // Ciclo di vita: start lazy alla prima richiesta, idle timeout ~60s → kill
 // per liberare VRAM. Tutto best-effort: se il server non parte o non è
 // pronto, i chiamanti (rag.mjs) degradano al ranking ibrido senza errori.
@@ -10,7 +14,7 @@ import { join } from 'node:path'
 import { ROOT } from './root.mjs'
 import { spawnLogged, killChild } from './proc.mjs'
 
-export const RERANK_PORT = Number(process.env.PALAMEDE_RERANK_PORT || 8123)
+export const RERANK_PORT = Number(process.env.PALAMEDE_RERANK_PORT || 8125)
 const RERANK_GGUF = join(ROOT, 'models', 'minicpm5-2b', 'MiniCPM5-2B-Q4_K_M.gguf')
 const LLAMA = join(ROOT, 'tools', 'llama-cpp', 'llama-server.exe')
 const RERANK_LOG = join(ROOT, 'outputs', 'rerank-server.log')

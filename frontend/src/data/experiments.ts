@@ -49,17 +49,17 @@ export const TRIED: TriedItem[] = [
     status: 'sospeso',
     title: 'Video — Wan 2.1, LTX 2.5, Animatediff',
     what: 'Tre strade per la generazione video: Wan 2.1 T2V 1.3B (con encoder UMT5-XXL), pipeline LTX 2.5 (VAE + upscaler), Animatediff Lightning 4-step.',
-    why: 'Pesi scaricati in models/_inutilizzati/, mai collegati a un backend: il vincolo un-modello-alla-volta sulla GPU e i text-encoder pesanti (UMT5, VAE video) li rendono fuori scala per l\'hub. Nessun commit li tocca.',
-    paths: ['models/_inutilizzati/wan2.1-1.3b/', 'models/_inutilizzati/ltx-2.5/', 'models/_inutilizzati/animatediff/'],
+    why: 'Pesi scaricati in models/_inutilizzati/, mai collegati all\'hub: il vincolo un-modello-alla-volta sulla GPU e i text-encoder pesanti (UMT5, VAE video) li rendono fuori scala. Per Wan esiste un server standalone non cablato (backends/wan_server.py, :8126), prova isolata mai esposta nella UI.',
+    paths: ['backends/wan_server.py', 'models/_inutilizzati/wan2.1-1.3b/', 'models/_inutilizzati/ltx-2.5/', 'models/_inutilizzati/animatediff/'],
   },
   {
     id: '3d',
-    period: 'ago 2026',
-    status: 'bozza',
-    title: '3D — TRELLIS e Hunyuan3D',
-    what: 'Generatori di mesh da testo/immagine (TRELLIS di Microsoft, Hunyuan3D di Tencent) via ComfyUI headless, con viewer glTF in pagina.',
-    why: 'Mai avviato: motore ComfyUI e modelli non installati. Vive solo la wiki della sezione, in attesa di decidere se e quando portarli dentro.',
-    paths: ['frontend/src/data/wiki.ts', 'SPEC.md'],
+    period: 'ago 2026 → set 2026',
+    status: 'sostituito',
+    title: '3D — ComfyUI e Hunyuan3D',
+    what: 'Generatori di mesh da testo/immagine (Hunyuan3D di Tencent) via ComfyUI headless, con viewer glTF in pagina.',
+    why: 'Non è fallito: è stato superato. Al posto di ComfyUI+Hunyuan3D è entrato TRELLIS.2 di Microsoft, integrato a mano (backends/trellis_server.py, :8124) e operativo nella pagina /3d: niente motore ComfyUI da portarsi dietro.',
+    paths: ['backends/trellis_server.py', 'frontend/src/pages/3d.svelte', 'SPEC.md'],
   },
   {
     id: 'mcp',
@@ -69,6 +69,15 @@ export const TRIED: TriedItem[] = [
     what: 'Esporre l\'officina come server Model Context Protocol stdio: wrapper JSON-RPC su /api/image, così gli agenti generano con i modelli locali.',
     why: 'Mai scritto: manca mcp/server.mjs. La wiki c\'è, il codice no. Fermo finché le sezioni non hanno una forma stabile da esporre.',
     paths: ['frontend/src/data/wiki.ts', 'SPEC.md'],
+  },
+  {
+    id: 'rag-keyword',
+    period: 'set 2026',
+    status: 'sostituito',
+    title: 'RAG per keyword (LLM Wiki)',
+    what: 'Prima versione della knowledge base: ricerca per keyword sui file di knowledge/, pattern "LLM Wiki" di Karpathy, zero dipendenze.',
+    why: 'Superata dal RAG vettoriale in stile NotebookLM: chunk + embedding (embeddinggemma su Ollama), retrieval ibrido coseno+BM25 e rerank MiniCPM. La ricerca per keyword sopravvive solo come fallback quando Ollama o il reranker sono giù.',
+    paths: ['hub/lib/rag.mjs', 'knowledge/'],
   },
 ]
 
@@ -90,20 +99,5 @@ export const WIP: WipItem[] = [
       'Il verdetto è un\'euristica del giudice locale, non una garanzia: restano falsi positivi e negativi.',
     ],
     paths: ['experimental/model-antivirus/', 'src-tauri/src/main.rs', 'scripts/copy-models.ps1'],
-  },
-  {
-    id: 'rag-vettoriale',
-    period: 'futuro',
-    title: 'RAG vettoriale — embeddinggemma',
-    what: 'Oggi la knowledge base cerca per keyword (pattern LLM Wiki di Karpathy, zero dipendenze). embeddinggemma è già installato su Ollama per l\'upgrade al vettoriale.',
-    fixes: [
-      'Integrare /api/embed di Ollama e uno storage vettoriale (oggi la ricerca è keyword).',
-      'Decidere quando scattare: SPEC lo rimanda a quando la wiki supera le centinaia di pagine.',
-    ],
-    risks: [
-      'embeddinggemma su Ollama condivide la VRAM con il modello attivo: può rompere il vincolo un-modello-alla-volta.',
-      'Aggiunge una dipendenza (Ollama): se non è su, la ricerca vettoriale cade; la keyword oggi funziona sempre.',
-    ],
-    paths: ['SPEC.md', 'hub/server.mjs'],
   },
 ]

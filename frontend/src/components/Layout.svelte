@@ -7,8 +7,9 @@
   import { start3D, stop3D } from '../api'
 
   // Marcatore di build: compare nel footer, cosi' si capisce subito se il
-  // browser sta servendo un bundle vecchio (in tal caso: Ctrl+F5).
-  const BUILD = 'v0.22'
+  // browser sta servendo un bundle vecchio (in tal caso: Ctrl+F5). Allineato
+  // alla versione dell'app (src-tauri/tauri.conf.json).
+  const BUILD = 'v0.19'
 
   let theme = $state<'dark' | 'light'>(
     (() => { try { return (localStorage.getItem('palamede-theme') as 'dark' | 'light') || 'dark' } catch { return 'dark' } })()

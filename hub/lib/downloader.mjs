@@ -75,7 +75,12 @@ function download(f) {
         try { unlinkSync(f.dest) } catch {}
         reject(new Error('annullato')); return
       }
-      if (code !== 0) { reject(new Error(`download fallito (curl ${code}): ${f.name}`)); return }
+      if (code !== 0) {
+        // download incompleto: elimina il parziale, altrimenti verrebbe
+        // scambiato per "presente" al prossimo avvio (esistenza = installato).
+        try { unlinkSync(f.dest) } catch {}
+        reject(new Error(`download fallito (curl ${code}): ${f.name}`)); return
+      }
       f.bytesDone = sizeOf(f.dest)
       if (f.sha256) {
         const got = await sha256(f.dest)

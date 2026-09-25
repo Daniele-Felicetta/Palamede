@@ -266,7 +266,7 @@
       </section>
 
       <section class="bench-block" aria-label="Galleria">
-        <h3 class="bench-h">Gli stessi prompt, i quattro modelli <span class="bench-sub">(512² · seed fissi)</span></h3>
+        <h3 class="bench-h">Gli stessi prompt, i {irows.length} modelli <span class="bench-sub">(512² · seed fissi)</span></h3>
         <div class="bench-gallery">
           {#each irows as r (r.id)}
             <div class="bench-gallery-row">

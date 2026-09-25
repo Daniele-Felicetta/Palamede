@@ -1,7 +1,8 @@
 /* ─── Palamede · design system "officina moderna" ────────────────────────
    Entry unico (importato da main.ts). Ordine = cascata originale di styles.css
    (non riordinare: a parità di specificità vince chi viene dopo):
-   base → layout → home → images → chat → wiki → shell → rag → misc.
+   base → layout → home → images → chat → wiki → shell → rag → misc →
+   bench → downloader.
    I token (colori/font/raggi) vivono in styles/tokens.css.
    Niente font da CDN: l'officina è locale/offline, i token ripiegano sui font
    di sistema. Chi vuole i font del design system li self-hosta in public/fonts. */

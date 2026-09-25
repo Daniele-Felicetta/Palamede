@@ -35,7 +35,7 @@ export const BONSAI: ModelWiki = {
     'Tempo 1248×832': '≈ 10.4 s warm',
     'Step': '4 (consigliati)',
     'CFG': 'non esposto (modello distillato)',
-    'Rispezioni': 'multipli di 32, 256–2048; preset: 512², 1024², 640×416, 1248×832, 416×640, 1408×704, 704×1408',
+    'Risoluzioni': 'multipli di 32, 256–2048; preset: 512², 1024², 640×416, 1248×832, 416×640, 1408×704, 704×1408',
     'Endpoint': 'POST http://127.0.0.1:8000/generate (backend: bonsai-ternary-gemlite)',
   },
   quality: [
@@ -69,8 +69,8 @@ export const ZIMAGE: ModelWiki = {
     'Tempo 1248×832': '≈ 16.6 s warm',
     'Step': '8 (distillato)',
     'CFG': '1.0 — alzarlo degrada',
-    'Rispezioni': 'consigliato 1024² nativo; supportato fino a ~1408×704',
-    'Endpoint': 'POST http://127.0.0.1:8123/sdapi/v1/txt2img (sd-server)',
+    'Risoluzioni': 'consigliato 1024² nativo; supportato fino a ~1408×704',
+    'Endpoint': 'POST http://127.0.0.1:8123/sdapi/v1/{txt2img,img2img} (sd-server)',
   },
   quality: [
     'Photorealismo forte: luce, materiali e profondità di campo credibili già a 512², eccellente a 1024² (il suo terreno di casa).',
@@ -119,7 +119,7 @@ export const QWENIMAGE: ModelWiki = {
   how: [
     'Qwen-Image 2.1 è il modello unificato di generazione ed editing di Qwen: 7B nel componente visivo (32 layer DiT single-stream) con attenzione a granularità mista e riuso della KV cache di prefisso. È bilingue EN/ZH.',
     'Il GGUF Q4_K_M (unsloth Dynamic 2.0) è solo il denoiser: servono il text encoder Qwen3-VL-8B in GGUF e la VAE dedicata. Gira in stable-diffusion.cpp come Z-Image e Klein, ma con cfg reale (6.0, sampler euler, 40 step) perché NON è un modello distillato a pochi step.',
-    'Il pezzo pesante è il text encoder da 8B: è quello che decide l\'ingombro in VRAM, non il DiT da 4B. La generazione paga più step degli altri modelli della sezione.',
+    'Il pezzo pesante è il text encoder da 8B: è quello che decide l\'ingombro in VRAM, non il DiT da 7B. La generazione paga più step degli altri modelli della sezione.',
     'A 40 step il costo è alto (~77 s a 512² senza ottimizzazioni). Con il caching dei blocchi DiT (cache-dit) scende a ~33 s sullo stesso seed, senza perdita visibile: è attivo di default per questo modello (disattivabile con PALAMEDE_SD_CACHE=0).',
   ],
   specs: {
@@ -129,77 +129,21 @@ export const QWENIMAGE: ModelWiki = {
     'VAE': 'Qwen-Image 2.1 (bf16)',
     'Step': '40 (consigliati)',
     'CFG': '6.0 · sampler euler',
-    'Rispezioni': 'nativo ad alta risoluzione (fino a 2048²); 1024² il compromesso pratico',
+    'Risoluzioni': 'nativo ad alta risoluzione (fino a 2048²); 1024² il compromesso pratico',
     'Tempo 512²': '≈33 s (40 step, cache-dit) · ≈77 s senza cache — misurato',
     'Tempo 1024²': 'da misurare su questa macchina',
     'VRAM misurata': 'da misurare (TE da 8B: il più esigente della sezione)',
-    'Endpoint': 'POST http://127.0.0.1:8123/sdapi/v1/txt2img (sd-server)',
+    'Endpoint': 'POST http://127.0.0.1:8123/sdapi/v1/{txt2img,img2img} (sd-server)',
   },
   quality: [
     'Pensato per testo nell\'immagine e fotorealismo: è il modello più grande della sezione (7B).',
-    'Nel modello originale supporta editing (fino a 10 immagini di riferimento) e PNG trasparenti (RGBA); qui la UI espone il solo text-to-image.',
+    'Nel modello originale l\'editing va oltre: più immagini di riferimento (fino a 10) e PNG trasparenti (RGBA). Qui la UI copre text-to-image e image-to-image da una singola immagine (init image + forza), non l\'editing multi-reference.',
     'Il costo è il tempo e la VRAM: non coesiste con altri modelli sulla GPU.',
   ],
   examples: [],
 }
 
 export const IMAGE_MODELS = [BONSAI, ZIMAGE, KLEIN, QWENIMAGE]
-
-// ── Modelli chat (Ornith, da LM Studio → models/) ─────────────────────────
-
-export const ORNITH_WIKI: ModelWiki[] = [
-  {
-    id: 'ornith-35b',
-    name: 'Ornith 1.5 35B-A3B — Q4_K_M',
-    family: 'Ornith-AI · Mixture of Experts (3B attivi)',
-    how: [
-      'Un MoE da 35B totali con 3B attivi per token: la VRAM serve per gli esperti attivi, non per tutti i 35B. A Q4_K_M occupa ~12 GB di VRAM in full offload su questa RTX 5060 Ti 16 GB — ci sta, ma senza spazio per altro.',
-      'Se la VRAM non basta (o vuoi la chat accesa insieme alle immagini), usa "Layer MoE su CPU": sposta i pesi degli esperti dei primi N layer sulla RAM (64 GB qui), liberando GPU. Si paga in token/s, si guadagna in coesistenza.',
-      'MTP (multi-token prediction) può accelerare il decode se i pesi del predittore sono presenti accanto al GGUF; qui non ci sono, quindi resta disattivato per evitare errori di caricamento.',
-    ],
-    specs: {
-      'Parametri': '35B totali · 3B attivi (MoE A3B)',
-      'Peso disco': '20.2 GB (Q4_K_M)',
-      'VRAM (full GPU)': '≈ 12 GB con ctx 8k, KV q8_0',
-      'Full offload': 'si, sulla 16 GB (unico carico)',
-      'MoE su CPU': 'via --n-cpu-moe N (esperti dei primi N layer in RAM)',
-      'Context consigliato': '8192 (KV quantizzata q8_0/q4_0)',
-      'KV cache': 'q8_0 consigliato, q4_0 per risparmiare',
-      'MTP': 'non disponibile senza pesi dedicati',
-      'Engine': 'llama.cpp llama-server b10679 (CUDA 13.3)',
-    },
-    quality: [
-      'Ragionamento e coding da modello grosso: la qualità è la ragione per cui occupa 20 GB di disco.',
-      'Con 3B attivi è sorprendentemente reattivo, ma il full offload lascia 16 GB pieni: spegni le immagini quando lo usi.',
-    ],
-    examples: [],
-  },
-  {
-    id: 'ornith-9b',
-    name: 'Ornith 1.5 9B — Q4_K_M / Q5_K_M',
-    family: 'Ornith-AI · dense 9B',
-    how: [
-      'Il fratello piccolo, denso: 5.2 GB a Q4_K_M o 6.1 GB a Q5_K_M. Entra comodo in VRAM (≈ 6–7 GB) e lascia spazio al resto: ideale per usare la chat mentre le immagini sono attive.',
-      'Il Q5_K_M dà qualche punto di qualità in più sul Q4 a costo di ~1 GB: su questa macchina la differenza di velocità è minima.',
-      'Per i 9B il controllo "Layer MoE su CPU" è disabilitato: non è un MoE.',
-    ],
-    specs: {
-      'Parametri': '9B dense',
-      'Peso disco': '5.2 GB (Q4_K_M) / 6.1 GB (Q5_K_M)',
-      'VRAM (full GPU)': '≈ 6–7 GB con ctx 8k, KV q8_0',
-      'Coesistenza immagini': 'ok: resta ~9 GB liberi per i modelli immagine',
-      'Context consigliato': '8192',
-      'KV cache': 'q8_0 consigliato, q4_0 per risparmiare',
-      'MTP': 'non disponibile senza pesi dedicati',
-      'Engine': 'llama.cpp llama-server b10679 (CUDA 13.3)',
-    },
-    quality: [
-      'Ottimo equilibrio qualità/VRAM per chiacchiera, riassunti e piccoli compiti.',
-      'Il Q5_K_M è il consiglio se la qualità dei token è ciò che cerchi e la VRAM lo permette.',
-    ],
-    examples: [],
-  },
-]
 
 // ── Wiki delle sezioni "bozza" ────────────────────────────────────────────
 
@@ -225,7 +169,7 @@ export const DRAFTS: DraftWiki[] = [
     ],
     specs: {
       'Transport': 'stdio JSON-RPC (spec 2025-06)',
-      'Strumenti': 'image.generate attivo dal primo commit; text/video/rag al rilascio delle sezioni',
+      'Strumenti': 'palamede.generate_image previsto; text/video/rag in seguito',
       'Dipendenze': 'nessuna lato agent (client MCP standard)',
       'Stato': 'bozza — implementazione prevista',
     },

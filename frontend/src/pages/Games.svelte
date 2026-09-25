@@ -11,7 +11,7 @@
     {
       path: '/bandersketch',
       glyph: 'BND',
-      title: 'BanderSketch',
+      title: 'Bandersketch',
       foot: 'Visual novel generativa · narratore locale',
     },
   ]

@@ -2,12 +2,22 @@
 // Unico punto dove si leggono le porte e si calcolano i path: gli altri
 // moduli importano da qui invece di duplicare env/parsing.
 
+import { existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 export const ROOT = resolve(__dirname, '..', '..')
 export const DIST = join(ROOT, 'frontend', 'dist')
+
+// Chiavi opzionali (es. narratore cloud Gemini) da `.env` nella radice del
+// progetto: file gitignored, le variabili d'ambiente di sistema hanno la
+// precedenza. Best-effort: se il file manca (o Node è troppo vecchio per
+// loadEnvFile) si prosegue con le sole env di sistema.
+try {
+  const envFile = join(ROOT, '.env')
+  if (existsSync(envFile)) process.loadEnvFile(envFile)
+} catch { /* nessun .env: si usano le env di sistema */ }
 
 export const PORT = Number(process.env.PALAMEDE_PORT || 4600)
 export const BACKEND = process.env.PALAMEDE_BACKEND || 'http://127.0.0.1:8000'

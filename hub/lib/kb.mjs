@@ -1,7 +1,7 @@
 // Palamede hub — knowledge base RAG (stile NotebookLM).
 // Fonti grezze in knowledge/raw/, indice in knowledge/rag/ (chunks.json).
 // Logica di dominio in rag.mjs (chunking/embedding/retrieval) e rerank.mjs
-// (MiniCPM dedicato :8123): qui solo le route /api/kb/*.
+// (MiniCPM dedicato :8125): qui solo le route /api/kb/*.
 // Lo stato chat (per la UI) arriva da chat.mjs: niente stato duplicato.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync, statSync, readdirSync } from 'node:fs'

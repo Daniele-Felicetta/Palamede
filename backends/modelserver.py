@@ -1,10 +1,11 @@
 """Palamede — modello server unico e dinamico (:8000).
 
-Un solo processo serve entrambi i modelli immagine:
+Un solo processo serve tutti i modelli immagine, uno alla volta:
 
-- **bonsai** (gemlite in-process, GpuPipeline)  — caricato su /select
-- **zimage** (stable-diffusion.cpp ``sd-server``) — avviato come subprocess
-  gestito dal server e terminato al deselezione, così la VRAM si libera.
+- **bonsai** (gemlite in-process, GpuPipeline)  — caricato su /select;
+- **zimage / klein / qwenimage** (stable-diffusion.cpp ``sd-server``) —
+  avviati come subprocess gestito dal server e terminati al deselezione,
+  così la VRAM si libera.
 
 POST /select {model} scarica il modello corrente e carica quello richiesto;
 POST /generate auto-carica se serve. Tutto è serializzato da un lock, quindi
@@ -297,7 +298,7 @@ class ModelManager:
         if model not in MODELS:
             raise ValueError(f"modello sconosciuto: {model}")
         if image and model == "bonsai":
-            raise ValueError("bonsai non supporta image-to-image (usa zimage o klein)")
+            raise ValueError("bonsai non supporta image-to-image (usa zimage, klein o qwenimage)")
         # il VAE richiede multipli di 32: snap difensivo (la UI invia preset validi)
         width = max(64, (int(width) // 32) * 32)
         height = max(64, (int(height) // 32) * 32)

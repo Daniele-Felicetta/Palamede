@@ -78,8 +78,9 @@
         <p>
           Tre strade per la generazione video (Wan 2.1 T2V 1.3B con encoder
           UMT5, pipeline LTX 2.5 con VAE e upscaler, Animatediff Lightning
-          4-step): pesi in <code>models/_inutilizzati/</code>, mai collegati a
-          un backend.
+          4-step): pesi in <code>models/_inutilizzati/</code>, mai collegati
+          all'hub. Per Wan esiste un server standalone non cablato
+          (<code>backends/wan_server.py</code>).
         </p>
       </div>
     </div>
@@ -96,12 +97,25 @@
       </div>
     </div>
     <div class="exp-item">
-      <span class="exp-state bozza">bozza</span>
+      <span class="exp-state sostituito">sostituito</span>
       <div class="exp-body">
-        <h4>3D — TRELLIS e Hunyuan3D</h4>
+        <h4>3D — ComfyUI e Hunyuan3D</h4>
         <p>
-          Generatori di mesh da testo/immagine via ComfyUI headless: motore e
-          modelli mai installati. Vive solo la wiki della sezione.
+          Generatori di mesh via ComfyUI headless: superati da TRELLIS.2 di
+          Microsoft, integrato a mano e operativo nella pagina 3D (mesh + PBR,
+          export GLB/STL).
+        </p>
+      </div>
+    </div>
+    <div class="exp-item">
+      <span class="exp-state sostituito">sostituito</span>
+      <div class="exp-body">
+        <h4>RAG — da keyword a vettoriale</h4>
+        <p>
+          La vecchia ricerca per keyword (pattern LLM Wiki) è stata superata dal
+          RAG in stile NotebookLM: chunk + embedding locale
+          (<code>embeddinggemma</code> su Ollama), retrieval ibrido e rerank
+          MiniCPM, risposte con citazioni cliccabili.
         </p>
       </div>
     </div>
@@ -126,20 +140,9 @@
         <h4>Model-antivirus</h4>
         <p>
           Scanner d'integrità dei pesi
-          (<code>experimental/model-antivirus/</code>): verifica SHA-256 e
-          formato all'avvio, audit di affidabilità con l'LLM locale al
-          download. Già integrato nel launcher.
-        </p>
-      </div>
-    </div>
-    <div class="exp-item">
-      <span class="exp-state sostituito">fatto</span>
-      <div class="exp-body">
-        <h4>RAG vettoriale — embeddinggemma</h4>
-        <p>
-          La knowledge base ora è un vero RAG (stile NotebookLM): chunk +
-          embedding locale (<code>embeddinggemma</code> su Ollama), retrieval
-          ibrido e rerank MiniCPM, risposte con citazioni cliccabili.
+          (<code>experimental/model-antivirus/</code>): verifica rapida
+          (esistenza, dimensione, formato) all'avvio, audit di affidabilità
+          con l'LLM locale al download. Integrato nel launcher.
         </p>
       </div>
     </div>

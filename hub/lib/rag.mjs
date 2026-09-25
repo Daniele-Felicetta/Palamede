@@ -2,7 +2,7 @@
 // Fonti in knowledge/raw/, indice in knowledge/rag/chunks.json (un solo file
 // JSON, riscritto atomicamente a ogni ingest). Embedding via Ollama locale
 // (embeddinggemma, /api/embed), retrieval ibrido coseno + BM25 fusi con RRF,
-// rerank opzionale via rerank.mjs (llama-server MiniCPM dedicato :8123).
+// rerank opzionale via rerank.mjs (llama-server MiniCPM dedicato :8125).
 // Zero dipendenze npm: chunking, BM25 e coseno sono hand-rolled.
 //
 // API (consumate da kb.mjs):

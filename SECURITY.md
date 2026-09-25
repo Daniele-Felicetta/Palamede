@@ -7,7 +7,8 @@
 
 ## Modello di minaccia
 
-Palamede gira **tutta in locale** su `127.0.0.1`: la superficie di attacco è
+Palamede gira **in locale** su `127.0.0.1` (l'unica eccezione è il narratore
+cloud opzionale, spento di default): la superficie di attacco è
 limitata, ma non nulla. Le minacce considerate, in ordine di rilevanza:
 
 | # | Minaccia | Esempio concreto |
@@ -17,6 +18,7 @@ limitata, ma non nulla. Le minacce considerate, in ordine di rilevanza:
 | 3 | **Catena di fornitura dei modelli** | Un modello scaricato da fonte non ufficiale (o sostituito su disco) può contenere codice malevolo caricato da `torch.load` / eseguito dai runtime C++. |
 | 4 | **XSS nella webview Tauri** | Contenuto non escapato renderizzato con `{@html}` darebbe accesso alle API Tauri esposte. |
 | 5 | **Abuso da processi locali** | Un altro programma in esecuzione sullo stesso account può chiamare i servizi locali (fuori dal controllo dell'app). |
+| 6 | **Dati verso il cloud (narratore Gemini opzionale)** | Se si imposta `PALAMEDE_GEMINI_API_KEY`, testo e immagini della partita Bandersketch vengono inviati a Google AI Studio (endpoint HTTPS ufficiale). |
 
 **Non** fanno parte del modello di minaccia: l'accesso fisico alla macchina,
 altri utenti dello stesso sistema con privilegi, attacchi di rete verso la
@@ -43,12 +45,12 @@ ammessi: sono processi locali già privilegiati.
 **Verifica rapida** (hub avviato su porta `4699`):
 
 ```powershell
-curl -s -o NUL -w "%{http_code}`n" http://127.0.0.1:4699/api/health      # 200
-curl -s -o NUL -w "%{http_code}`n" -H "Host: evil.example:4699" http://127.0.0.1:4699/api/health   # 403
-curl -s -o NUL -w "%{http_code}`n" -H "Origin: http://evil.example" http://127.0.0.1:4699/api/models # 403
+curl.exe -s -o NUL -w "%{http_code}`n" http://127.0.0.1:4699/api/health      # 200
+curl.exe -s -o NUL -w "%{http_code}`n" -H "Host: evil.example:4699" http://127.0.0.1:4699/api/health   # 403
+curl.exe -s -o NUL -w "%{http_code}`n" -H "Origin: http://evil.example" http://127.0.0.1:4699/api/models # 403
 ```
 
-### Backend Python (`:8000`, `:8124`) e motori (`:8123`, `:8121`)
+### Backend Python (`:8000`, `:8124`) e motori (`:8121`, `:8123`, `:8125`)
 
 - Tutti ascoltano solo su `127.0.0.1` e sono raggiungibili **solo** dal hub
   (gateway unico): il browser non li chiama mai direttamente.
@@ -90,6 +92,13 @@ whitelist** (`^[a-zA-Z0-9._-]+$` + estensione attesa) e controllo
 
 ### Varie
 
+- **Narratore cloud opzionale**: spento di default (`/api/narrate` risponde 503
+  senza chiave). La chiave `PALAMEDE_GEMINI_API_KEY` resta **server-side**: non
+  è nel bundle né esposta al client, che vede solo `{configured, models}` da
+  `GET /api/narrators`. L'endpoint valida il modello in whitelist, limita il
+  prompt (~30k caratteri) e parla solo via HTTPS verso AI Studio.
+- **LM Studio** e gli altri servizi locali sono raggiungibili solo su loopback
+  e passano dal hub (allowlist Host/Origin); il proxy non accetta URL arbitrari.
 - Nessun segreto/API key hardcoded nel codice.
 - Log di runtime in `outputs/` (gitignored); nessun prompt/loggato dal hub.
 
@@ -103,13 +112,16 @@ whitelist** (`^[a-zA-Z0-9._-]+$` + estensione attesa) e controllo
 | **Body API senza limite dimensionale** | Un processo locale può riempire RAM/disco (img2img dataUrl, prompt lunghi) | Serve un client locale, già fuori dal modello di minaccia. |
 | **Processi figli con i privilegi dell'utente** | Un bug di parsing GGUF nei runtime C++ su file malevolo = esecuzione come utente | La verifica modelli all'avvio è l'unico gate; i modelli vanno scaricati solo da fonti ufficiali. |
 | **Knowledge base (RAG)**: endpoint `/api/kb/*` con write su disco | Path traversal / scrittura arbitraria | Tutti i path passano per `kbResolve()` (niente `..`, assoluti, backslash) + whitelist `raw/|wiki/` e `.md/.txt`; `read`/`delete`/`file` con regex + `startsWith` sulla base. |
+| **Narratore cloud (Gemini)** | Testo e immagini della partita escono dalla macchina verso Google | Funzione opzionale, spenta senza `PALAMEDE_GEMINI_API_KEY`; chi la attiva accetta il trattamento dati di AI Studio. |
 
 ## Regole di manutenzione
 
 1. **Non rimuovere** le guardie `allowedHost`/`allowedOrigin` in
    `hub/server.mjs`: sono l'unica difesa anti drive-by del hub.
 2. Se si cambia la porta del hub o del dev server, aggiornare la allowlist
-   di `allowedOrigin` (costante `DEV_ORIGIN_PORT` + `PORT`).
+   di `allowedOrigin` (costante `DEV_ORIGIN_PORT` + `PORT`). Le porte interne
+   dei motori non devono collidere: chat `:8121`, sd-server `:8123`, TRELLIS
+   `:8124`, reranker `:8125`, Wan `:8126`, JEV Hub `:4610`.
 3. Nuovi endpoint `/api/*` con path da input utente: **sempre** regex in
    whitelist + controllo `startsWith` sulla directory base.
 4. Nuovi download di modelli: solo fonti ufficiali, poi
@@ -118,6 +130,10 @@ whitelist** (`^[a-zA-Z0-9._-]+$` + estensione attesa) e controllo
 5. `torch.load` su file di terze parti: sempre `weights_only=True`.
 6. Se si abilita una CSP in Tauri, testare build + webview prima di
    rilasciare.
+7. Il narratore cloud è una **feature di sviluppo** dietro `PALAMEDE_DEV=1`; la
+   sua chiave va **solo** in env (`PALAMEDE_GEMINI_API_KEY`, via `.env`
+   gitignored alla radice o variabile di sistema): mai nel repo né nel client.
+   La whitelist dei modelli cloud vive in `hub/lib/gemini.mjs`.
 
 ## Segnalazione problemi
 

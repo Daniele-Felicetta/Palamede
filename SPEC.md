@@ -8,10 +8,10 @@ che parla con più backend locali; ogni sezione (Immagini, Testo, 3D,
 RAG, MCP) ha la sua **wiki** con funzionamento, ingombri, tempi misurati,
 qualità ed esempi generati dai modelli stessi.
 
-Stato attuale: **Immagini, Chat, RAG e Banco sono funzionanti** — quattro
+Stato attuale: **Immagini, Chat, RAG, Banco e 3D sono funzionanti** — quattro
 modelli immagine (Bonsai 4B ternary, Z-Image Turbo Q4_K_M, Klein 4B FLUX.2 e
 Qwen-Image 2.1 Q4_K_M), chat locale con nove modelli testuali (Ornith
-1.5 35B-A3B/9B, K2 Horizon 7B/36B-A4B, Bonsai 27B, LFM2.5 VL 3B, Gemma 4 26B,
+1.5 35B-A3B, 9B Q4/Q5, K2 Horizon 7B/36B-A4B, Bonsai 27B, LFM2.5 VL 3B, Gemma 4 26B,
 MiniCPM5 2B) via llama.cpp, il **Banco di prova** che ne misura qualità e
 velocità, e una **knowledge base RAG in stile
 NotebookLM** in `knowledge/`: le fonti vengono spezzate in chunk ed embedded
@@ -19,7 +19,9 @@ localmente (Ollama `embeddinggemma`), interrogate con retrieval ibrido e
 rerank dedicato (MiniCPM 2B), con risposte grounded e citazioni `[n]`
 cliccabili. Il **3D è integrato**: la
 pipeline image-to-3D TRELLIS.2 produce un asset 3D completo da una singola
-immagine (GLB texturizzato + STL). La sezione **MCP** resta bozza con wiki.
+immagine (GLB texturizzato + STL). La pagina **Extra** raccoglie Progetto,
+Banco, Experimental e **Giochi** (Bandersketch, con narratore locale e in
+opzione cloud). La sezione **MCP** resta bozza con wiki.
 
 > **Struttura del progetto**: albero delle cartelle in **MAPPA.md**
 > (rigenerato da `scripts/gen-mappa.ps1`); per l'uso operativo vedi **README.md**.
@@ -70,32 +72,41 @@ Browser ── http://127.0.0.1:4600 ── hub/server.mjs (Node, zero deps)
                                      ├─ POST /api/chat/stop   → ferma llama-server
                                      ├─ POST /api/chat        → chat streaming (SSE)
                                      ├─ GET/POST /api/kb/*    → knowledge base RAG (chunk/embed/retrieve/rerank)
+                                     ├─ GET/POST /api/3d/*    → generazione 3D TRELLIS.2
                                      │
                                      ├─ UNICO backend: backends/modelserver.py :8000
                                      │    ├─ bonsai → GpuPipeline gemlite in-process
-                                     │    └─ zimage → spawna/termina sd-server (:8123)
+                                     │    └─ zimage/klein/qwenimage → sd-server (:8123)
+                                     │
+                                     ├─ 3D: backends/trellis_server.py :8124 (TRELLIS.2)
                                      │
                                      ├─ chat: tools/llama-cpp/llama-server.exe :8121
-                                     │    (Ornith 1.5 35B-A3B / 9B, start su richiesta)
+                                     │    (9 modelli locali, start su richiesta)
                                      │
-                                     ├─ rerank: tools/llama-cpp/llama-server.exe :8123
+                                     ├─ rerank: tools/llama-cpp/llama-server.exe :8125
                                      │    (MiniCPM 2B, start lazy + idle timeout 60s)
                                      │
                                      ├─ embeddings: Ollama locale :11434 (embeddinggemma)
                                      │
-                                     └─ knowledge/ (gitignored): raw/ + rag/chunks.json
+                                     ├─ narratore cloud opzionale (Gemini, solo con chiave in env)
+                                     ├─ LM Studio :1234 (vision-language, se attivo)
+                                     ├─ JEV Hub :4610 (progetti experimental, subprocess)
+                                     │
+                                     └─ dati (gitignored): knowledge/ · outputs/{history,stories,chats}
 ```
 
 ### Un solo backend, caricamento dinamico
 
-Invece di tre processi fissi, **`modelserver.py`** (FastAPI :8000) possiede
-entrambi i modelli e ne tiene **uno solo caricato**:
+Invece di più processi fissi, **`modelserver.py`** (FastAPI :8000) possiede
+tutti i modelli immagine e ne tiene **uno solo caricato**:
 
 - `POST /select {"model":"bonsai"}` → scarica il corrente, carica la
   `GpuPipeline` gemlite (in-process, ~6 GB VRAM) e prewarma i 5 artifact.
-- `POST /select {"model":"zimage"}` → scarica bonsai, **spawna sd-server**
-  come subprocess (log in `outputs/sd-server.log`), aspetta la readiness.
-- Deselezionare zimage **termina** sd-server → VRAM liberata.
+- `POST /select {"model":"zimage"|"klein"|"qwenimage"}` → scarica bonsai,
+  **spawna sd-server** come subprocess (log in `outputs/sd-server.log`),
+  aspetta la readiness.
+- Cambiare modello sd-server (o deselezionare) **termina** sd-server →
+  VRAM liberata.
 - `POST /generate` auto-carica se il modello richiesto non è quello attivo.
 - Un `threading.Lock` serializza tutto: mai due generazioni simultanee.
 
@@ -126,6 +137,7 @@ senza toccare `reference/`.
 | Z-Image Turbo Q4_K_M | `z-image-turbo-Q4_K_M.gguf` | 4.67 GB | DiT S3-DiT 6B |
 | Qwen3-4B TE (per Z-Image) | `Qwen3-4B-Instruct-2507-Q4_K_M.gguf` | 2.33 GB | text encoder |
 | Z-Image VAE | `z-image-vae.safetensors` | 0.16 GB | bf16 |
+| Klein 4B Q4 (FLUX.2) | `flux-2-klein-4b-Q4_K_M.gguf` (+ `flux2-vae.safetensors`) | 2.6 GB | DiT FLUX.2-klein (sd-server), img2img; TE Qwen3-4B + VAE FLUX.2 |
 | Qwen-Image 2.1 Q4_K_M | `qwen-image/qwen-image-2.1-Q4_K_M.gguf` | 4.2 GB | DiT single-stream 7B (sd-server) |
 | Qwen3-VL-8B TE (per Qwen-Image) | `qwen-image/Qwen3-VL-8B-Instruct-UD-Q4_K_XL.gguf` | 5.1 GB | text encoder 8B |
 | Qwen-Image 2.1 VAE | `qwen-image/qwen_image_2.1_vae_bf16.safetensors` | 0.68 GB | bf16 |
@@ -270,7 +282,7 @@ via Ollama `embeddinggemma` (`/api/embed`). L'indice è un JSON hand-rolled in
   (migrazione automatica).
 - **Retrieval ibrido**: coseno vettoriale + BM25-lite fusi con **RRF** → top-20
   chunk; poi un **rerank** con il modello dedicato **MiniCPM 2B** (llama-server
-  separato su `:8123`, start lazy alla prima richiesta e idle timeout ~60s per
+  separato su `:8125`, start lazy alla prima richiesta e idle timeout ~60s per
   liberare la VRAM) seleziona i top 3–5 chunk davvero rilevanti. Se Ollama o il
   reranker sono giù, il sistema degrada senza errori (keyword-only / top ibridi).
 - **Chat grounded**: toggle "knowledge on" → ogni domanda fa
@@ -279,6 +291,23 @@ via Ollama `embeddinggemma` (`/api/embed`). L'indice è un JSON hand-rolled in
   con il chunk evidenziato (offset assoluti salvati a ogni chunk).
 - **Rimozione**: eliminare una fonte da `raw/` rimuove anche i suoi chunk e
   vettori dall'indice (nessun ricalcolo globale).
+
+### Giochi, archivio ed Experimental (pagina Extra)
+
+- **Bandersketch** (`frontend/src/games/bandersketch/`): visual novel generativa
+  a bivi. Il **narratore** è un modello chat locale (`:8121`, default Gemma 4
+  26B con visione); in opzione può usare un narratore cloud Gemini
+  (`POST /api/narrate`, feature di sviluppo: richiede `PALAMEDE_DEV=1` e la
+  chiave `PALAMEDE_GEMINI_API_KEY` tenuta server-side, da `.env` gitignored
+  alla radice o variabile di ambiente), attivo solo se configurato. Le tavole
+  sono generate col modello immagine
+  scelto nel setup. Ogni partita salva uno snapshot in `outputs/stories` via
+  `/api/stories*` (testi, bivi, scene, seed e PNG).
+- **Experimental** (`/extra`): registro delle prove accantonate/sospese e dei
+  lavori in corso, più il pannello **JEV Hub** che elenca e avvia i progetti
+  jev dal loro percorso originale tramite il servizio `:4610`.
+- **Video (Wan 2.1)**: prova isolata, non cablata al hub — `backends/wan_server.py`
+  (`:8126`) esiste ma non è esposto nella UI.
 
 ## Contratti API del hub
 
@@ -347,8 +376,6 @@ nvidia-smi (tipico `power.draw` a riposo) diventano `0` invece di `NaN`, che
 avrebbe rotto il JSON (la sidebar mostrava `nullW`/`NaN°C`). Se la CPU esce a
 `0` a riposo si tiene l'ultimo valore noto, senza buchi in UI.
 
-### Parametri nativi dei backend
-
 ### API knowledge base — `/api/kb/*`
 
 | Endpoint | Descrizione |
@@ -363,20 +390,35 @@ avrebbe rotto il JSON (la sidebar mostrava `nullW`/`NaN°C`). Se la CPU esce a
 | `GET /api/kb/search?q=…` | retrieval ibrido (senza rerank) → `{chunks: [hit…]}` |
 | `POST /api/kb/retrieve` | `{query, topK}` — ibrido + rerank MiniCPM → `{reranked, chunks, sources}` (per la chat grounded) |
 | `GET /api/kb/embeddings` | disponibilità Ollama (embeddinggemma) |
-| `GET /api/kb/rerank` · `POST /api/kb/rerank/start\|stop` | stato / start lazy / stop del reranker MiniCPM (:8123) |
+| `GET /api/kb/rerank` · `POST /api/kb/rerank/start\|stop` | stato / start lazy / stop del reranker MiniCPM (:8125) |
 
 L'ingest dipende solo da **Ollama** (embedding): se è spento i chunk vengono
 indicizzati senza vettore e la ricerca degrada a keyword (un nuovo ingest li
 ri-embedda). Il rerank è **best-effort**: mai blocca la chat, e il server
 MiniCPM si spegne da solo dopo ~60s di inattività per liberare la VRAM.
 
-| | Bonsai (gemlite in-process) | Z-Image (sd-server :8123) |
+### Altri endpoint del hub
+
+| Endpoint | Descrizione |
+|---|---|
+| `GET /api/preview` | ultimo frame di preview del denoise del modello sd-server attivo (204 se assente) |
+| `GET/POST /api/3d/*` | 3D TRELLIS.2: status, start, stop, generate, `file/<id>.{glb,stl}` |
+| `GET /api/history` · `POST /api/history/{save,clear,delete/<id>}` · `GET /api/history/img/<id>` | cronologia immagini (`outputs/history`) |
+| `GET /api/stories` · `POST /api/stories/{save,clear,delete/<id>}` · `GET /api/stories/<id>[/img/<file>]` | archivio partite Bandersketch (`outputs/stories`) |
+| `GET/POST /api/chats*` | conversazioni chat persistite (`outputs/chats`) |
+| `GET /api/narrators` · `POST /api/narrate` | narratore cloud opzionale (Gemini; richiede `PALAMEDE_GEMINI_API_KEY`) |
+| `GET/POST /api/lmstudio/*` | proxy a LM Studio locale (`:1234`) |
+| `GET/POST /api/jev/*` | JEV Hub (`:4610`): elenco/avvio progetti experimental |
+
+### Parametri nativi per modello (immagini)
+
+| | Bonsai (gemlite in-process) | Modelli sd-server (Z-Image / Klein / Qwen-Image) |
 |---|---|---|
 | chiamata interna | `GpuPipeline.generate_png(prompt, seed, steps, width, height)` | `POST /sdapi/v1/txt2img` → `{images:[b64]}` |
-| steps | default 4 | default 8 (distilled) |
-| cfg | n/d (distilled) | `cfg_scale` 1.0 (= effettivo 0) |
+| steps | default 4 | default 8 (Z-Image/Klein, distilled) · 40 (Qwen-Image) |
+| cfg | n/d (distilled) | `cfg_scale` 1.0 (= effettivo 0); 6.0 per Qwen-Image |
 | seed | esplicito (il hub genera se -1) | esplicito |
-| extra | — | — |
+| extra | — | img2img (`init_images` + `denoising_strength`) per Klein/… |
 
 ## Dati di performance MISURATI (RTX 5060 Ti)
 
@@ -397,9 +439,10 @@ JIT/autotune (cache persistite in `outputs/.triton_cache` e
 ## Frontend
 
 Vite + Svelte 5 + TypeScript, router custom hash-based (zero deps extra),
-CSS vanilla con design system "officina a inchiostro": sumi-ink scuro, carta
-invecchiata, accenti ocra/vermiglio, Fraunces (display) + IBM Plex
-(Sans/Mono). `npm run dev` proxya `/api` al hub :4600.
+CSS vanilla con design system "officina a inchiostro": tema scuro a inchiostro,
+superfici di carta, accenti indaco/verde/rosso. Niente font da CDN (l'officina
+è offline): i token ripiegano sui font di sistema (Space Grotesk / Inter /
+JetBrains Mono). `npm run dev` proxya `/api` al hub :4600.
 
 **Stato condiviso** in `frontend/src/store.svelte.ts`: un solo poller per tutta
 l'app (health + modelli + metriche + chat ogni 3 s, senza overlap e in pausa a
@@ -415,14 +458,14 @@ Pagine:
 | Rotta | Contenuto |
 |---|---|
 | `/` | Home hub: eroe compatto (headline + **registro di bordo live**: backend, modello in VRAM, barra GPU) · **card Applicazioni subito visibili** · sotto, **Le applicazioni nel dettaglio** con le descrizioni · in coda **Misure sul banco** |
-| `/images` | Generatore funzionante (due modelli) + gallery locale + wiki dei due modelli con esempi reali |
+| `/images` | Generatore funzionante (quattro modelli: Bonsai, Z-Image, Klein img2img, Qwen-Image) + gallery locale + wiki dei modelli con esempi reali |
 | `/chat` | **Chat funzionante**: 9 modelli locali (Ornith 35B-A3B / 9B / 9B-Q5, K2 Horizon 7B / 36B-A4B, Bonsai 27B, LFM2.5 VL 3B, Gemma 4 26B, MiniCPM5 2B), streaming con ragionamento mostrato, impostazioni (contesto, KV quant, MTP, layer MoE su CPU, layer GPU, temperatura, toggle thinking (default off)), avvio/stop server, **toggle knowledge on** per rispondere dalle tue fonti con citazioni `[n]` cliccabili. **Solo i modelli installati** compaiono nel selettore. |
 | `/downloader` | **Downloader**: catalogo dei modelli (dal migliore al peggiore) con nome, peso, requisiti di sistema e sorgente ufficiale; scarica i pesi in `models/` con progresso e verifica SHA-256. Catalogo condiviso con l'installer CLI (`scripts/models.catalog.json`). |
 | `/bench` | **Banco di prova** (rotta propria, montata anche dentro `/extra`): benchmark dei modelli testuali (qualità su eval set oggettivo + velocità llama-bench) e dei generatori di immagini (tempi cold/warm a 512²/1024² + qualità da VLM judge), con tabelle, classifiche per qualità/velocità/combinata, dettaglio per categoria e galleria. Dati da `outputs/benchmark/` e `outputs/benchmark-images/` via `/api/bench` e `/api/bench-images`. |
 | `/rag` | **Knowledge base RAG funzionante** (stile NotebookLM): aggiungi fonti (paste o drag&drop `.md/.txt`), indicizzazione chunk+embedding, chat grounded con citazioni, fonte aperta con il chunk citato evidenziato |
 | `/3d` | **Generatore 3D funzionante**: upload immagine, qualità 512/1024, viewer three.js, download GLB + STL, sezione Server per start/stop del server TRELLIS. |
 | `/mcp` | Bozza: wiki del tipo di modello + checklist requisiti + stato non installato. |
-| `/extra` | Extra: Progetto (documentazione), **Banco di prova** (benchmark modelli testuali e immagine), Experimental (registro prove) e Giochi, impilati in un'unica pagina (le rotte `/progetto`, `/bench`, `/experimental`, `/games` restano auto-routate ma fuori dalla nav). |
+| `/extra` | Extra: Progetto (documentazione), **Banco di prova** (benchmark modelli testuali e immagine), Experimental (registro prove + JEV Hub) e Giochi (**Bandersketch**), impilati in un'unica pagina (le rotte `/progetto`, `/bench`, `/experimental`, `/games` restano auto-routate ma fuori dalla nav). |
 
 ## Script
 
@@ -432,9 +475,9 @@ Pagine:
 | `scripts/setup.ps1` | one-time: npm install, build frontend, scarica tools/sd-cpp **e tools/llama-cpp** |
 | `scripts/copy-models.ps1` | ricopia i pesi da `reference/` in `models/` |
 | `scripts/install-models.ps1` + `install.bat` | **installer interattivo**: catalogo (`models.catalog.json`) dei modelli testuali e immagine ordinato dal migliore al peggiore con giudizi (consigliato/alternativa/sconsigliato) e misure del Banco; scarica i pesi scelti da fonti ufficiali (o copia da `reference/`) con audit |
-| `scripts/start-backend.ps1` | UNICO modello server :8000 (caricamento dinamico bonsai/zimage) |
+| `scripts/start-backend.ps1` | UNICO modello server :8000 (caricamento dinamico bonsai/zimage/klein/qwenimage) |
 | `scripts/start-hub.ps1` | node hub/server.mjs :4600 (statici+proxy+metriche+chat) |
-| `scripts/stop-all.ps1` + `stop.bat` | ferma hub, modello server (e subprocess sd-server) e llama-server |
+| `scripts/stop-all.ps1` + `stop.bat` | ferma hub, modello server (e subprocess sd-server), 3D TRELLIS, chat/rerank e JEV Hub |
 
 Avvio nascosto: backend e hub partono **senza finestre console** (switch
 `-Hidden`; launcher con `WindowStyle Hidden`) e scrivono i log in
@@ -467,15 +510,15 @@ ripristina le console per il debug.
   brutalmente → RAM/VRAM sempre liberate. Notifiche native via
   `tauri-plugin-notification` (invocate dal frontend con `window.__TAURI__`).
 - **Zero dipendenze runtime nel hub** (`node:http`) e **zero dipendenze
-  frontend extra** oltre Vite/React: un `npm install` e via.
-- **Hash-routing** invece di react-router: 6 pagine, un listener
+  frontend extra** oltre Vite/Svelte: un `npm install` e via.
+- **Hash-routing** invece di react-router: poche rotte, un listener
   `hashchange` basta (YAGNI).
 - **La coda è nel hub e nel server** (lock + catena di promise): il vincolo
   di esclusività GPU è una regola di prodotto, non un'abitudine di avvio.
 - **Metriche di sistema nel hub** (nvidia-smi + Win32_Processor + os):
   la sidebar della UI le mostra senza dipendenze esterne; parse "safe"
   contro i `N/A` di nvidia-smi.
-- **Un solo poller frontend** (`store.ts`): niente stati locali desincronizzati
+- **Un solo poller frontend** (`store.svelte.ts`): niente stati locali desincronizzati
   tra sidebar e pagine; il cambio modello è one-click, il server scarica il
   precedente da sé (nessun tasto "eject").
 - I dati della wiki sono **misurati su questa macchina**, non copiati dai

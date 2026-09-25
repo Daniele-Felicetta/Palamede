@@ -18,7 +18,7 @@
   //   1. creare src/pages/Nome.svelte (copia una pagina esistente)
   //   2. aggiungere la voce in src/data/sections.ts (per il menu e le card)
   // Le bozze senza pagina (MCP…) finiscono su <Draft> via DRAFTS.
-  // Bandersketch: setup in /bandersketch, gioco in /bandersnatch/<genere>
+  // Bandersketch: setup in /bandersketch, gioco in /bandersketch/<genere>
   // (rotta dinamica, chunk separato dal resto).
   type PageMod = { default: Component }
   const pageLoaders = import.meta.glob<PageMod>('./pages/*.svelte')
@@ -31,7 +31,7 @@
   const setupLoader = () => import('./games/bandersketch/src/Setup.svelte')
   const gameLoader = () => import('./games/bandersketch/src/Bandersketch.svelte')
 
-  const gameRoute = /^\/bandersnatch\/([^/]+)$/
+  const gameRoute = /^\/bandersketch\/([^/]+)$/
   // Teatro: le rotte del gioco escono dal Layout officina (niente masthead,
   // sidebar, footer) e occupano tutto lo schermo con frontend dedicato.
   let isGameRoute = $derived(route.path === '/bandersketch' || gameRoute.test(route.path))

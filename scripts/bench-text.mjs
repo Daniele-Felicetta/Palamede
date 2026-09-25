@@ -12,7 +12,9 @@ import { fileURLToPath } from 'node:url'
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 const LLAMA_SERVER = join(ROOT, 'tools', 'llama-cpp', 'llama-server.exe')
 const LLAMA_BENCH = join(ROOT, 'tools', 'llama-cpp', 'llama-bench.exe')
-const PORT = Number(process.env.BENCH_PORT || 8121)
+// porta dedicata (non :8121 della chat, non :8122 del giudice immagini):
+// così il banco si può lanciare anche con l'app accesa.
+const PORT = Number(process.env.BENCH_PORT || 8127)
 const OUT = join(ROOT, 'outputs', 'benchmark')
 const LOGS = join(OUT, 'logs')
 const EVALSET = JSON.parse(readFileSync(join(ROOT, 'scripts', 'bench-text.evalset.json'), 'utf8'))

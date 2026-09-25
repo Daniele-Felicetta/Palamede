@@ -168,7 +168,7 @@
       ui.error = false;
       ui.hint = Images.supportsImg2img(ui.model)
         ? "immagine caricata — img2img pronto"
-        : "Bonsai non fa img2img: scegli Z-Image o Klein";
+        : "Bonsai non fa img2img: scegli un altro modello";
     } catch (err) {
       ui.hint =
         err instanceof Error ? err.message : "lettura dell'immagine fallita";
@@ -180,7 +180,7 @@
     e.preventDefault();
     if (!ui.prompt.trim() || ui.busy || store.selecting) return;
     if (ui.initImg && !Images.supportsImg2img(ui.model)) {
-      ui.hint = "Bonsai non supporta image-to-image: scegli Z-Image o Klein";
+      ui.hint = "Bonsai non supporta image-to-image: scegli un altro modello";
       ui.error = true;
       return;
     }

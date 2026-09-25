@@ -11,8 +11,6 @@
     stamps = [] as PlateStamp[],
     down = '',
     selected = false,
-    active = false,
-    small = false,
     ...rest
   }: {
     name?: string
@@ -20,14 +18,12 @@
     stamps?: PlateStamp[]
     down?: string
     selected?: boolean
-    active?: boolean
-    small?: boolean
   } & HTMLButtonAttributes = $props()
 </script>
 
 <button
   type="button"
-  class={`plate${small ? ' chat-plate' : ''}${selected ? ' sel' : ''}${active ? ' active' : ''}`}
+  class={`plate${selected ? ' sel' : ''}`}
   {...rest}
 >
   <span class="pname"><Led state={led} />{name}</span>

@@ -130,7 +130,7 @@ export namespace Images {
     bonsai: '512² in 1.8 s — il più veloce',
     zimage: 'testo nell\'immagine, fotorealismo spinto',
     klein: 'img2img nativo · 2,5 GB · ~1.8 s',
-    qwenimage: '7B · editing e trasparenza · 40 step',
+    qwenimage: '7B · testo e img2img · 40 step',
   }
 
   /** Tagline del modello (fallback: stringa vuota). */

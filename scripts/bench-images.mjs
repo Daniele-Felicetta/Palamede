@@ -12,6 +12,8 @@ import { fileURLToPath } from 'node:url'
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 const BACKEND = 'http://127.0.0.1:8000'
+// porta dedicata del giudice VLM (llama-server): diversa da chat (:8121),
+// sd-server (:8123) e banco testuale (:8127).
 const JUDGE_PORT = Number(process.env.BENCH_JUDGE_PORT || 8122)
 const LLAMA_SERVER = join(ROOT, 'tools', 'llama-cpp', 'llama-server.exe')
 const JUDGE_MODEL = join(ROOT, 'models', 'gemma-4-26b', 'gemma-4-26B-A4B-it-UD-IQ3_S.gguf')

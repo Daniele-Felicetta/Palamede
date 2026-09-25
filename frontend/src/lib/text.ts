@@ -195,7 +195,7 @@ export namespace Text {
   export const KV_OPTIONS = [
     ['q8_0', 'q8_0 · consigliato'],
     ['q4_0', 'q4_0 · più veloce, qualità ok'],
-    ['f16', 'off · massima precisione'],
+    ['f16', 'f16 · nessuna quantizzazione'],
   ] as const
 
   /** Profili VRAM preselezionati per i modelli MoVA (K2 36B): impastano

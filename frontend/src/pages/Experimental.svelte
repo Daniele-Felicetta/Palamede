@@ -45,8 +45,8 @@
   <Eyebrow>Sezione EXP · registro delle prove</Eyebrow>
   <h1>Experimental</h1>
   <p class="lede">
-    La cronologia delle sperimentazioni: cosa abbiamo provato e perché si è
-    fermata, e cosa stiamo provando adesso — con cosa manca da sistemare e i
+    La cronologia delle sperimentazioni: cosa abbiamo provato e perché ci siamo
+    fermati, e cosa stiamo provando adesso — con cosa manca da sistemare e i
     rischi che restano.
   </p>
 {/if}

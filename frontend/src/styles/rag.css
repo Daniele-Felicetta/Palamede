@@ -75,7 +75,7 @@
 
 .rag-upload:hover {
   color: var(--paper);
-  border-color: var(--ochre);
+  border-color: var(--accent);
 }
 
 .rag-upload-input {
@@ -125,7 +125,7 @@
 }
 
 .rag-name:hover {
-  color: var(--ochre);
+  color: var(--accent);
 }
 
 .rag-meta {
@@ -193,8 +193,8 @@
 }
 
 .rag-cite:hover {
-  border-color: var(--ochre);
-  color: var(--ochre);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .rag-cite:focus-visible {
@@ -267,7 +267,7 @@ mark.rag-hit {
 .chat-modal-title {
   font-family: var(--mono);
   font-size: 12.5px;
-  color: var(--ochre);
+  color: var(--accent);
   word-break: break-all;
 }
 
@@ -339,7 +339,7 @@ mark.rag-hit {
 }
 
 .doc-tab.on {
-  color: var(--ochre);
+  color: var(--accent);
   border-color: var(--line);
   background: var(--ink-3);
 }

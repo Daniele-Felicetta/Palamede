@@ -9,7 +9,7 @@ import { readFile } from 'node:fs/promises'
 import { mkdirSync, readFileSync, writeFileSync, unlinkSync, rmSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { ROOT } from './root.mjs'
-import { json, readBody } from './http.mjs'
+import { json, errorJson, readBody } from './http.mjs'
 
 const STORIES_DIR = join(ROOT, 'outputs', 'stories')
 const STORIES_INDEX = join(STORIES_DIR, 'index.json')
@@ -32,7 +32,7 @@ function validSid(id) {
 }
 
 function validPng(f) {
-  return typeof f === 'string' && /^[a-z0-9-]+\.png$/.test(f)
+  return typeof f === 'string' && /^[a-z0-9_-]+\.png$/.test(f)
 }
 
 function storyPath(sid) {
@@ -105,7 +105,7 @@ export function createStoriesRoutes(queued) {
           storiesSave(list)
           return json(res, 200, { ok: true, id })
         } catch (e) {
-          return json(res, 500, { error: { message: e.message } })
+          return errorJson(res, e)
         }
       })
     }
@@ -147,7 +147,8 @@ export function createStoriesRoutes(queued) {
     if (im && req.method === 'GET') {
       const sid = im[1]
       const file = im[2]
-      if (!validSid(sid) || !validPng(file)) return json(res, 400, { error: { message: 'id non valido' } })
+      if (!validSid(sid)) return json(res, 400, { error: { message: 'id non valido' } })
+      if (!validPng(file)) return json(res, 400, { error: { message: 'nome file non valido' } })
       const dir = storyPath(sid)
       if (!dir) return json(res, 403, { error: { message: 'forbidden' } })
       const abs = join(dir, file)

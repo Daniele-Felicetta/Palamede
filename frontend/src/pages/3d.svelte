@@ -41,7 +41,7 @@
   // sovrascrivere hint già mostrati da avvio/generazione).
   $effect(() => {
     if (server && !server.running && !hint) {
-      hint = 'server 3D spento: premi "avvia server" qui sotto';
+      hint = 'server 3D spento: premi "avvia server" qui sopra';
       error = true;
     }
   });

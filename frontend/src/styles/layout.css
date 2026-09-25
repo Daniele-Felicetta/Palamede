@@ -68,7 +68,7 @@
 }
 
 .nav a.active {
-  color: var(--ochre);
+  color: var(--accent);
   border-color: var(--line);
   background: var(--ink-3);
 }
@@ -166,7 +166,7 @@ main {
   font-weight: 600;
   letter-spacing: 2px;
   text-transform: uppercase;
-  color: var(--ochre);
+  color: var(--accent);
   margin-bottom: 8px;
 }
 
@@ -182,7 +182,7 @@ h1 {
 h1 em {
   font-style: italic;
   font-weight: 500;
-  color: var(--ochre);
+  color: var(--accent);
 }
 
 .lede {

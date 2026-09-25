@@ -12,7 +12,7 @@
 
 <!-- GEN:ALBERO -->
 ```text
-Palamede/                       (repo git · aggiornata: 2026-09-25 17:37)
+Palamede/                       (repo git · aggiornata: 2026-09-25 19:12)
 ├── backends/
 ├── experimental/
 ├── frontend/

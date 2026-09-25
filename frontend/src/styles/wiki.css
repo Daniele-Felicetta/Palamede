@@ -64,7 +64,7 @@
   font-size: 10px;
   letter-spacing: 1.2px;
   text-transform: uppercase;
-  color: var(--ochre);
+  color: var(--accent);
   font-weight: 500;
   width: 150px;
 }
@@ -146,7 +146,7 @@ footer {
 }
 
 .build-tag {
-  color: var(--ochre);
+  color: var(--accent);
   border: 1px solid var(--line);
   border-radius: 6px;
   padding: 1px 6px;

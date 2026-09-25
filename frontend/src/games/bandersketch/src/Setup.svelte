@@ -14,10 +14,10 @@
   import { listStories, getStory, deleteStory, storyImage, narratorsStatus, type StorySummary, type StoryDetail } from "../../../api";
 
   // La sessione sopravvive in sessionStorage: se torni al setup a metà
-  // partita (o dopo "esci"), ritrovi le tue scelte invece dei default.
+  // partita ritrovi le tue scelte invece dei default; "esci" riparte da zero.
   let genre = $state(gameSession.genre);
   let styleId = $state(gameSession.style);
-  let name = $state(gameSession.name || "Gino");
+  let name = $state(gameSession.name);
   let modelId = $state(gameSession.model || DEFAULT_IMAGE_MODEL);
   let sizeId = $state(gameSession.size || DEFAULT_IMAGE_SIZE);
   let narratorId = $state(gameSession.narrator || DEFAULT_NARRATOR);
@@ -340,14 +340,14 @@
     text-transform: uppercase;
     color: var(--paper-dim);
   }
-  .arc-toggle { margin-left: auto; font-size: 18px; color: var(--ochre); }
+  .arc-toggle { margin-left: auto; font-size: 18px; color: var(--accent); }
   .arc-chap, .arc-fork { padding: 12px 16px 4px; border-top: 1px dashed var(--line); }
   .arc-chapnum {
     font-family: var(--mono);
     font-size: 10px;
     letter-spacing: 2px;
     text-transform: uppercase;
-    color: var(--ochre);
+    color: var(--accent);
     margin: 0 0 8px;
   }
   .arc-thumb {
@@ -366,10 +366,10 @@
     text-transform: uppercase;
     color: var(--paper-dim);
   }
-  .arc-prompt summary:hover { color: var(--ochre); }
+  .arc-prompt summary:hover { color: var(--accent); }
   .arc-text { font-size: 14.5px; line-height: 1.75; margin: 0 0 12px; white-space: pre-wrap; }
   .arc-opt { margin-bottom: 12px; }
-  .arc-opt.picked .arc-text { color: var(--ochre); }
+  .arc-opt.picked .arc-text { color: var(--accent); }
   .arc-del {
     font-family: var(--mono);
     font-size: 10.5px;

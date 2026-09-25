@@ -7,7 +7,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from '
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { ROOT } from './root.mjs'
-import { json, readBody } from './http.mjs'
+import { json, errorJson, readBody } from './http.mjs'
 
 const CHATS_DIR = join(ROOT, 'outputs', 'chats')
 const CHATS_INDEX = join(CHATS_DIR, 'index.json')
@@ -82,7 +82,7 @@ export function createChatsRoutes(queued) {
           saveIndex(list)
           return json(res, 200, doc)
         } catch (e) {
-          return json(res, 500, { error: { message: e.message } })
+          return errorJson(res, e)
         }
       })
     }

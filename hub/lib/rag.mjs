@@ -312,12 +312,13 @@ function bm25Scores(query, chunks) {
   const df = new Map()
   const lens = []
   const tfs = chunks.map(() => new Map())
-  for (const c of chunks) {
-    const toks = tokenize(c.text)
+  for (let i = 0; i < chunks.length; i++) {
+    const toks = tokenize(chunks[i].text)
     lens.push(toks.length)
     const seen = new Set()
+    const tf = tfs[i]
     for (const t of toks) {
-      tfs[tfs.length - 1]?.set(t, (tfs[tfs.length - 1]?.get(t) || 0) + 1)
+      tf.set(t, (tf.get(t) || 0) + 1)
       if (!seen.has(t)) { seen.add(t); df.set(t, (df.get(t) || 0) + 1) }
     }
   }

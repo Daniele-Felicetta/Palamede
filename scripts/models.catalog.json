@@ -9,7 +9,7 @@
       "models": [
         {
           "id": "gemma-4-26b",
-          "name": "Gemma 4 26B-A3.8B · IQ3_S",
+          "name": "Gemma 4 26B-A4B · IQ3_S",
           "label": "consigliato",
           "role": "Migliore in assoluto: 96.7% di qualità e ~98 t/s. MoE 3.8B attivi, VLM.",
           "quality": "96.7%",

@@ -594,7 +594,7 @@
               <p class="empty-title">In caricamento…</p>
               <p>{loaded?.name ?? model} sta entrando in VRAM. Ancora qualche secondo, poi si può scrivere.</p>
             {:else}
-              <p class="empty-title">Ornith, in casa</p>
+              <p class="empty-title">{loaded?.name ?? 'Ornith'}, in casa</p>
               <p>Scrivi una domanda e premi Invio per parlare con {loaded?.name ?? model}.</p>
               {#if kbOn}<p class="empty-note">knowledge on — risponderà citando le tue fonti.</p>{/if}
             {/if}
@@ -605,7 +605,7 @@
               <div class="bubble user">{msgText(m)}</div>
             {:else}
               <div class="msg assistant">
-                <span class="avatar" aria-hidden="true">O</span>
+                <span class="avatar" aria-hidden="true">{(loaded?.name ?? 'O').charAt(0).toUpperCase()}</span>
                 <div class="msg-body">
                   {#if m.reason}<ReasonBlock text={m.reason} streaming={!!m.pending} />{/if}
                   <div class="msg-text" data-idx={i}>
@@ -650,7 +650,7 @@
             oninput={autoGrow}
             onkeydown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(e) } }}
             placeholder={status?.ready
-              ? (kbOn ? 'Domanda con le tue fonti… (Invio invia)' : 'Chiedi qualcosa a Ornith… (Invio invia, Shift+Invio a capo)')
+              ? (kbOn ? 'Domanda con le tue fonti… (Invio invia)' : `Chiedi qualcosa a ${loaded?.name ?? 'Ornith'}… (Invio invia, Shift+Invio a capo)`)
               : 'Server spento: premi "avvia" qui sopra.'}
             aria-label="Messaggio"
             rows={1}

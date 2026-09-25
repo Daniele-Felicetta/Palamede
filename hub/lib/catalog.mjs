@@ -11,7 +11,10 @@ const CATALOG_PATH = join(ROOT, 'scripts', 'models.catalog.json')
 let cache = null
 
 export function loadCatalog() {
-  if (!cache) cache = JSON.parse(readFileSync(CATALOG_PATH, 'utf8'))
+  if (!cache) {
+    // strip BOM: Notepad e compagnia lo aggiungono e JSON.parse lo rifiuta.
+    cache = JSON.parse(readFileSync(CATALOG_PATH, 'utf8').replace(/^\uFEFF/, ''))
+  }
   return cache
 }
 
@@ -60,6 +63,17 @@ export function sourcesOf(model) {
   return [...out.entries()].map(([label, url]) => ({ label, url }))
 }
 
+/** Hardware misurato dal Banco (se presente): mai hardcodare, la UI lo mostra. */
+function benchHardware() {
+  for (const f of ['benchmark/summary.json', 'benchmark-images/summary.json']) {
+    try {
+      const h = JSON.parse(readFileSync(join(ROOT, 'outputs', f), 'utf8'))?.hardware
+      if (h) return h
+    } catch { /* summary assente */ }
+  }
+  return null
+}
+
 /** Elenco per la pagina Downloader: gruppi ordinati + stato + fonti. */
 export function downloaderList() {
   const cat = loadCatalog()
@@ -86,5 +100,5 @@ export function downloaderList() {
       }
     }),
   }))
-  return { groups, hardware: 'RTX 5060 Ti 16GB' }
+  return { groups, hardware: benchHardware() }
 }

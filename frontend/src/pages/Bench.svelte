@@ -222,9 +222,9 @@
                   <td class="bench-model">{r.name}<Stamp>{r.steps} step</Stamp></td>
                   <td class="num {r.q === iBestQ ? 'best' : ''}">{fmt(r.q, 2)}</td>
                   <td class="num">{sec(r.s512?.coldMs)}</td>
-                  <td class="num {r.sps512 === iBestSps ? 'best' : ''}">{sec(r.s512?.warmMs)}</td>
+                  <td class="num">{sec(r.s512?.warmMs)}</td>
                   <td class="num">{sec(r.s1024?.warmMs)}</td>
-                  <td class="num">{fmt(r.sps512, 2)}</td>
+                  <td class="num {r.sps512 === iBestSps ? 'best' : ''}">{fmt(r.sps512, 2)}</td>
                   <td class="num {r.combined === iBestC ? 'best' : ''}">{fmt(r.combined, 0)}</td>
                 </tr>
               {/each}

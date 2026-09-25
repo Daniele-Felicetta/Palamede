@@ -16,7 +16,7 @@
 
   // Zona RAG in stile NotebookLM: fonti in knowledge/raw/, indicizzate in
   // chunk+embedding (Ollama embeddinggemma) e interrogate con retrieval ibrido
-  // + rerank MiniCPM. La chat qui sotto risponde SOLO dalle fonti, citando [n].
+  // + rerank MiniCPM5. La chat qui sotto risponde SOLO dalle fonti, citando [n].
 
   let status = $state<KbStatus | null>(null)
   let sources = $state<KbSourceInfo[]>([])
@@ -155,29 +155,30 @@
           if (type === 'reason') a.reason += t
           else a.text += t
         },
-        () => { a.streaming = false; a.cites = extractCites(a.text) },
-        (er: Error) => { err = er.message; a.streaming = false },
+        () => { a.streaming = false; a.cites = extractCites(a.text); sending = false },
+        (er: Error) => { err = er.message; a.streaming = false; sending = false },
       )
     } catch (er) {
       err = er instanceof Error ? er.message : String(er)
       a.streaming = false
-    } finally {
       sending = false
     }
   }
 
-  // Chiamata non-streaming al proxy chat con system prompt grounded: il server
-  // (llama-server attivo dalla pagina Chat) risponde streamando i token.
+  // Chiamata streaming al proxy chat con system prompt grounded: il system va
+  // preposto come messaggio di sistema (lo schema OpenAI di llama-server
+  // ignora i campi extra, quindi un eventuale `system` top-level non arriverebbe).
   async function groundedStream(text: string, system: string) {
     const r = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        messages: [{ role: 'user', content: text }],
+        messages: system
+          ? [{ role: 'system', content: system }, { role: 'user', content: text }]
+          : [{ role: 'user', content: text }],
         stream: true,
         temperature: 0.3,
         max_tokens: 900,
-        ...(system ? { system } : {}),
       }),
     })
     if (!r.ok || !r.body) throw new Error(`chat HTTP ${r.status}`)
@@ -209,7 +210,7 @@
       <Stamp ok={!!emb.available} title="Ollama /api/embed: embeddinggemma">
         embeddings {emb.available ? 'on' : 'off'}
       </Stamp>
-      <Stamp ok={!!status?.rerank?.ready} title="MiniCPM 2B :8125, start lazy + idle timeout">
+      <Stamp ok={!!status?.rerank?.ready} title="MiniCPM5 2B :8125, start lazy + idle timeout">
         rerank {status?.rerank?.ready ? 'pronto' : status?.rerank?.running ? 'in caricamento' : 'idle'}
       </Stamp>
     </div>
@@ -218,7 +219,7 @@
   <p class="sec-sub">
     RAG in stile <em>NotebookLM</em>: le fonti entrano in <code>knowledge/raw/</code>, vengono
     spezzate in chunk ed embedded localmente (Ollama <code>embeddinggemma</code>), poi ogni
-    domanda recupera i frammenti rilevanti (coseno + keyword, rerank MiniCPM 2B) e il
+    domanda recupera i frammenti rilevanti (coseno + keyword, rerank MiniCPM55 2B) e il
     modello risponde <strong>solo da quelli</strong>, citando <code>[n]</code>.
   </p>
 
@@ -306,7 +307,7 @@
           {#if answer.retr}
             <p class="rag-meta-notes">
               {answer.retr.chunks.length} frammenti recuperati
-              {answer.retr.reranked ? ' · rerank MiniCPM' : ' · ranking ibrido'}
+              {answer.retr.reranked ? ' · rerank MiniCPM5' : ' · ranking ibrido'}
             </p>
           {/if}
         </div>

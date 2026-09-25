@@ -17,7 +17,7 @@ const BACKEND = 'http://127.0.0.1:8000'
 const JUDGE_PORT = Number(process.env.BENCH_JUDGE_PORT || 8122)
 const LLAMA_SERVER = join(ROOT, 'tools', 'llama-cpp', 'llama-server.exe')
 const JUDGE_MODEL = join(ROOT, 'models', 'gemma-4-26b', 'gemma-4-26B-A4B-it-UD-IQ3_S.gguf')
-const JUDGE_MMPROJ = join(ROOT, 'models', 'gemma-4-26b', 'mmproj-Q8_0.gguf')
+const JUDGE_MMPROJ = join(ROOT, 'models', 'gemma-4-26b', 'mmproj-F16.gguf')
 const OUT = join(ROOT, 'outputs', 'benchmark-images')
 const LOGS = join(OUT, 'logs')
 

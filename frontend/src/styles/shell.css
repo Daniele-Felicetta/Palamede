@@ -31,7 +31,7 @@ footer {
 
 .side-toggle:hover {
   color: var(--paper);
-  border-color: var(--ochre);
+  border-color: var(--accent);
 }
 
 .sidebar {
@@ -102,7 +102,7 @@ footer {
 
 .srv-btn:hover:not(:disabled) {
   color: var(--paper);
-  border-color: var(--ochre);
+  border-color: var(--accent);
 }
 
 .srv-btn:disabled {
@@ -133,7 +133,7 @@ footer {
   font-size: 9.5px;
   letter-spacing: 1.6px;
   text-transform: uppercase;
-  color: var(--ochre);
+  color: var(--accent);
   margin-bottom: 10px;
   padding-bottom: 6px;
   border-bottom: 1px solid var(--line);
@@ -168,7 +168,7 @@ footer {
 .meter-fill {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, var(--ochre), var(--moss));
+  background: linear-gradient(90deg, var(--accent), var(--moss));
   transition: width .4s ease;
 }
 

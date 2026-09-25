@@ -38,11 +38,11 @@ const TEXT_MODEL_DEFS = [
     file: join(ROOT, 'models', 'lfm-vl-3b', 'LFM2.5-VL-3B-Q5_K_XL.gguf'),
     mmproj: 'mmproj-LFM2.5-VL-3B-F32.gguf' },
   // Gemma 4 26B-A4B MoE (3.8B attivi): narratore Bandersketch consigliato —
-  // qualità da 30B con mmproj Q8_0 (769MB, quantizzato da F32) e --cpu-moe
+  // qualità da 30B con mmproj F16 (1.2GB) e --cpu-moe
   // scende a ~4.5GB VRAM a 36-40 tok/s. Pesi: release Unsloth IQ3_S.
-  { id: 'gemma-4-26b', name: 'Gemma 4 26B-A3.8B · IQ3_S', moe: true,
+  { id: 'gemma-4-26b', name: 'Gemma 4 26B-A4B · IQ3_S', moe: true,
     file: join(ROOT, 'models', 'gemma-4-26b', 'gemma-4-26B-A4B-it-UD-IQ3_S.gguf'),
-    mmproj: 'mmproj-Q8_0.gguf' },
+    mmproj: 'mmproj-F16.gguf' },
   // MiniCPM5 2B: dense compatto (usato anche come reranker RAG su :8125).
   { id: 'minicpm5-2b', name: 'MiniCPM5 2B · Q4_K_M', moe: false,
     file: join(ROOT, 'models', 'minicpm5-2b', 'MiniCPM5-2B-Q4_K_M.gguf') },
@@ -56,10 +56,11 @@ function textModels() {
 /** Path del mmproj (preferito se presente, altrimenti il primo mmproj-*.gguf
  *  della cartella del modello). null se non c'è. */
 function mmprojFor(m) {
-  if (!m.mmproj) return null
   const dir = dirname(m.file)
-  const p = join(dir, m.mmproj)
-  if (existsSync(p)) return p
+  if (m.mmproj) {
+    const p = join(dir, m.mmproj)
+    if (existsSync(p)) return p
+  }
   try {
     const f = readdirSync(dir).find((n) => /^mmproj-.*\.gguf$/i.test(n))
     if (f) return join(dir, f)

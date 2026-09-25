@@ -70,10 +70,14 @@ export async function startTrellis() {
     header: `\n--- avvio trellis server su porta ${TRELLIS_PORT} ---\n`,
   })
   trellisServer.proc = proc
-  trellisServer.proc.on('exit', () => {
-    trellisServer.proc = null
-    trellisServer.ready = false
-    trellisServer.load_time_s = null
+  proc.on('exit', () => {
+    // Solo se e' ancora il processo corrente: alla riapertura l'exit del
+    // vecchio processo arriva dopo lo spawn del nuovo e non deve azzerarlo.
+    if (trellisServer.proc === proc) {
+      trellisServer.proc = null
+      trellisServer.ready = false
+      trellisServer.load_time_s = null
+    }
   })
 
   // attesa che /status risponda (il server uvicorn parte in pochi secondi)

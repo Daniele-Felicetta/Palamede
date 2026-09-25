@@ -17,7 +17,7 @@
   /* testo secondario */
   --paper-faint: #626d84;
   /* testo debole */
-  --ochre: #8b93ff;
+  --accent: #8b93ff;
   /* accento indaco */
   --moss: #34d399;
   /* ok / verde */
@@ -26,7 +26,7 @@
   --amber: #fbbf24;
   /* in corso / ambra */
   --glass: rgba(10, 13, 20, 0.82);
-  --on-ochre: #0a0d14;
+  --on-accent: #0a0d14;
   --ring: rgba(139, 147, 255, 0.35);
   --radius: 12px;
   --radius-sm: 8px;
@@ -45,12 +45,12 @@
   --paper: #171d2b;
   --paper-dim: #4c576e;
   --paper-faint: #8b94a8;
-  --ochre: #5b64e0;
+  --accent: #5b64e0;
   --moss: #0f9d6e;
   --seal: #dc4c4c;
   --amber: #d97706;
   --glass: rgba(244, 246, 250, 0.85);
-  --on-ochre: #ffffff;
+  --on-accent: #ffffff;
   --ring: rgba(91, 100, 224, 0.3);
   --shadow: 0 1px 2px rgba(23, 29, 43, .06), 0 8px 24px rgba(23, 29, 43, .08);
 }

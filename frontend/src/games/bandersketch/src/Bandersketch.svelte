@@ -435,7 +435,8 @@
     theEnd = false;
     prepErr = "";
     unsentImgs = {}; // nuova partita, nuovo archivio: nessun arretrato
-    genId = 0;
+    genId++; // invalida preparazioni in volo (mai resettare a 0: gli id vecchi
+    //          tornerebbero validi e contaminerebbero la partita nuova)
     sessionId =
       "bs-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 7);
     await streamChapter(chapter1Fragment(genre, name));

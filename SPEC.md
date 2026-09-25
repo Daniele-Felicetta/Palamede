@@ -16,7 +16,7 @@ MiniCPM5 2B) via llama.cpp, il **Banco di prova** che ne misura qualità e
 velocità, e una **knowledge base RAG in stile
 NotebookLM** in `knowledge/`: le fonti vengono spezzate in chunk ed embedded
 localmente (Ollama `embeddinggemma`), interrogate con retrieval ibrido e
-rerank dedicato (MiniCPM 2B), con risposte grounded e citazioni `[n]`
+rerank dedicato (MiniCPM5 2B), con risposte grounded e citazioni `[n]`
 cliccabili. Il **3D è integrato**: la
 pipeline image-to-3D TRELLIS.2 produce un asset 3D completo da una singola
 immagine (GLB texturizzato + STL). La pagina **Extra** raccoglie Progetto,
@@ -33,7 +33,7 @@ opzione cloud). La sezione **MCP** resta bozza con wiki.
 | GPU | NVIDIA RTX 5060 Ti, 16 GB VRAM, driver 616.56 |
 | RAM | 64 GB |
 | OS | Windows 11 x64, PowerShell 5.1 |
-| Runtime | Node 22, Python 3.11 (venv uv), CUDA 12.8 |
+| Runtime | Node 22 (min. 20.12), Python 3.11 (venv uv), CUDA 12.8 |
 
 ## Vincoli di design
 
@@ -84,7 +84,7 @@ Browser ── http://127.0.0.1:4600 ── hub/server.mjs (Node, zero deps)
                                      │    (9 modelli locali, start su richiesta)
                                      │
                                      ├─ rerank: tools/llama-cpp/llama-server.exe :8125
-                                     │    (MiniCPM 2B, start lazy + idle timeout 60s)
+                                     │    (MiniCPM5 2B, start lazy + idle timeout 60s)
                                      │
                                      ├─ embeddings: Ollama locale :11434 (embeddinggemma)
                                      │
@@ -151,7 +151,7 @@ senza toccare `reference/`.
 | Gemma 4 26B-A3.8B | `gemma-4-26b/gemma-4-26B-A4B-it-UD-IQ3_S.gguf` | 10.5 GB | MoE 3.8B attivi, chat |
 | MiniCPM5 2B | `minicpm5-2b/MiniCPM5-2B-Q4_K_M.gguf` | 1.5 GB | dense, chat (+ reranker RAG) |
 
-> **In bozza (`models/_inutilizzati/`)**: Wan 2.1 T2V 1.3B (+ VAE, UMT5-XXL) e Klein 9B BF16 sono sospesi, non referenziati dal codice.
+> **In bozza (`models/_inutilizzati/`)**: Wan 2.1 T2V 1.3B (+ VAE, UMT5-XXL) e Klein 9B BF16 sono sospesi. Wan ha un backend proprio (`backends/wan_server.py`, `:8126`) ma **non e' cablato al hub**: nessun endpoint lo espone.
 
 ### Dipendenze visione (non referenziate) — `models/trellis-deps/`
 
@@ -196,7 +196,7 @@ viewer + download.
 | Hub | `hub/server.mjs` spawna/termina il server 3D come subprocess (log in `outputs/trellis-server.log`) e serve i file prodotti da `outputs/3d/`. |
 | Frontend | `frontend/src/pages/3d.svelte` — pagina `/3d`: upload immagine, qualità 512/1024, viewer three.js (dipendenza npm locale), download GLB + STL. Sidebar metriche con sezione **Server** per start/stop del server 3D. |
 | Patch al codice TRELLIS.2 | supporto backend attenzione `sdpa` (`config.py` + `full_attn.py`, evita flash_attn non installato) e fix `image_feature_extractor.py` per transformers 5.16. |
-| Setup | `scripts/setup-trellis.ps1` (deps pip + native da sorgente + decoder Stage1 RMBG2), `scripts/start-trellis.ps1` (avvio server). Porta **:8124**. |
+| Setup | `scripts/setup-trellis.ps1` (deps pip + native da sorgente + decoder Stage1 (`ss_dec_conv3d_16l8_fp16`)), `scripts/start-trellis.ps1` (avvio server). Porta **:8124**. |
 
 **Endpoint** (tutti via hub :4600):
 
@@ -204,7 +204,7 @@ viewer + download.
 |---|---|
 | `POST /api/3d/start` | avvia il server 3D TRELLIS (subprocess, coda mutex) |
 | `POST /api/3d/stop` | ferma il server 3D |
-| `GET /api/3d/status` | stato locale del subprocess (`running`, `ready`, `pid`, `load_time_s`) |
+| `GET /api/3d/status` | stato locale del subprocess (`running`, `ready`, `loading`, `pid`, `load_time_s`) |
 | `POST /api/3d/generate` | `{image(dataUrl), pipeline_type, seed, num_samples}` → asset 3D (coda mutex, timeout 15 min) |
 | `GET /api/3d/file/<id>.{glb,stl}` | serve il file prodotto da `outputs/3d/` (attachment) |
 
@@ -226,7 +226,7 @@ con parametri scelti dalla UI:
 
 - **contesto** (`-c`) 1024–65536, default 8192;
 - **KV cache quantizzata** (`--cache-type-k/v`): `q8_0` consigliato, `q4_0`
-  aggressivo, `f16` off;
+  aggressivo, `q5_0`/`iq4_nl` intermedi, `f16` off;
 - **MTP**: disattivato per default (`--spec-type` non impostato); l'opzione
   richiederebbe pesi del predittore non presenti;
 - **layer MoE su CPU** (`--n-cpu-moe N`, solo per il 35B): sposta gli esperti
@@ -281,7 +281,7 @@ via Ollama `embeddinggemma` (`/api/embed`). L'indice è un JSON hand-rolled in
   hub le fonti in `raw/` non ancora indicizzate vengono processate in coda
   (migrazione automatica).
 - **Retrieval ibrido**: coseno vettoriale + BM25-lite fusi con **RRF** → top-20
-  chunk; poi un **rerank** con il modello dedicato **MiniCPM 2B** (llama-server
+  chunk; poi un **rerank** con il modello dedicato **MiniCPM5 2B** (llama-server
   separato su `:8125`, start lazy alla prima richiesta e idle timeout ~60s per
   liberare la VRAM) seleziona i top 3–5 chunk davvero rilevanti. Se Ollama o il
   reranker sono giù, il sistema degrada senza errori (keyword-only / top ibridi).
@@ -321,10 +321,10 @@ via Ollama `embeddinggemma` (`/api/embed`). L'indice è un JSON hand-rolled in
 
 ```json
 { "current": "bonsai",
-  "models": [ { "id": "bonsai", "name": "…", "engine": "…", "loaded": true },
-              { "id": "zimage", "name": "…", "engine": "…", "loaded": false } ] }
-```
+  "models": [ { "id": "bonsai", "name": ".", "engine": ".", "loaded": true, "available": true },
+              { "id": "zimage", "name": ".", "engine": ".", "loaded": false, "available": true } ] }
 
+`available` = i file del modello sono presenti su disco (indipendente dal caricamento).
 ### `POST /api/select`
 
 Carica/scarica il modello (bloccante finché non è pronto; il server scarica
@@ -339,7 +339,7 @@ il modello corrente e libera la VRAM prima di caricare il nuovo).
 
 ```json
 // request
-{ "model": "bonsai" | "zimage",
+{ "model": "bonsai" | "zimage" | "klein" | "qwenimage",
   "prompt": "…", "steps": 4, "seed": 42,
   "width": 512, "height": 512, "count": 1 }
 // response
@@ -415,9 +415,9 @@ MiniCPM si spegne da solo dopo ~60s di inattività per liberare la VRAM.
 | | Bonsai (gemlite in-process) | Modelli sd-server (Z-Image / Klein / Qwen-Image) |
 |---|---|---|
 | chiamata interna | `GpuPipeline.generate_png(prompt, seed, steps, width, height)` | `POST /sdapi/v1/txt2img` → `{images:[b64]}` |
-| steps | default 4 | default 8 (Z-Image/Klein, distilled) · 40 (Qwen-Image) |
+| steps | default 4 | default 8 (Z-Image, distilled) / 4 (Klein, distilled) · 40 (Qwen-Image) |
 | cfg | n/d (distilled) | `cfg_scale` 1.0 (= effettivo 0); 6.0 per Qwen-Image |
-| seed | esplicito (il hub genera se -1) | esplicito |
+| seed | esplicito (generato dal modello server se -1) | esplicito |
 | extra | — | img2img (`init_images` + `denoising_strength`) per Klein/… |
 
 ## Dati di performance MISURATI (RTX 5060 Ti)
@@ -426,11 +426,16 @@ Generazione esclusiva (un solo modello residente sulla GPU), warm = forma
 gia' scaldata (JIT/autotune in cache), cold = primo uso di una risoluzione.
 
 | Modello | Risoluzione | Cold-shape | Warm | VRAM residente |
+| Modello | Risoluzione | Primo colpo | Warm | VRAM residente |
 |---|---|---|---|---|
-| Bonsai ternary (4 step) | 512² | 4.0 s | **1.8 s** | ~6 GB |
-| Bonsai ternary (4 step) | 1024² | 19.4 s | **6.4 s** | ~6 GB |
-| Z-Image Q4 (8 step) | 512² | 5.6 s | **3.3 s** | ~8.5 GB |
-| Z-Image Q4 (8 step) | 1024² | 17.1 s | **17.8 s** | ~8.5 GB |
+| Bonsai ternary (4 step) | 512² | 20.2 s | **1.8 s** | ≈ 6 GB |
+| Bonsai ternary (4 step) | 1024² | 7.3 s | **6.3 s** | ≈ 6 GB |
+| Klein 4B Q4 (4 step) | 512² | 7.8 s | **5.4 s** | ≈ 6.2 GB |
+| Klein 4B Q4 (4 step) | 1024² | 10.4 s | **10.4 s** | ≈ 6.2 GB |
+| Z-Image Turbo Q4 (8 step) | 512² | 8.5 s | **3.8 s** | ≈ 5 GB |
+| Z-Image Turbo Q4 (8 step) | 1024² | 17.7 s | **17.6 s** | ≈ 5 GB |
+| Qwen-Image 2.1 Q4 (40 step) | 512² | 28.4 s | **20.8 s** | ≈ 12 GB |
+| Qwen-Image 2.1 Q4 (40 step) | 1024² | 122.9 s | **92.9 s** | ≈ 12 GB |
 
 Nota JIT: la prima generazione a una nuova risoluzione paga Triton
 JIT/autotune (cache persistite in `outputs/.triton_cache` e

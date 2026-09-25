@@ -71,7 +71,7 @@
         {store.health?.ok ? 'officina accesa' : 'officina spenta'}
       </span>
       <span class="led-row" title="Modello caricato in VRAM">
-        <Led state="on" />
+        <Led state={loaded ? 'on' : 'off'} />
         {loaded ? modelLabel(loaded) : 'VRAM vuota'}
       </span>
       <span class="led-row" title="Uso della GPU">
@@ -129,7 +129,7 @@
     <div class="side-sec">
       <div class="side-title">Modello</div>
       <div class={`loaded-model ${loaded ? 'on' : ''}`}>
-        <Led state="on" />
+        <Led state={loaded ? 'on' : 'off'} />
         {loaded ? modelLabel(loaded) : 'nessuno'}
       </div>
     </div>

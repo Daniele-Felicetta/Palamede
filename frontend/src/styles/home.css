@@ -19,7 +19,7 @@
 }
 
 .card:hover {
-  border-color: var(--ochre);
+  border-color: var(--accent);
   transform: translateY(-3px);
   box-shadow: var(--shadow);
 }
@@ -40,7 +40,7 @@
   font-family: var(--mono);
   font-size: 12px;
   font-weight: 600;
-  color: var(--ochre);
+  color: var(--accent);
   letter-spacing: 1px;
 }
 
@@ -85,7 +85,7 @@
 .log-fill {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, var(--ochre), var(--moss));
+  background: linear-gradient(90deg, var(--accent), var(--moss));
   transition: width .5s ease;
 }
 
@@ -122,7 +122,7 @@
   font-family: var(--mono);
   font-size: 12px;
   font-weight: 600;
-  color: var(--ochre);
+  color: var(--accent);
   letter-spacing: 1px;
   min-width: 42px;
   padding-top: 6px;
@@ -157,7 +157,7 @@
   font-size: 11px;
   letter-spacing: 1px;
   text-transform: uppercase;
-  color: var(--ochre);
+  color: var(--accent);
   text-decoration: none;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
@@ -166,7 +166,7 @@
 }
 
 .app-go:hover {
-  border-color: var(--ochre);
+  border-color: var(--accent);
   background: var(--ink-3);
 }
 
@@ -209,7 +209,7 @@
   font-size: 10px;
   letter-spacing: 1.2px;
   text-transform: uppercase;
-  color: var(--ochre);
+  color: var(--accent);
   margin-top: 2px;
 }
 

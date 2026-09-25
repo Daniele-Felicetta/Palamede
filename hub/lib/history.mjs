@@ -7,7 +7,7 @@ import { readFile } from 'node:fs/promises'
 import { mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { ROOT } from './root.mjs'
-import { json, readBody } from './http.mjs'
+import { json, errorJson, readBody } from './http.mjs'
 
 const HIST_DIR = join(ROOT, 'outputs', 'history')
 const HIST_INDEX = join(HIST_DIR, 'index.json')
@@ -42,7 +42,7 @@ export function createHistoryRoutes(queued) {
         histSave([])
         return json(res, 200, { ok: true })
       } catch (e) {
-        return json(res, 500, { error: { message: e.message } })
+        return errorJson(res, e)
       }
     }
 
@@ -86,7 +86,7 @@ export function createHistoryRoutes(queued) {
           histSave(list)
           return json(res, 200, { ok: true, id })
         } catch (e) {
-          return json(res, 500, { error: { message: e.message } })
+          return errorJson(res, e)
         }
       })
     }

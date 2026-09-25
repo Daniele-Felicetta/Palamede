@@ -287,18 +287,27 @@ def generate(req: GenerateRequest) -> dict:
 
 # ── helper ─────────────────────────────────────────────────────────────────
 def _decode_image(dataurl: str):
-    """dataUrl (base64) → PIL Image. Supporta PNG/JPEG/WEBP, RGB o RGBA."""
+    """dataUrl (base64) ��' PIL Image. Supporta PNG/JPEG/WEBP, RGB o RGBA."""
     from PIL import Image
 
     header, _, b64 = dataurl.partition(",")
     if not b64:
         raise ValueError("dataUrl senza payload base64")
-    raw = base64.b64decode(b64)
-    return Image.open(io.BytesIO(raw)).convert("RGBA" if "rgba" in header.lower() else "RGB")
+    try:
+        raw = base64.b64decode(b64)
+    except Exception as e:
+        raise ValueError(f"payload base64 non valido: {e}") from e
+    img = Image.open(io.BytesIO(raw))
+    # L'alpha si decide dai canali REALI dell'immagine: il MIME del dataUrl
+    # (data:image/png;base64,...) non contiene mai "rgba", quindi guardare
+    # l'header perdeva sempre la trasparenza.
+    if img.mode in ("RGBA", "LA", "PA") or (img.mode == "P" and "transparency" in img.info):
+        return img.convert("RGBA")
+    return img.convert("RGB")
 
 
 def _vram_peak_gb() -> float:
-    """VRAM usata ora (GB). Richiede torch.cuda disponibile."""
+    """Picco di VRAM allocata dal processo (GB). Richiede torch.cuda."""
     try:
         if torch.cuda.is_available():
             return torch.cuda.max_memory_allocated() / 2**30

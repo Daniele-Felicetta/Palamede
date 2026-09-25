@@ -43,7 +43,7 @@
 .dl-bar span {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, var(--ochre), var(--moss));
+  background: linear-gradient(90deg, var(--accent), var(--moss));
   transition: width .3s ease;
 }
 
@@ -101,7 +101,7 @@
   font-size: 10px;
   letter-spacing: 1.1px;
   text-transform: uppercase;
-  color: var(--ochre);
+  color: var(--accent);
   font-weight: 500;
   white-space: nowrap;
 }
@@ -185,7 +185,7 @@
 }
 
 .dl-src a {
-  color: var(--ochre);
+  color: var(--accent);
   text-decoration: none;
 }
 
@@ -200,7 +200,7 @@
 .dl-live {
   font-family: var(--mono);
   font-size: 11px;
-  color: var(--ochre);
+  color: var(--accent);
 }
 
 .dl-missing {
@@ -241,7 +241,7 @@
   font-size: 10px;
   letter-spacing: .8px;
   text-transform: uppercase;
-  color: var(--ochre);
+  color: var(--accent);
   background: var(--ink-2);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
@@ -252,7 +252,7 @@
 }
 
 .models-dl-btn:hover {
-  border-color: var(--ochre);
+  border-color: var(--accent);
   background: var(--ink-3);
 }
 

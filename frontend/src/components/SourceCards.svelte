@@ -16,7 +16,7 @@
   } = $props()
 
   // raggruppa per fonte, ordinando per la prima citazione incontrata
-  const grouped = $derived(() => {
+  const grouped = $derived.by(() => {
     const map = new Map<string, { source: string; nums: number[]; chunk: KbChunkHit }>()
     for (const it of items) {
       const g = map.get(it.chunk.source)
@@ -29,7 +29,7 @@
 
 <div class="src-cards">
   {#if children}{@render children()}{/if}
-  {#each grouped() as g (g.source)}
+  {#each grouped as g (g.source)}
     <button type="button" class="src-card" onclick={() => onopen?.(g.chunk)}>
       <span class="src-card-file">{g.source}</span>
       {#if g.chunk.section}<span class="src-card-sec">{g.chunk.section}</span>{/if}
@@ -59,8 +59,8 @@
     text-align: left;
     max-width: 100%;
   }
-  .src-card:hover { border-color: var(--ochre); }
-  .src-card-file { font-family: var(--mono); color: var(--ochre); }
+  .src-card:hover { border-color: var(--accent); }
+  .src-card-file { font-family: var(--mono); color: var(--accent); }
   .src-card-sec { color: var(--paper-faint); }
   .src-card-cites { color: var(--amber); font-family: var(--mono); margin-left: auto; }
 </style>

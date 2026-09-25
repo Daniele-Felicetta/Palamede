@@ -6,7 +6,14 @@
 // stati modello stantii nel browser).
 export function json(res, status, obj) {
   res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
-  res.end(JSON.stringify(obj))
+    .end(JSON.stringify(obj))
+}
+
+/** Risposta d'errore uniforme: usa `err.status` se presente (es. 400 da
+ *  readBody), altrimenti 500. Un solo punto che decide lo status. */
+export function errorJson(res, e) {
+  const status = e && typeof e.status === 'number' ? e.status : 500
+  return json(res, status, { error: { message: e && e.message ? e.message : String(e) } })
 }
 
 // Il body pass-through è già JSON: se per qualche motivo non lo fosse, non
@@ -25,7 +32,15 @@ export async function readBody(req) {
   }
   // strip BOM UTF-8 e spazi: JSON.parse non li tollera
   const text = Buffer.concat(chunks).toString('utf8').replace(/^\uFEFF/, '').trim()
-  try { return JSON.parse(text) } catch { return {} }
+  try {
+    return JSON.parse(text)
+  } catch {
+    // niente `return {}`: un body malformato diventava un errore fuorviante
+    // ("messages mancanti") invece di "JSON non valido".
+    const err = new Error('JSON non valido nel body della richiesta')
+    err.status = 400
+    throw err
+  }
 }
 
 // Proxy JSON verso un backend con timeout esplicito e 502 tipizzato se il

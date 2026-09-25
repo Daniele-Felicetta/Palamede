@@ -65,7 +65,7 @@
 </script>
 
 <SectionHead
-  title="Downloader"
+  title="Scarica"
   sub="Il catalogo completo, dal migliore al peggiore. Scegli un modello e scaricalo in models/: l'app lo vede al riavvio (o al ricaricamento della pagina). Le sorgenti sono ufficiali."
 />
 

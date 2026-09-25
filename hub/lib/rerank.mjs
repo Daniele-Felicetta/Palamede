@@ -9,7 +9,7 @@
 // per liberare VRAM. Tutto best-effort: se il server non parte o non è
 // pronto, i chiamanti (rag.mjs) degradano al ranking ibrido senza errori.
 
-import { existsSync } from 'node:fs'
+import { existsSync, closeSync } from 'node:fs'
 import { join } from 'node:path'
 import { ROOT } from './root.mjs'
 import { spawnLogged, killChild } from './proc.mjs'
@@ -111,7 +111,8 @@ export async function startRerank(timeoutMs = START_TIMEOUT_MS) {
 
 export function stopRerank() {
   killChild(srv.proc)
-  if (srv.logFd) { try { srv.logFd.close() } catch { /* già chiuso */ } }
+  // logFd e' un numero (openSync), non un oggetto: va chiuso con closeSync.
+  if (typeof srv.logFd === 'number') { try { closeSync(srv.logFd) } catch { /* gia' chiuso */ } }
   srv.proc = null
   srv.logFd = null
   srv.ready = false

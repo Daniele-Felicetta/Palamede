@@ -63,7 +63,8 @@ export async function narrateGemini(req, res) {
     return n;
   }, 0);
   if (textLen > 30000) return json(res, 400, { error: { message: "prompt troppo lungo (max ~30k caratteri di testo)" } });
-  const temperature = Math.min(2, Math.max(0, Number(b.temperature ?? 0.6) || 0));
+  const t = Number(b.temperature);
+  const temperature = Math.min(2, Math.max(0, Number.isFinite(t) ? t : 0.6));
   const maxTokens = Math.min(4000, Math.max(1, Number(b.max_tokens ?? 400) || 400));
   const stream = b.stream !== false;
   const payload = {

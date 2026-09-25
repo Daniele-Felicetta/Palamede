@@ -64,7 +64,7 @@
     <Eyebrow>Experimental · registro delle prove</Eyebrow>
     <h2 class="extra-block-title" id="extra-experimental-title">Experimental</h2>
     <p class="sec-sub">
-      Cosa abbiamo provato e perché si è fermata, e cosa stiamo provando adesso —
+      Cosa abbiamo provato e perché ci siamo fermati, e cosa stiamo provando adesso —
       con cosa manca da sistemare e i rischi che restano.
     </p>
   </header>

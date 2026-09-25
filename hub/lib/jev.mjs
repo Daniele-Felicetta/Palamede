@@ -7,7 +7,7 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { ROOT } from './root.mjs'
-import { json, proxyJson } from './http.mjs'
+import { json, errorJson, proxyJson } from './http.mjs'
 import { spawnLogged, killChild } from './proc.mjs'
 
 const JEV_HUB_PORT = Number(process.env.PALAMEDE_JEV_PORT || 4610)
@@ -66,7 +66,7 @@ export async function handleJev(req, res, path) {
   }
   if (sub === '/start' && req.method === 'POST') {
     try { return json(res, 200, await startJevHub()) }
-    catch (e) { return json(res, 500, { error: { message: e.message } }) }
+    catch (e) { return errorJson(res, e) }
   }
   if (sub === '/stop' && req.method === 'POST') {
     stopJevHub()

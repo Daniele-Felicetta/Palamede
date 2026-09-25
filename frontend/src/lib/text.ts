@@ -19,7 +19,7 @@ export namespace Text {
     name: string      // nome breve
     family: string    // famiglia / architettura
     quant: string     // quantizzazione, es. 'Q4_K_M'
-    vramGB: string    // peso disco, es. '20.2 GB'
+    diskGB: string    // peso disco, es. '20.2 GB'
     moe: boolean      // Mixture of Experts
     mova: boolean     // Mixture-of-Value attention (K2 Horizon)
     context: number   // contesto consigliato
@@ -38,7 +38,7 @@ export namespace Text {
       name: 'Ornith 1.5 35B-A3B',
       family: 'Ornith-AI · MoE 3B attivi',
       quant: 'Q4_K_M',
-      vramGB: '20.2 GB',
+      diskGB: '20.2 GB',
       moe: true,
       mova: false,
       movaCpu: false,
@@ -55,7 +55,7 @@ export namespace Text {
       name: 'Ornith 1.5 9B',
       family: 'Ornith-AI',
       quant: 'Q4_K_M',
-      vramGB: '5.2 GB',
+      diskGB: '5.2 GB',
       moe: false,
       mova: false,
       movaCpu: false,
@@ -72,7 +72,7 @@ export namespace Text {
       name: 'Ornith 1.5 9B',
       family: 'Ornith-AI',
       quant: 'Q5_K_M',
-      vramGB: '6.1 GB',
+      diskGB: '6.1 GB',
       moe: false,
       mova: false,
       movaCpu: false,
@@ -89,7 +89,7 @@ export namespace Text {
       name: 'K2 Horizon 7B',
       family: 'IFM · dense · reasoning',
       quant: 'Q4_K_M',
-      vramGB: '5.2 GB',
+      diskGB: '5.2 GB',
       moe: false,
       mova: false,
       movaCpu: false,
@@ -106,7 +106,7 @@ export namespace Text {
       name: 'K2 Horizon 36B-A4B',
       family: 'IFM · MoVA · MoE 4B attivi',
       quant: 'Q4_K_M',
-      vramGB: '20.8 GB',
+      diskGB: '20.8 GB',
       moe: true,
       mova: true,
       context: 8192,
@@ -123,7 +123,7 @@ export namespace Text {
       name: 'Bonsai 27B',
       family: 'Bonsai',
       quant: 'Q1_0',
-      vramGB: '3.5 GB',
+      diskGB: '3.5 GB',
       moe: false,
       mova: false,
       movaCpu: false,
@@ -140,7 +140,7 @@ export namespace Text {
       name: 'LFM2.5 VL 3B',
       family: 'Liquid AI · vision-language',
       quant: 'Q5_K_XL',
-      vramGB: '1.8 GB',
+      diskGB: '1.8 GB',
       moe: false,
       mova: false,
       movaCpu: false,
@@ -157,7 +157,7 @@ export namespace Text {
       name: 'Gemma 4 26B-A4B',
       family: 'Google · MoE 3.8B attivi',
       quant: 'IQ3_S',
-      vramGB: '10.5 GB',
+      diskGB: '10.5 GB',
       moe: true,
       mova: false,
       movaCpu: false,
@@ -174,7 +174,7 @@ export namespace Text {
       name: 'MiniCPM5 2B',
       family: 'OpenBMB · dense',
       quant: 'Q4_K_M',
-      vramGB: '1.5 GB',
+      diskGB: '1.5 GB',
       moe: false,
       mova: false,
       movaCpu: false,
@@ -253,7 +253,7 @@ export namespace Text {
   /** Stamp "Q4_K_M · 20.2 GB" per le piastrelle modello (fallback: l'id). */
   export function modelStamp(id: string): string {
     const m = get(id)
-    return m ? `${m.quant} · ${m.vramGB}` : id
+    return m ? `${m.quant} · ${m.diskGB}` : id
   }
 
   /** Default di fabbrica dei parametri di avvio per un modello. */

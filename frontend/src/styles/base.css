@@ -22,8 +22,8 @@ body {
 }
 
 ::selection {
-  background: var(--ochre);
-  color: var(--on-ochre);
+  background: var(--accent);
+  color: var(--on-accent);
 }
 
 a {

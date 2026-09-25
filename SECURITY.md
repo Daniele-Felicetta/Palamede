@@ -77,8 +77,8 @@ whitelist** (`^[a-zA-Z0-9._-]+$` + estensione attesa) e controllo
   `enforce=true` in `experimental/model-antivirus/models.manifest.json` e
   scanner deterministico `scan-models.py --quick`. Se un modello risulta
   alterato → **avvio bloccato**.
-- Al download: audit LLM (`audit-model.py`); un file giudicato malevolo viene
-  eliminato e l'installazione fallisce.
+- Al download (solo installer CLI, `install-models.ps1`/`copy-models.ps1`): audit LLM
+  (`audit-model.py`); un file giudicato malevolo viene eliminato e l'installazione fallisce. Il Downloader della UI (`/api/downloader/download`) fa solo download + SHA-256.
 - A runtime: `torch.load(..., weights_only=True)` (mai deserializzazione
   arbitraria) e `safetensors`/GGUF (formati privi di codice eseguibile).
 
@@ -92,9 +92,9 @@ whitelist** (`^[a-zA-Z0-9._-]+$` + estensione attesa) e controllo
 
 ### Varie
 
-- **Narratore cloud opzionale**: spento di default (`/api/narrate` risponde 503
-  senza chiave). La chiave `PALAMEDE_GEMINI_API_KEY` resta **server-side**: non
-  è nel bundle né esposta al client, che vede solo `{configured, models}` da
+- **Narratore cloud opzionale**: spento di default (`/api/narrate` risponde 503 se
+  manca il flag `PALAMEDE_DEV=1` **oppure** la chiave). La chiave `PALAMEDE_GEMINI_API_KEY` resta **server-side**: non
+  non è nel bundle nù esposta al client, che vede solo { gemini: { configured, models } } da
   `GET /api/narrators`. L'endpoint valida il modello in whitelist, limita il
   prompt (~30k caratteri) e parla solo via HTTPS verso AI Studio.
 - **LM Studio** e gli altri servizi locali sono raggiungibili solo su loopback
@@ -107,11 +107,11 @@ whitelist** (`^[a-zA-Z0-9._-]+$` + estensione attesa) e controllo
 | Rischio | Impatto | Motivo dell'accettazione |
 |---|---|---|
 | **CSP `null` nella webview** (`tauri.conf.json`) | Un eventuale XSS in futuro avrebbe accesso alle API Tauri di base | Il rendering HTML è centralizzato in `Markdown.svelte` con escaping su tutto (`esc()`); serve comunque una revisione se si introduce contenuto non escapato. |
-| **Trust-on-first-use dei modelli** | Un modello sostituito su disco mantenendo dimensione e magic bytes non viene rilevato all'avvio (che usa `--quick`, senza SHA-256) | Lo SHA-256 su decine di GB all'avvio sarebbe troppo lento; il gate forte è al download (audit LLM). |
+| **Trust-on-first-use dei modelli** | Un modello sostituito su disco mantenendo dimensione e magic bytes non viene rilevato all'avvio (che usa `--quick`, senza SHA-256) | Lo SHA-256 su decine di GB all'avvio sarebbe troppo lento; il gate forte è al download (audit LLM, solo installer CLI). |
 | **Probing GET via `<img>`/`<script>`** | Lettura di file con id "non indovinabili" (`outputs/history`, `outputs/3d`) | Gli id sono `timestamp-random` (6 caratteri base36): non enumerabili, e le risposte non sono leggibili cross-origin senza CORS. |
 | **Body API senza limite dimensionale** | Un processo locale può riempire RAM/disco (img2img dataUrl, prompt lunghi) | Serve un client locale, già fuori dal modello di minaccia. |
 | **Processi figli con i privilegi dell'utente** | Un bug di parsing GGUF nei runtime C++ su file malevolo = esecuzione come utente | La verifica modelli all'avvio è l'unico gate; i modelli vanno scaricati solo da fonti ufficiali. |
-| **Knowledge base (RAG)**: endpoint `/api/kb/*` con write su disco | Path traversal / scrittura arbitraria | Tutti i path passano per `kbResolve()` (niente `..`, assoluti, backslash) + whitelist `raw/|wiki/` e `.md/.txt`; `read`/`delete`/`file` con regex + `startsWith` sulla base. |
+| **Knowledge base (RAG)**: endpoint `/api/kb/*` con write su disco | Path traversal / scrittura arbitraria | Tutti i path passano per `kbResolve()` (niente `..`, assoluti, backslash) + whitelist `raw/` e `.md/.txt`; `read`/`delete`/`file` con regex + `startsWith` sulla base. |
 | **Narratore cloud (Gemini)** | Testo e immagini della partita escono dalla macchina verso Google | Funzione opzionale, spenta senza `PALAMEDE_GEMINI_API_KEY`; chi la attiva accetta il trattamento dati di AI Studio. |
 
 ## Regole di manutenzione

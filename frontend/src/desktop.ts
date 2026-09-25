@@ -17,5 +17,6 @@ function tauri(): TauriApi | null {
 export function notify(title: string, body: string): void {
   const api = tauri()
   if (!api) return
-  api.core.invoke('notify', { title, body }).catch(() => {})
+  // non silenziare del tutto: se il bridge non risponde va in console
+  api.core.invoke('notify', { title, body }).catch((e) => console.warn('notify non disponibile:', e))
 }

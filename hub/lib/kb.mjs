@@ -7,7 +7,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync, statSync, readdirSync } from 'node:fs'
 import { join, normalize, dirname } from 'node:path'
 import { ROOT } from './root.mjs'
-import { json, readBody } from './http.mjs'
+import { json, errorJson, readBody } from './http.mjs'
 import { textStatus } from './chat.mjs'
 import { rerankStatus, startRerank, stopRerank } from './rerank.mjs'
 import {
@@ -134,7 +134,7 @@ export function createKbRoutes(queued) {
         writeFileSync(abs, content)
         return json(res, 200, { ok: true, path: rel })
       } catch (e) {
-        return json(res, 500, { error: { message: e.message } })
+        return errorJson(res, e)
       }
     }
 
@@ -167,7 +167,7 @@ export function createKbRoutes(queued) {
           const r = await indexSource(name)
           return json(res, 200, r)
         } catch (e) {
-          return json(res, 500, { error: { message: e.message } })
+          return errorJson(res, e)
         }
       })
     }
@@ -185,7 +185,7 @@ export function createKbRoutes(queued) {
         try {
           return json(res, 200, await indexSource(source))
         } catch (e) {
-          return json(res, 500, { error: { message: e.message } })
+          return errorJson(res, e)
         }
       })
     }

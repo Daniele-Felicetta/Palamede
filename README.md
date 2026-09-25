@@ -2,9 +2,9 @@
 
 Hub locale per modelli generativi sulla tua GPU. Una UI unica con **sidebar
 metriche** (CPU/RAM/GPU), un **unico backend dinamico** che carica il modello
-giusto quando lo selezioni (mai due modelli in VRAM insieme), e una **wiki**
-per ogni sezione con funzionamento, ingombri, tempi misurati, qualità ed
-esempi generati dai modelli stessi.
+giusto quando lo selezioni (mai due modelli in VRAM insieme), e una **wiki** con
+funzionamento, ingombri, tempi misurati, qualità ed
+esempi generati dai modelli stessi (oggi completa per **Immagini**; le altre sezioni hanno note inline).
 
 **Stato**: **Immagini**, **Chat** e **RAG** sono operative: quattro
 modelli immagine (**Bonsai 4B ternary**, **Z-Image Turbo Q4_K_M**, **Klein 4B
@@ -14,7 +14,7 @@ Horizon 7B e 36B-A4B, Bonsai 27B, LFM2.5 VL 3B, Gemma 4 26B e MiniCPM5 2B)
 via llama.cpp, un **Banco di prova** che
 ne misura qualità e velocità, e una **knowledge base RAG in stile
 NotebookLM** in `knowledge/` — fonti spezzate in chunk ed embedded localmente,
-interrogate con retrieval ibrido + rerank (MiniCPM 2B) e risposte grounded con
+interrogate con retrieval ibrido + rerank (MiniCPM5 2B) e risposte grounded con
 citazioni cliccabili. Il **3D** è
 ora **operativo**: la pipeline image-to-3D **TRELLIS.2** genera un asset 3D
 (completo di mesh + materiali PBR) da una singola immagine, esportato in GLB
@@ -35,7 +35,7 @@ narratore locale, e in opzione cloud). La sezione **MCP** resta bozza con wiki.
 Le cartelle in sintesi; per l'albero completo, manutenuto automaticamente,
 vedi **MAPPA.md** (si rigenera con `.\scripts\gen-mappa.ps1`).
 
-- `backends/` — modelserver.py (modelli immagine) + gemlite_loader.py + trellis_server.py (3D) + wan_server.py (video, prova non cablata) + requirements.txt
+- `backends/` — modelserver.py (modelli immagine) + gemlite_loader.py + trellis_server.py (3D) + wan_server.py + wan_attention.py (video, prova non cablata) + requirements.txt
 - `hub/` — server.mjs: statici + proxy + metriche + coda GPU + chat/knowledge/3D + giochi (storie) + narratori + JEV
 - `frontend/` — Vite + Svelte 5 + TS (la UI)
 - `src-tauri/` — app desktop nativa Tauri v2 (tray + notifiche + Job Object)
@@ -54,7 +54,7 @@ C'è **un solo backend** (`backends/modelserver.py`, :8000): tiene in VRAM
 
 - Selezioni **Bonsai** → il server carica la `GpuPipeline` gemlite (~6 GB).
 - Selezioni **Z-Image** → scarica bonsai e **spawna sd-server** come
-   subprocess (~8.5 GB); deselezionando, lo termina e libera la VRAM.
+   subprocess (~5 GB con il text encoder su RAM, ~8.5 GB tutto su GPU); deselezionando, lo termina e libera la VRAM.
 - La sidebar mostra CPU/RAM/GPU/VRAM in tempo reale e il modello attivo.
 
 ## Setup (una tantum)
@@ -169,6 +169,7 @@ Invoke-RestMethod -Uri 'http://127.0.0.1:4600/api/image' -Method Post `
 | `POST /api/select` | carica/scarica `{model: "bonsai"\|"zimage"\|"klein"\|"qwenimage"}` |
 | `POST /api/image` | `{model, prompt, steps, seed, width, height, count}` → `{images:[{dataUrl,timeMs,seed}]}` |
 | `GET /api/metrics` | CPU/RAM/GPU (usata dalla sidebar) |
+| `GET /api/doc` | documenti del progetto (README, SPEC, MAPPA, SECURITY) in markdown |
 | `GET /api/bench` | benchmark modelli testuali (`outputs/benchmark/summary.json`; 404 se assente) |
 | `GET /api/bench-images` | benchmark modelli immagine (`outputs/benchmark-images/summary.json`; 404 se assente) |
 | `GET /api/bench-images/file/<model>/<file>.png` | immagine generata dal benchmark (galleria) |
@@ -213,7 +214,7 @@ RAG vettoriale in stile **NotebookLM**: le fonti grezze stanno in
 `knowledge/raw/`, vengono spezzate in **chunk** ed **embedded** localmente
 (Ollama `embeddinggemma`). Ogni domanda recupera i frammenti rilevanti
 (retrieval ibrido coseno + keyword fusi con RRF, poi **rerank** col modello
-dedicato MiniCPM 2B, llama-server separato `:8125` che si spegne da solo
+dedicato MiniCPM5 2B, llama-server separato `:8125` che si spegne da solo
 dopo ~60s di inattività) e il modello risponde **solo da quelli**, citando
 `[n]` cliccabili che aprono la fonte con il passaggio evidenziato.
 
@@ -230,13 +231,28 @@ dall'indice.
 
 ## Benchmark misurati (RTX 5060 Ti 16 GB, GPU dedicata)
 
-| Modello | Risoluzione | Cold-shape | Warm |
+| Modello | Risoluzione | Primo colpo | Warm |
 |---|---|---|---|
-| Bonsai ternary (4 step) | 512² | 4.0 s | **1.8 s** |
-| Bonsai ternary (4 step) | 1024² | 19.4 s | **6.4 s** |
-| Z-Image Q4 (8 step) | 512² | 5.6 s | **3.3 s** |
-| Z-Image Q4 (8 step) | 1024² | 17.1 s | **17.8 s** |
+| Bonsai 4B ternary (4 step) | 512² | 20.2 s | **1.8 s** |
+| Bonsai 4B ternary (4 step) | 1024² | 7.3 s | **6.3 s** |
+| Klein 4B Q4 (4 step) | 512² | 7.8 s | **5.4 s** |
+| Klein 4B Q4 (4 step) | 1024² | 10.4 s | **10.4 s** |
+| Z-Image Turbo Q4 (8 step) | 512² | 8.5 s | **3.8 s** |
+| Z-Image Turbo Q4 (8 step) | 1024² | 17.7 s | **17.6 s** |
+| Qwen-Image 2.1 Q4 (40 step) | 512² | 28.4 s | **20.8 s** |
+| Qwen-Image 2.1 Q4 (40 step) | 1024² | 122.9 s | **92.9 s** |
 
+Primo colpo = prima generazione a quella risoluzione: paga JIT/autotune e
+cache, per questo il 512$sup2 di Bonsai sembra piu
+ú
+ lento del 1024$sup2 (e' il
+primo shape provato). Warm = minimo di 2 generazioni a regime.
+Valori da `outputs/benchmark-images/summary.json` (2026-09-24); la pagina
+**Banco** mostra le stesse misure con la classifica per qualita
+à
+ e velocita
+à
+.
 I dettagli (ingombri, VRAM, qualità, prompt degli esempi) sono nella wiki
 delle pagine **Immagini** e in `SPEC.md`.
 

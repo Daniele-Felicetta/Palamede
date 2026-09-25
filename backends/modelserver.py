@@ -265,7 +265,9 @@ class ModelManager:
         try:
             self._wait_sd_ready()
         except Exception:
-            self._unload()
+            # Il processo appena spawnato va fermato qui: _unload() non lo
+            # vede perche' self._current e' ancora None (assegnato sotto).
+            self._kill_sd()
             raise
         self._sd_model = model
         self._current = model
@@ -363,8 +365,14 @@ class ModelManager:
             body["sampler_name"] = gen["sampler"]
         url = f"http://127.0.0.1:{SD_PORT}/sdapi/v1/txt2img"
         if image:
-            # img2img: dataUrl → base64 nudo, con la forza di denoise richiesta
-            b64 = image.split(",", 1)[1] if image.startswith("data:") else image
+            # img2img: dataUrl ��' base64 nudo, con la forza di denoise richiesta
+            if image.startswith("data:"):
+                parts = image.split(",", 1)
+                if len(parts) != 2:
+                    raise ValueError("dataUrl malformato: manca la virgola dopo il prefisso")
+                b64 = parts[1]
+            else:
+                b64 = image
             body["init_images"] = [b64]
             body["denoising_strength"] = strength
             url = f"http://127.0.0.1:{SD_PORT}/sdapi/v1/img2img"

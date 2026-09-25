@@ -32,7 +32,7 @@ import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { PORT, BACKEND, TRELLIS, ROOT } from './lib/root.mjs'
-import { json, proxyJson, proxyBinary, readBody } from './lib/http.mjs'
+import { json, errorJson, proxyJson, proxyBinary, readBody } from './lib/http.mjs'
 import { allowedHost, allowedOrigin } from './lib/guards.mjs'
 import { createQueue } from './lib/queue.mjs'
 import { currentMetrics, startMetrics } from './lib/metrics.mjs'
@@ -121,7 +121,7 @@ async function handleApi(req, res, path) {
         // in coda come /chat/start: il frontend vede running:true subito.
         return json(res, 200, s)
       } catch (e) {
-        return json(res, 500, { error: { message: e.message } })
+        return errorJson(res, e)
       }
     })
   }
@@ -178,7 +178,7 @@ async function handleApi(req, res, path) {
         const body = await readBody(req)
         return json(res, 200, await startText(body))
       } catch (e) {
-        return json(res, 500, { error: { message: e.message } })
+        return errorJson(res, e)
       }
     })
   }
@@ -297,7 +297,11 @@ createServer(async (req, res) => {
     res.writeHead(405, { 'Content-Type': 'application/json' })
       .end(JSON.stringify({ error: { message: 'metodo non ammesso' } }))
   } catch (e) {
-    res.writeHead(500, { 'Content-Type': 'application/json' })
+    // `err.status` (es. 400 da readBody) se presente, altrimenti 500. Se gli
+    // header sono gia' partiti non si puo' piu' scrivere una risposta.
+    if (res.headersSent) { res.end(); return }
+    const status = e && typeof e.status === 'number' ? e.status : 500
+    res.writeHead(status, { 'Content-Type': 'application/json' })
       .end(JSON.stringify({ error: { message: e.message } }))
   }
 }).listen(PORT, '127.0.0.1', () => {

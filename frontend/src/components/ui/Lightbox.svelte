@@ -75,7 +75,9 @@
       if (e.target === e.currentTarget) onclose?.()
     }}
     onkeydown={(e) => {
-      if (e.key === 'Enter' || e.key === ' ') onclose?.()
+      // solo se il focus e' sul contenitore: dai bottoni nav/close l'evento
+      // bubble e premere Invio/Spazio li attiverebbe E chiuderebbe il dialogo.
+      if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) onclose?.()
     }}
   >
     <div class="lb-bar">

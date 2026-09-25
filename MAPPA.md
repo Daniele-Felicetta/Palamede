@@ -12,7 +12,7 @@
 
 <!-- GEN:ALBERO -->
 ```text
-Palamede/                       (repo git · aggiornata: 2026-09-25 19:12)
+Palamede/                       (repo git · aggiornata: 2026-09-25 19:55)
 ├── backends/
 ├── experimental/
 ├── frontend/
@@ -100,6 +100,7 @@ Palamede/                       (repo git · aggiornata: 2026-09-25 19:12)
 - `setup-trellis.ps1` — one-time TRELLIS: deps pip + native da sorgente (flex_gemm, cumesh, o_voxel, nvdiffrast) + decoder Stage1 (`ss_dec_conv3d_16l8_fp16`). Popola `reference/trellis-venv` (Py3.13 + torch cu130); se manca lo crea.
 - `start-trellis.ps1` — avvia il server 3D TRELLIS (:8124, venv separato); gestito anche dal hub (`/api/3d/start`).
 - `bench-text.mjs` (+ `bench-text.evalset.json`) / `bench-images.mjs` — banco di prova dei modelli testuali (llama-server :8127 via `BENCH_PORT`) e immagine (giudice :8122 via `BENCH_JUDGE_PORT`); scrivono `outputs/benchmark*/summary.json`.
+- `check-offsets.mjs` — verifica eseguibile degli offset di `chunkText` (RAG) su LF/CRLF/CR/misti: `node scripts/check-offsets.mjs`.
 - `sign.ps1` — firma Authenticode opzionale dell'exe (`PALAMEDE_CERT_*`).
 - `gguf_fix_shapes.py` / `gguf_to_safetensors.py` / `t5_to_t5encoder_gguf.py` — utilità di conversione pesi (una tantum).
 - `wan_smoke.py` / `wan_validate_t5.py` / `launch_detached.py` / `sdcpp-preview.patch` — supporto alla prova video Wan2.1 e alla build sd-cpp patchata (preview).

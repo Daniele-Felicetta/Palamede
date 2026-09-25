@@ -61,8 +61,12 @@ export namespace Images {
     return SIZES.some(([v]) => v === size)
   }
 
-  /** Legge un file immagine come dataURL (Promise). Rifiuta se il tipo
-   *  non è image/* o se la lettura fallisce. */
+  /** Legge un file immagine come dataURL (Promise). I formati che il backend
+   *  non sa decodificare — AVIF, WebP, … — vengono ricodificati in **PNG** via
+   *  canvas, così img2img/3D funzionano con qualunque formato il browser sappia
+   *  aprire (l'anteprima la fa il browser, ma sd-server usa `stb_image` e
+   *  TRELLIS PIL: niente AVIF/WebP). PNG e JPEG passano tal quali.
+   *  Rifiuta se il tipo non è image/* o se la decodifica fallisce. */
   export function readImageAsDataURL(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
       if (!file.type.startsWith('image/')) {
@@ -70,9 +74,43 @@ export namespace Images {
         return
       }
       const r = new FileReader()
-      r.onload = () => resolve(r.result as string)
+      r.onload = () => {
+        const dataUrl = r.result as string
+        if (file.type === 'image/png' || file.type === 'image/jpeg') {
+          resolve(dataUrl)
+          return
+        }
+        toPngDataUrl(dataUrl).then(resolve, () =>
+          reject(new Error(`formato ${file.type || 'sconosciuto'} non supportato: usa PNG o JPEG`)))
+      }
       r.onerror = () => reject(new Error('lettura dell\'immagine fallita'))
       r.readAsDataURL(file)
+    })
+  }
+
+  /** Ricodifica un dataURL in PNG via canvas, ridimensionando il lato lungo a
+   *  `max` px (per non gonfiare il payload con sorgenti enormi). Serve a
+   *  normalizzare i formati che il decoder del backend non legge. */
+  function toPngDataUrl(dataUrl: string, max = 2048): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const img = new Image()
+      img.onload = () => {
+        try {
+          const side = Math.max(img.naturalWidth || 1, img.naturalHeight || 1)
+          const scale = Math.min(1, max / side)
+          const c = document.createElement('canvas')
+          c.width = Math.max(1, Math.round((img.naturalWidth || 1) * scale))
+          c.height = Math.max(1, Math.round((img.naturalHeight || 1) * scale))
+          const ctx = c.getContext('2d')
+          if (!ctx) { reject(new Error('canvas non disponibile')); return }
+          ctx.drawImage(img, 0, 0, c.width, c.height)
+          resolve(c.toDataURL('image/png'))
+        } catch (e) {
+          reject(e instanceof Error ? e : new Error(String(e)))
+        }
+      }
+      img.onerror = () => reject(new Error('decodifica immagine fallita'))
+      img.src = dataUrl
     })
   }
 

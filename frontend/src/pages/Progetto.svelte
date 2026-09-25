@@ -5,6 +5,9 @@
 
   // Pagina Progetto: la documentazione dell'officina (mappa, README, SPEC)
   // servita dal hub e resa col mini-renderer markdown del progetto.
+  // `embed` = montata dentro la pagina Extra: niente eyebrow/h1/lede propri.
+  let { embed = false }: { embed?: boolean } = $props()
+
   const DOCS = [
     { id: 'mappa', label: 'Mappa', file: 'MAPPA.md' },
     { id: 'readme', label: 'README', file: 'README.md' },
@@ -29,9 +32,11 @@
   })
 </script>
 
-<Eyebrow>Progetto · documentazione</Eyebrow>
-<h1>Il progetto</h1>
-<p class="lede">Mappa di struttura, README operativo e specifica tecnica: tutta la documentazione dell'officina, qui dentro.</p>
+{#if !embed}
+  <Eyebrow>Progetto · documentazione</Eyebrow>
+  <h1>Il progetto</h1>
+  <p class="lede">Mappa di struttura, README operativo e specifica tecnica: tutta la documentazione dell'officina, qui dentro.</p>
+{/if}
 
 <Tabs
   items={DOCS.map((d) => ({ id: d.id, label: d.label }))}
@@ -39,7 +44,7 @@
   onselect={(id) => (doc = id as DocId)}
 />
 
-<section class="wiki" style="margin-top: 18px">
+<section class={`wiki${embed ? ' wiki-embed' : ''}`}>
   <article class="wiki-entry">
     {#if err}<p class="wiki-body">Errore nel caricamento: {err}</p>{:else if text === null}<p class="wiki-body" style="color: var(--paper-dim)">Caricamento…</p>{:else}<div class="wiki-body"><Markdown text={text} /></div>{/if}
   </article>

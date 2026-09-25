@@ -31,6 +31,7 @@ export interface ModelInfo {
   name: string
   engine: string
   loaded: boolean
+  available?: boolean
 }
 
 export interface ModelsStatus {

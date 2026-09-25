@@ -38,7 +38,11 @@ import { proxyLmStudio } from './lib/lmstudio.mjs'
 import { createHistoryRoutes } from './lib/history.mjs'
 import { createStoriesRoutes } from './lib/stories.mjs'
 import { createKbRoutes } from './lib/kb.mjs'
+import { createChatsRoutes } from './lib/chats.mjs'
 import { handleDoc } from './lib/docs.mjs'
+import { handleBench, handleBenchImages, handleBenchImageFile } from './lib/bench.mjs'
+import { downloaderList, availability } from './lib/catalog.mjs'
+import { startDownload, downloadStatus, cancelDownload } from './lib/downloader.mjs'
 import { handleJev } from './lib/jev.mjs'
 import { serveStatic } from './lib/static.mjs'
 
@@ -47,6 +51,7 @@ const queued = createQueue()
 const handleHistory = createHistoryRoutes(queued)
 const handleStories = createStoriesRoutes(queued)
 const handleKb = createKbRoutes(queued)
+const handleChats = createChatsRoutes(queued)
 
 startMetrics()
 
@@ -71,7 +76,17 @@ async function handleApi(req, res, path) {
   }
 
   if (path === '/api/models' && req.method === 'GET') {
-    return proxyJson(req, res, '/models', 10_000, BACKEND)
+    // annota ogni modello col fato che i file siano presenti (available):
+    // il frontend nasconde le card dei modelli non scaricati.
+    try {
+      const r = await fetch(BACKEND + '/models', { signal: AbortSignal.timeout(10_000) })
+      const j = await r.json()
+      const av = availability()
+      const models = (j.models || []).map((m) => ({ ...m, available: av[m.id] !== false }))
+      return json(res, 200, { ...j, models })
+    } catch {
+      return json(res, 502, { error: { message: 'backend non raggiungibile' } })
+    }
   }
 
   if (path === '/api/select' && req.method === 'POST') {
@@ -172,6 +187,11 @@ async function handleApi(req, res, path) {
     return proxyChat(req, res)
   }
 
+  // ── conversazioni chat persistite (outputs/chats) ─────────────────────
+  if (path.startsWith('/api/chats')) {
+    return handleChats(req, res, path)
+  }
+
   // ── narratori cloud (Gemini via AI Studio, chiave solo server-side) ───
   if (path === '/api/narrators' && req.method === 'GET') {
     return json(res, 200, { gemini: geminiStatus() })
@@ -189,6 +209,38 @@ async function handleApi(req, res, path) {
   // ── documentazione del progetto (sezione Progetto nella UI) ───────────
   if (path === '/api/doc' && req.method === 'GET') {
     return handleDoc(req, res)
+  }
+
+  // ── benchmark dei modelli testuali (sezione Banco nella UI) ───────────
+  if (path === '/api/bench' && req.method === 'GET') {
+    return handleBench(req, res)
+  }
+
+  // ── benchmark dei modelli immagine + immagini generate ────────────────
+  if (path === '/api/bench-images' && req.method === 'GET') {
+    return handleBenchImages(req, res)
+  }
+  if (path.startsWith('/api/bench-images/file/') && req.method === 'GET') {
+    return handleBenchImageFile(req, res, path)
+  }
+
+  // ── downloader modelli (pagina Downloader): catalogo + job di download ─
+  if (path === '/api/downloader' && req.method === 'GET') {
+    return json(res, 200, downloaderList())
+  }
+  if (path === '/api/downloader/status' && req.method === 'GET') {
+    return json(res, 200, downloadStatus())
+  }
+  if (path === '/api/downloader/download' && req.method === 'POST') {
+    try {
+      const body = await readBody(req)
+      return json(res, 200, startDownload(body.id))
+    } catch (e) {
+      return json(res, 409, { error: { message: e.message } })
+    }
+  }
+  if (path === '/api/downloader/cancel' && req.method === 'POST') {
+    return json(res, 200, cancelDownload())
   }
 
   // ── JEV Hub: servizio dedicato che elenca/avvia i progetti jev (:4610) ──

@@ -5,6 +5,14 @@
   padding-top: 36px;
 }
 
+/* dentro la pagina Extra il blocco ha già la sua intestazione: niente
+   separatore né margine extra sopra il documento. */
+.wiki.wiki-embed {
+  border-top: none;
+  margin-top: 16px;
+  padding-top: 0;
+}
+
 .wiki-entry {
   margin-top: 32px;
 }

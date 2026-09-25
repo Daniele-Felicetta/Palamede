@@ -59,6 +59,7 @@ export async function chatStream(
   temperature: number,
   system?: string,
   maxTokens?: number,
+  signal?: AbortSignal,
 ): Promise<ReadableStream<Uint8Array>> {
   const msgs: { role: string; content: string | ChatContentPart[] }[] = system
     ? [{ role: 'system', content: system }, ...messages]
@@ -72,6 +73,7 @@ export async function chatStream(
       temperature,
       ...(maxTokens ? { max_tokens: maxTokens } : {}),
     }),
+    signal,
   })
   if (!r.ok || !r.body) throw new Error(`chat HTTP ${r.status}`)
   return r.body

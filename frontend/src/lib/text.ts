@@ -11,7 +11,7 @@
 //   let m: Text.ModelId = 'ornith-9b'
 
 export namespace Text {
-  export type ModelId = 'ornith-35b' | 'ornith-9b' | 'ornith-9b-q5' | 'k2-7b' | 'k2-36b' | 'bonsai-27b' | 'lfm-vl-3b' | 'gemma-4-26b'
+  export type ModelId = 'ornith-35b' | 'ornith-9b' | 'ornith-9b-q5' | 'k2-7b' | 'k2-36b' | 'bonsai-27b' | 'lfm-vl-3b' | 'gemma-4-26b' | 'minicpm5-2b'
 
   /** Dati canonici per-modello. */
   export interface Model {
@@ -167,6 +167,23 @@ export namespace Text {
       mtp: false,
       cpuMoe: -1,
       temperature: 0.6,
+      thinking: false,
+    },
+    {
+      id: 'minicpm5-2b',
+      name: 'MiniCPM5 2B',
+      family: 'OpenBMB · dense',
+      quant: 'Q4_K_M',
+      vramGB: '1.5 GB',
+      moe: false,
+      mova: false,
+      movaCpu: false,
+      context: 8192,
+      kv: 'q8_0',
+      gpuLayers: 99,
+      mtp: false,
+      cpuMoe: 0,
+      temperature: 0.7,
       thinking: false,
     },
   ]

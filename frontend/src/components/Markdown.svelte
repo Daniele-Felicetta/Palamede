@@ -142,7 +142,7 @@
           t += '</tr>'
         }
         t += '</tbody></table>'
-        out.push(t)
+        out.push(`<div class="md-table">${t}</div>`)
         continue
       }
 

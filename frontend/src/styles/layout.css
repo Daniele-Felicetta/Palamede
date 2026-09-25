@@ -203,6 +203,12 @@ section {
   letter-spacing: -0.3px;
 }
 
+/* sottotitolo di sezione (SectionHead level=3): un gradino sotto il sec-title,
+   usato quando un blocco ha un proprio titolo più grande sopra. */
+.sec-title-sub {
+  font-size: 20px;
+}
+
 .sec-sub {
   color: var(--paper-dim);
   font-size: 14px;

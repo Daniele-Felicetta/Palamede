@@ -8,10 +8,12 @@ che parla con più backend locali; ogni sezione (Immagini, Testo, 3D,
 RAG, MCP) ha la sua **wiki** con funzionamento, ingombri, tempi misurati,
 qualità ed esempi generati dai modelli stessi.
 
-Stato attuale: **Immagini, Chat e RAG sono funzionanti** — quattro modelli
-immagine (Bonsai 4B ternary, Z-Image Turbo Q4_K_M, Klein 4B FLUX.2 e
-Qwen-Image 2.1 Q4_K_M), chat locale con Ornith
-1.5 (35B-A3B e 9B) via llama.cpp, e una **knowledge base RAG in stile
+Stato attuale: **Immagini, Chat, RAG e Banco sono funzionanti** — quattro
+modelli immagine (Bonsai 4B ternary, Z-Image Turbo Q4_K_M, Klein 4B FLUX.2 e
+Qwen-Image 2.1 Q4_K_M), chat locale con nove modelli testuali (Ornith
+1.5 35B-A3B/9B, K2 Horizon 7B/36B-A4B, Bonsai 27B, LFM2.5 VL 3B, Gemma 4 26B,
+MiniCPM5 2B) via llama.cpp, il **Banco di prova** che ne misura qualità e
+velocità, e una **knowledge base RAG in stile
 NotebookLM** in `knowledge/`: le fonti vengono spezzate in chunk ed embedded
 localmente (Ollama `embeddinggemma`), interrogate con retrieval ibrido e
 rerank dedicato (MiniCPM 2B), con risposte grounded e citazioni `[n]`
@@ -131,6 +133,11 @@ senza toccare `reference/`.
 | Ornith 1.5 9B | `ornith-1.5-9b/Ornith-1.5-9B-Q4_K_M.gguf` | 5.2 GB | dense, chat |
 | Ornith 1.5 9B Q5 | `ornith-1.5-9b/Ornith-1.5-9B-Q5_K_M.gguf` | 6.1 GB | dense, chat (qualità) |
 | Bonsai 27B | `bonsai-27b/Bonsai-27B-Q1_0.gguf` | 3.5 GB | dense, chat (thinking opzionale) |
+| K2 Horizon 7B | `k2-7b/K2-Horizon-7B-Q4_K_M.gguf` | 5.2 GB | dense, chat (reasoning) |
+| K2 Horizon 36B-A4B MoVA | `k2-36b/K2-Horizon-MoVA-36B-A4B-Q4_K_M.gguf` | 20.8 GB | MoE 4B attivi + MoVA, chat |
+| LFM2.5 VL 3B | `lfm-vl-3b/LFM2.5-VL-3B-Q5_K_XL.gguf` | 1.8 GB | vision-language, chat |
+| Gemma 4 26B-A3.8B | `gemma-4-26b/gemma-4-26B-A4B-it-UD-IQ3_S.gguf` | 10.5 GB | MoE 3.8B attivi, chat |
+| MiniCPM5 2B | `minicpm5-2b/MiniCPM5-2B-Q4_K_M.gguf` | 1.5 GB | dense, chat (+ reranker RAG) |
 
 > **In bozza (`models/_inutilizzati/`)**: Wan 2.1 T2V 1.3B (+ VAE, UMT5-XXL) e Klein 9B BF16 sono sospesi, non referenziati dal codice.
 
@@ -409,10 +416,13 @@ Pagine:
 |---|---|
 | `/` | Home hub: eroe compatto (headline + **registro di bordo live**: backend, modello in VRAM, barra GPU) · **card Applicazioni subito visibili** · sotto, **Le applicazioni nel dettaglio** con le descrizioni · in coda **Misure sul banco** |
 | `/images` | Generatore funzionante (due modelli) + gallery locale + wiki dei due modelli con esempi reali |
-| `/chat` | **Chat funzionante**: Ornith 35B-A3B / 9B / 9B-Q5, streaming con ragionamento mostrato, impostazioni (contesto, KV quant, MTP, layer MoE su CPU, layer GPU, temperatura, toggle thinking (default off)), avvio/stop server, **toggle knowledge on** per rispondere dalle tue fonti con citazioni `[n]` cliccabili |
+| `/chat` | **Chat funzionante**: 9 modelli locali (Ornith 35B-A3B / 9B / 9B-Q5, K2 Horizon 7B / 36B-A4B, Bonsai 27B, LFM2.5 VL 3B, Gemma 4 26B, MiniCPM5 2B), streaming con ragionamento mostrato, impostazioni (contesto, KV quant, MTP, layer MoE su CPU, layer GPU, temperatura, toggle thinking (default off)), avvio/stop server, **toggle knowledge on** per rispondere dalle tue fonti con citazioni `[n]` cliccabili. **Solo i modelli installati** compaiono nel selettore. |
+| `/downloader` | **Downloader**: catalogo dei modelli (dal migliore al peggiore) con nome, peso, requisiti di sistema e sorgente ufficiale; scarica i pesi in `models/` con progresso e verifica SHA-256. Catalogo condiviso con l'installer CLI (`scripts/models.catalog.json`). |
+| `/bench` | **Banco di prova** (rotta propria, montata anche dentro `/extra`): benchmark dei modelli testuali (qualità su eval set oggettivo + velocità llama-bench) e dei generatori di immagini (tempi cold/warm a 512²/1024² + qualità da VLM judge), con tabelle, classifiche per qualità/velocità/combinata, dettaglio per categoria e galleria. Dati da `outputs/benchmark/` e `outputs/benchmark-images/` via `/api/bench` e `/api/bench-images`. |
 | `/rag` | **Knowledge base RAG funzionante** (stile NotebookLM): aggiungi fonti (paste o drag&drop `.md/.txt`), indicizzazione chunk+embedding, chat grounded con citazioni, fonte aperta con il chunk citato evidenziato |
 | `/3d` | **Generatore 3D funzionante**: upload immagine, qualità 512/1024, viewer three.js, download GLB + STL, sezione Server per start/stop del server TRELLIS. |
 | `/mcp` | Bozza: wiki del tipo di modello + checklist requisiti + stato non installato. |
+| `/extra` | Extra: Progetto (documentazione), **Banco di prova** (benchmark modelli testuali e immagine), Experimental (registro prove) e Giochi, impilati in un'unica pagina (le rotte `/progetto`, `/bench`, `/experimental`, `/games` restano auto-routate ma fuori dalla nav). |
 
 ## Script
 
@@ -421,6 +431,7 @@ Pagine:
 | `scripts/start.ps1` + `start.bat` | **avvio a un comando**: controlla cosa è attivo, avvia il resto, apre il browser |
 | `scripts/setup.ps1` | one-time: npm install, build frontend, scarica tools/sd-cpp **e tools/llama-cpp** |
 | `scripts/copy-models.ps1` | ricopia i pesi da `reference/` in `models/` |
+| `scripts/install-models.ps1` + `install.bat` | **installer interattivo**: catalogo (`models.catalog.json`) dei modelli testuali e immagine ordinato dal migliore al peggiore con giudizi (consigliato/alternativa/sconsigliato) e misure del Banco; scarica i pesi scelti da fonti ufficiali (o copia da `reference/`) con audit |
 | `scripts/start-backend.ps1` | UNICO modello server :8000 (caricamento dinamico bonsai/zimage) |
 | `scripts/start-hub.ps1` | node hub/server.mjs :4600 (statici+proxy+metriche+chat) |
 | `scripts/stop-all.ps1` + `stop.bat` | ferma hub, modello server (e subprocess sd-server) e llama-server |

@@ -12,7 +12,7 @@
 
 <!-- GEN:ALBERO -->
 ```text
-Palamede/                       (repo git · aggiornata: 2026-09-24 13:00)
+Palamede/                       (repo git · aggiornata: 2026-09-24 15:18)
 ├── backends/
 ├── experimental/
 ├── frontend/
@@ -29,6 +29,7 @@ Palamede/                       (repo git · aggiornata: 2026-09-24 13:00)
 ├── .editorconfig
 ├── .gitattributes
 ├── .gitignore
+├── install.bat
 ├── LICENSE
 ├── MAPPA.md
 ├── Palamede.exe   (gitignored)
@@ -54,7 +55,7 @@ Palamede/                       (repo git · aggiornata: 2026-09-24 13:00)
 
 - `src/main.ts` — entry Svelte 5, monta `App.svelte` (auto-routing da `pages/*.svelte`).
 - `src/App.svelte` — auto-routing **lazy** (ogni `pages/*.svelte` è un chunk separato; fallback Home + stati caricamento/errore).
-- `src/api/` — client per domini (`http`, `image`, `chat`, `history`, `story`, `kb`, `trellis`, `doc`; `index.ts` riesporta tutto, gli import `from '../api'` restano validi).
+- `src/api/` — client per domini (`http`, `image`, `chat`, `history`, `story`, `kb`, `trellis`, `doc`, `bench`, `downloader`; `index.ts` riesporta tutto, gli import `from '../api'` restano validi).
 - `src/lib/` — logica riusabile: `images` (formati, lettura file, downscale per VLM), `text` (registri modelli, parser SSE), `download` (saveBlob/downloadUrl/dataUrlToBytes), `viewer3d` (viewer orbitale three.js), `rag` (prompt grounded, parsing citazioni, evidenziazione chunk).
 - `src/styles/` — CSS a sezioni (`tokens`, `base`, `layout`, `home`, `images`, `chat`, `wiki`, `shell`, `rag`, `misc`) importate in ordine da `styles.css` (stessa cascata di prima, file navigabili).
 - `src/styles/tokens.css` — design tokens (variabili dark/light). Niente font da CDN: l'officina è offline, i token ripiegano sui font di sistema.
@@ -65,14 +66,14 @@ Palamede/                       (repo git · aggiornata: 2026-09-24 13:00)
 - `src/data/sections.ts` — fonte delle sezioni/nav (8 route, flag live).
 - `src/data/wiki.ts` — contenuti wiki modelli (BONSAI/ZIMAGE/KLEIN/ORNITH/DRAFTS).
 - `src/components/` — Layout (shell+metriche), Markdown (renderer zero-dep con escaping + allowlist http/https + citazioni `[n]` cliccabili), WikiEntry, Shot, ReasonBlock, Draft, SourceView (fonte con chunk evidenziato), SourceCards (card delle fonti citate) + `ui/` (design system).
-- `src/pages/` — Home, Images (3 modelli+img2img+gallery), Chat (streaming SSE Ornith + knowledge grounded con citazioni), Rag (RAG stile NotebookLM: fonti, chat con le fonti, evidenziazione chunk), 3d (viewer three.js + GLB/STL), Extra (Progetto + Experimental + Giochi impilati; le vecchie rotte `/progetto`, `/experimental`, `/games` restano auto-routate ma fuori dalla nav).
+- `src/pages/` — Home, Images (3 modelli+img2img+gallery), Chat (streaming SSE, 9 modelli locali + knowledge grounded con citazioni), Downloader (catalogo + download modelli), Bench (benchmark modelli testuali e immagine: qualità + velocità + galleria), Rag (RAG stile NotebookLM: fonti, chat con le fonti, evidenziazione chunk), 3d (viewer three.js + GLB/STL), Extra (Progetto + **Banco** + Experimental + Giochi impilati; le vecchie rotte `/progetto`, `/bench`, `/experimental`, `/games` restano auto-routate ma fuori dalla nav).
 - `public/` — palamede_icon.png, examples/ (8 immagini committate).
 - Config: `package.json` (svelte 5 + three), `vite.config.ts` (proxy /api→:4600, three in chunk a parte), `tsconfig.json` (build ristretta a `src/`: la UI viva è `src/components/ui/`), `svelte.config.js`, `index.html`.
 
 ## Hub Node.js — hub/
 
 - `server.mjs` — solo wiring: statici, router `/api/*`, bootstrap (la logica vive in `lib/`).
-- `lib/` — moduli single-responsibility, zero dipendenze: `root` (env+path), `http` (json/proxy/body), `guards` (anti drive-by), `queue` (mutex GPU), `proc` (spawn/log/kill), `metrics`, `proxy` (stream SSE), `chat` (llama-server :8121), `rerank` (MiniCPM :8123, start lazy + idle timeout), `rag` (chunking/embedding/retrieval ibrido), `trellis` (:8124), `lmstudio`, `history`, `kb` (route RAG), `docs`, `static`.
+- `lib/` — moduli single-responsibility, zero dipendenze: `root` (env+path), `http` (json/proxy/body), `guards` (anti drive-by), `queue` (mutex GPU), `proc` (spawn/log/kill), `metrics`, `proxy` (stream SSE), `chat` (llama-server :8121), `rerank` (MiniCPM :8123, start lazy + idle timeout), `rag` (chunking/embedding/retrieval ibrido), `trellis` (:8124), `lmstudio`, `history`, `kb` (route RAG), `docs`, `static`, `bench` (benchmark), `catalog` + `downloader` (catalogo modelli + download dal frontend).
 
 ## Backend Python — backends/
 
@@ -89,6 +90,7 @@ Palamede/                       (repo git · aggiornata: 2026-09-24 13:00)
 - `build.ps1` — build completa: frontend + Tauri + copia Palamede.exe in root.
 - `watch.ps1` — FileSystemWatcher sui sorgenti → rebuild automatico.
 - `copy-models.ps1` — ricopia pesi da reference/ a models/.
+- `install-models.ps1` + `models.catalog.json` — **installer interattivo**: catalogo dei modelli (testuali + immagine) ordinato dal migliore al peggiore con giudizi (consigliato/alternativa/sconsigliato) e misure del Banco; scarica i pesi scelti in `models/` da fonti ufficiali (o copia da `reference/`). Avviabile anche con `install.bat`.
 - `convert-nvfp4-bf16.py` — dequantizza FLUX.2-klein 9B NVFP4→BF16 (in bozza con klein-9b).
 - `setup-trellis.ps1` — one-time TRELLIS: deps pip + native da sorgente (flex_gemm, cumesh, o_voxel, nvdiffrast) + decoder Stage1 (RMBG2 per il background). Popola `reference/trellis-venv`.
 - `start-trellis.ps1` — avvia il server 3D TRELLIS (:8124, venv separato); gestito anche dal hub (`/api/3d/start`).

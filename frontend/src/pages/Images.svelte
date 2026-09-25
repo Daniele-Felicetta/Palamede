@@ -306,12 +306,28 @@
     if (current === id) return "attivo";
     return "a riposo";
   };
+
+  // Modelli immagine realmente installati (`available` dal hub): le plate dei
+  // modelli non scaricati non vengono mostrate (si scaricano dalla pagina Scarica).
+  const availableIds = $derived.by(() => {
+    const ms = store.models?.models;
+    if (!ms || !ms.length) return null;
+    return new Set(ms.filter((m) => m.available !== false).map((m) => m.id));
+  });
+  const plates = $derived(
+    availableIds ? IMAGE_MODELS.filter((m) => availableIds.has(m.id)) : IMAGE_MODELS,
+  );
+  $effect(() => {
+    if (availableIds && plates.length && !availableIds.has(ui.model)) {
+      ui.model = plates[0].id as Images.ModelId;
+    }
+  });
 </script>
 
 <div class="gen-wrap">
   <Panel as="form" onsubmit={submit}>
     <div class="plates" role="radiogroup" aria-label="Modello">
-      {#each IMAGE_MODELS as m (m.id)}
+      {#each plates as m (m.id)}
         <ModelPlate
           role="radio"
           aria-checked={ui.model === m.id}
@@ -326,6 +342,9 @@
           onclick={() => pickModel(m.id as Images.ModelId)}
         />
       {/each}
+    </div>
+    <div class="plates-foot">
+      <a class="models-dl-btn" href="#/downloader">＋ scarica altri modelli</a>
     </div>
 
     {#if ui.initImg}

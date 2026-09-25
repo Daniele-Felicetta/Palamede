@@ -1,0 +1,337 @@
+{
+  "version": 1,
+  "note": "Catalogo modelli per l'installer (scripts/install-models.ps1). Ordine = dal migliore al peggiore, giudizi dal Banco di prova. Ogni file ha url (download ufficiale), copy/copyDir (da reference/), oppure manual (sorgente da fornire a mano). I path 'dest' sono quelli che l'app si aspetta.",
+  "groups": [
+    {
+      "id": "testuali",
+      "label": "Modelli testuali (chat)",
+      "hint": "Qualità = eval set a punteggio oggettivo; velocità = generazione llama-bench (tg128).",
+      "models": [
+        {
+          "id": "gemma-4-26b",
+          "name": "Gemma 4 26B-A3.8B · IQ3_S",
+          "label": "consigliato",
+          "role": "Migliore in assoluto: 96.7% di qualità e ~98 t/s. MoE 3.8B attivi, VLM.",
+          "quality": "96.7%",
+          "speed": "97.9 t/s",
+          "vram": "~12 GB",
+          "sizeBytes": 12482729920,
+          "files": [
+            {
+              "dest": "models/gemma-4-26b/gemma-4-26B-A4B-it-UD-IQ3_S.gguf",
+              "url": "https://huggingface.co/unsloth/gemma-4-26B-A4B-it-GGUF/resolve/main/gemma-4-26B-A4B-it-UD-IQ3_S.gguf",
+              "sizeBytes": 11289671136,
+              "sha256": "878be93f9c238ea853b3fd1eb602637ce3cf1cddea56dc345d9a7bf2d6093e29",
+              "audit": true
+            },
+            {
+              "dest": "models/gemma-4-26b/mmproj-F16.gguf",
+              "url": "https://huggingface.co/unsloth/gemma-4-26B-A4B-it-GGUF/resolve/main/mmproj-F16.gguf",
+              "sizeBytes": 1193058784,
+              "sha256": "d00f211a7d4f7fb19bd9b75d8e9342eccffb5920b08fd9562167560fdfcc5dd1",
+              "optional": true,
+              "note": "solo visione (VLM); il chat funziona anche senza"
+            }
+          ],
+          "requires": "GPU ≥ 12 GB VRAM"
+        },
+        {
+          "id": "ornith-9b",
+          "name": "Ornith 1.5 9B · Q4_K_M",
+          "label": "consigliato",
+          "role": "Equilibrato: 90.0% di qualità, 64 t/s, solo 5.2 GB. Ottimo default.",
+          "quality": "90.0%",
+          "speed": "64.1 t/s",
+          "vram": "~6 GB",
+          "sizeBytes": 6550813408,
+          "files": [
+            {
+              "dest": "models/ornith-1.5-9b/Ornith-1.5-9B-Q4_K_M.gguf",
+              "url": "https://huggingface.co/ornith-ai/Ornith-1.5-9B-GGUF/resolve/main/Ornith-1.5-9B-Q4_K_M.gguf",
+              "sizeBytes": 5629108992,
+              "audit": true
+            },
+            {
+              "dest": "models/ornith-1.5-9b/mmproj-Ornith-1.5-9B-BF16.gguf",
+              "url": "https://huggingface.co/ornith-ai/Ornith-1.5-9B-GGUF/resolve/main/mmproj-Ornith-1.5-9B-BF16.gguf",
+              "sizeBytes": 921704416,
+              "optional": true,
+              "note": "solo visione"
+            }
+          ],
+          "requires": "GPU ≥ 8 GB VRAM"
+        },
+        {
+          "id": "ornith-35b",
+          "name": "Ornith 1.5 35B-A3B · Q4_K_M",
+          "label": "consigliato",
+          "role": "Massimo ragionamento (93.3%). MoE 3B attivi: 50 t/s con esperti su CPU. Serve RAM (64 GB).",
+          "quality": "93.3%",
+          "speed": "50.3 t/s",
+          "vram": "~7-12 GB",
+          "sizeBytes": 22616284864,
+          "files": [
+            {
+              "dest": "models/ornith-1.5-35b/Ornith-1.5-35B-Q4_K_M.gguf",
+              "url": "https://huggingface.co/ornith-ai/Ornith-1.5-35B-A3B-GGUF/resolve/main/Ornith-1.5-35B-Q4_K_M.gguf",
+              "sizeBytes": 21713462848,
+              "audit": true
+            },
+            {
+              "dest": "models/ornith-1.5-35b/mmproj-Ornith-1.5-35B-BF16.gguf",
+              "url": "https://huggingface.co/ornith-ai/Ornith-1.5-35B-A3B-GGUF/resolve/main/mmproj-Ornith-1.5-35B-BF16.gguf",
+              "sizeBytes": 902822016,
+              "optional": true,
+              "note": "solo visione"
+            }
+          ],
+          "requires": "GPU ≥ 8 GB VRAM · 64 GB RAM (esperti su CPU)"
+        },
+        {
+          "id": "minicpm5-2b",
+          "name": "MiniCPM5 2B · Q4_K_M",
+          "label": "consigliato",
+          "role": "Utilità: modello piccolo e velocissimo (179 t/s) usato anche come reranker del RAG. Obbligatorio per il RAG.",
+          "quality": "80.0%",
+          "speed": "178.6 t/s",
+          "vram": "~2 GB",
+          "sizeBytes": 1561318368,
+          "files": [
+            {
+              "dest": "models/minicpm5-2b/MiniCPM5-2B-Q4_K_M.gguf",
+              "url": "https://huggingface.co/openbmb/MiniCPM5-2B-GGUF/resolve/main/MiniCPM5-2B-Q4_K_M.gguf",
+              "sizeBytes": 1561318368,
+              "audit": true
+            }
+          ],
+          "requires": "GPU ≥ 4 GB VRAM"
+        },
+        {
+          "id": "bonsai-27b",
+          "name": "Bonsai 27B · Q1_0",
+          "label": "alternativa",
+          "role": "90.0% in soli 3.5 GB (quantizzazione 1-bit, lossy). Alternativa a Ornith 9B se vuoi il minimo ingombro.",
+          "quality": "90.0%",
+          "speed": "51.6 t/s",
+          "vram": "~4 GB",
+          "sizeBytes": 3803452576,
+          "files": [
+            {
+              "dest": "models/bonsai-27b/Bonsai-27B-Q1_0.gguf",
+              "url": "https://huggingface.co/prism-ml/Bonsai-27B-gguf/resolve/main/Bonsai-27B-Q1_0.gguf",
+              "sizeBytes": 3803452576,
+              "audit": true
+            }
+          ],
+          "requires": "GPU ≥ 6 GB VRAM"
+        },
+        {
+          "id": "k2-7b",
+          "name": "K2 Horizon 7B · Q4_K_M",
+          "label": "sconsigliato",
+          "role": "Qualità più bassa tra i text-only (76.7%). Il ruolo reasoning è coperto meglio dai modelli grandi.",
+          "quality": "76.7%",
+          "speed": "66.7 t/s",
+          "vram": "~6 GB",
+          "sizeBytes": 5592217984,
+          "files": [
+            {
+              "dest": "models/k2-7b/K2-Horizon-7B-Q4_K_M.gguf",
+              "url": "https://huggingface.co/IFM/K2-Horizon-7B-GGUF/resolve/main/K2-Horizon-7B-Q4_K_M.gguf",
+              "sizeBytes": 5592217984,
+              "sha256": "eb89c15a0ae9712be2ee462bf43802de14200f20f93b73da6eb68c2ebdd28e4e",
+              "audit": true
+            }
+          ],
+          "requires": "GPU ≥ 8 GB VRAM"
+        },
+        {
+          "id": "k2-36b",
+          "name": "K2 Horizon 36B-A4B MoVA · Q4_K_M",
+          "label": "sconsigliato",
+          "role": "Dominato da Ornith 35B (90 vs 93.3%, 27 vs 50 t/s) a parità di ingombro. Richiede il fork llama.cpp K2-Horizon.",
+          "quality": "90.0%",
+          "speed": "27.1 t/s",
+          "vram": "~7-13 GB",
+          "sizeBytes": 22368011616,
+          "files": [
+            {
+              "dest": "models/k2-36b/K2-Horizon-MoVA-36B-A4B-Q4_K_M.gguf",
+              "url": "https://huggingface.co/IFM/K2-Horizon-MoVA-36B-A4B-GGUF/resolve/main/K2-Horizon-MoVA-36B-A4B-Q4_K_M.gguf",
+              "sizeBytes": 22368011616,
+              "sha256": "513dd78590ac29135a7cea5a99865d57d65291b1f857a8904fb9b1878d4f4cbd",
+              "audit": true
+            }
+          ],
+          "requires": "GPU ≥ 8 GB VRAM · 64 GB RAM · fork llama.cpp K2-Horizon"
+        },
+        {
+          "id": "ornith-9b-q5",
+          "name": "Ornith 1.5 9B · Q5_K_M",
+          "label": "sconsigliato",
+          "role": "Duplicato del 9B Q4: stessa qualità (90.0%), più lento (58 vs 64 t/s) e più grande (6.1 vs 5.2 GB).",
+          "quality": "90.0%",
+          "speed": "57.9 t/s",
+          "vram": "~7 GB",
+          "sizeBytes": 6642544576,
+          "files": [
+            {
+              "dest": "models/ornith-1.5-9b/Ornith-1.5-9B-Q5_K_M.gguf",
+              "url": "https://huggingface.co/ornith-ai/Ornith-1.5-9B-GGUF/resolve/main/Ornith-1.5-9B-Q5_K_M.gguf",
+              "sizeBytes": 6642544576,
+              "audit": true
+            }
+          ],
+          "requires": "GPU ≥ 8 GB VRAM"
+        },
+        {
+          "id": "lfm-vl-3b",
+          "name": "LFM2.5 VL 3B · Q5_K_XL",
+          "label": "sconsigliato",
+          "role": "Visione debole (73.3%); Gemma 4 26B è già VLM e molto più forte. Tienilo solo se ti serve un multimodale minuscolo.",
+          "quality": "73.3%",
+          "speed": "162.0 t/s",
+          "vram": "~3 GB",
+          "sizeBytes": 3646354400,
+          "files": [
+            {
+              "dest": "models/lfm-vl-3b/LFM2.5-VL-3B-Q5_K_XL.gguf",
+              "url": "https://huggingface.co/unsloth/LFM2.5-VL-3B-GGUF/resolve/main/LFM2.5-VL-3B-UD-Q5_K_XL.gguf",
+              "sizeBytes": 1941186944,
+              "sha256": "4e3146ec361f6bef65b1abd3c56d246ef5a44c336486c6a4a2ce3330024cde98",
+              "audit": true,
+              "note": "su HF si chiama LFM2.5-VL-3B-UD-Q5_K_XL.gguf"
+            },
+            {
+              "dest": "models/lfm-vl-3b/mmproj-LFM2.5-VL-3B-F32.gguf",
+              "url": "https://huggingface.co/unsloth/LFM2.5-VL-3B-GGUF/resolve/main/mmproj-F32.gguf",
+              "sizeBytes": 1705167456,
+              "sha256": "38cd487b98272ba1ba268a8aad08c1c0e0f918c468e7952671cefd38bf3d8246",
+              "audit": true,
+              "note": "su HF si chiama mmproj-F32.gguf"
+            }
+          ],
+          "requires": "GPU ≥ 4 GB VRAM"
+        }
+      ]
+    },
+    {
+      "id": "immagini",
+      "label": "Modelli immagine",
+      "hint": "Qualità = giudice VLM locale (0-10); velocità = secondi a 512²/1024² (warm).",
+      "models": [
+        {
+          "id": "klein",
+          "name": "Klein 4B Q4 (FLUX.2)",
+          "label": "consigliato",
+          "role": "Qualità migliore (9.33/10) e img2img. Il più adatto ai dettagli fini. GGUF di diffusione da unsloth.",
+          "quality": "9.33/10",
+          "speed": "5.4 s @512²",
+          "vram": "~8 GB",
+          "sizeBytes": 2938000000,
+          "files": [
+            {
+              "dest": "models/flux-2-klein-4b-Q4_K_M.gguf",
+              "url": "https://huggingface.co/unsloth/FLUX.2-klein-4B-GGUF/resolve/main/flux-2-klein-4b-Q4_K_M.gguf",
+              "sizeBytes": 2604311104,
+              "sha256": "0b25d143c8469b342bc5af3bce92b783bf6b0636d285f7b2f75e38af63af9a15",
+              "audit": true
+            },
+            {
+              "dest": "models/flux2-vae.safetensors",
+              "url": "https://huggingface.co/Comfy-Org/flux2-dev/resolve/main/split_files/vae/flux2-vae.safetensors",
+              "sizeBytes": 336213556,
+              "audit": true
+            }
+          ],
+          "requires": "GPU ≥ 10 GB VRAM"
+        },
+        {
+          "id": "zimage",
+          "name": "Z-Image Turbo Q4_K_M",
+          "label": "consigliato",
+          "role": "Equilibrio: 9.22/10, 3.8 s a 512², photoreal. Il suo terreno è 1024².",
+          "quality": "9.22/10",
+          "speed": "3.8 s @512²",
+          "vram": "~8.5 GB",
+          "sizeBytes": 7500000000,
+          "files": [
+            {
+              "dest": "models/z-image-turbo-Q4_K_M.gguf",
+              "copy": "reference/z-image-turbo-Q4_K_M.gguf",
+              "sizeBytes": 5017613376
+            },
+            {
+              "dest": "models/Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+              "url": "https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/main/Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+              "sizeBytes": 2497281120,
+              "audit": true,
+              "note": "text encoder"
+            },
+            {
+              "dest": "models/z-image-vae.safetensors",
+              "url": "https://huggingface.co/Tongyi-MAI/Z-Image-Turbo/resolve/main/vae/diffusion_pytorch_model.safetensors",
+              "sizeBytes": 167666902,
+              "audit": true,
+              "note": "VAE"
+            }
+          ],
+          "requires": "GPU ≥ 10 GB VRAM"
+        },
+        {
+          "id": "bonsai",
+          "name": "Bonsai 4B ternary",
+          "label": "consigliato",
+          "role": "Il più veloce in assoluto: 1.8 s a 512². Qualità 8.89/10. Da reference/bonsai.",
+          "quality": "8.89/10",
+          "speed": "1.8 s @512²",
+          "vram": "~6 GB",
+          "sizeBytes": 4240000000,
+          "files": [
+            {
+              "dest": "models/bonsai-image-4B-ternary-gemlite",
+              "copyDir": "reference/bonsai/models/bonsai-image-4B-ternary-gemlite",
+              "sizeBytes": 4240000000,
+              "note": "gemlite in-process (richiede il venv di reference/bonsai)"
+            }
+          ],
+          "requires": "GPU ≥ 8 GB VRAM · venv reference/bonsai"
+        },
+        {
+          "id": "qwenimage",
+          "name": "Qwen-Image 2.1 Q4_K_M",
+          "label": "sconsigliato",
+          "role": "Lento di un ordine di grandezza (92.9 s a 1024²) e qualità non migliore (9.11/10). Tienilo solo se ti serve testo dentro le immagini.",
+          "quality": "9.11/10",
+          "speed": "20.8 s @512²",
+          "vram": "~12 GB",
+          "sizeBytes": 10018000000,
+          "files": [
+            {
+              "dest": "models/qwen-image/qwen-image-2.1-Q4_K_M.gguf",
+              "url": "https://huggingface.co/unsloth/Qwen-Image-2.1-GGUF/resolve/main/qwen-image-2.1-Q4_K_M.gguf",
+              "sizeBytes": 4199565024,
+              "audit": true,
+              "note": "DiT"
+            },
+            {
+              "dest": "models/qwen-image/qwen_image_2.1_vae_bf16.safetensors",
+              "url": "https://huggingface.co/unsloth/Qwen-Image-2.1-FP8/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors",
+              "sizeBytes": 675508656,
+              "audit": true,
+              "note": "VAE"
+            },
+            {
+              "dest": "models/qwen-image/Qwen3-VL-8B-Instruct-UD-Q4_K_XL.gguf",
+              "url": "https://huggingface.co/unsloth/Qwen3-VL-8B-Instruct-GGUF/resolve/main/Qwen3-VL-8B-Instruct-UD-Q4_K_XL.gguf",
+              "sizeBytes": 5148699488,
+              "audit": true,
+              "note": "text encoder"
+            }
+          ],
+          "requires": "GPU ≥ 14 GB VRAM"
+        }
+      ]
+    }
+  ]
+}

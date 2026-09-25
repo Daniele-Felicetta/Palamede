@@ -9,7 +9,9 @@ esempi generati dai modelli stessi.
 **Stato**: **Immagini**, **Chat** e **RAG** sono operative: quattro
 modelli immagine (**Bonsai 4B ternary**, **Z-Image Turbo Q4_K_M**, **Klein 4B
 FLUX.2** e **Qwen-Image 2.1 Q4_K_M**), chat
-locale con **Ornith 1.5** via llama.cpp, e una **knowledge base RAG in stile
+locale con **nove modelli testuali** (Ornith 1.5, K2 Horizon, Bonsai 27B,
+LFM2.5 VL, Gemma 4 26B, MiniCPM5 2B) via llama.cpp, un **Banco di prova** che
+ne misura qualità e velocità, e una **knowledge base RAG in stile
 NotebookLM** in `knowledge/` — fonti spezzate in chunk ed embedded localmente,
 interrogate con retrieval ibrido + rerank (MiniCPM 2B) e risposte grounded con
 citazioni cliccabili. Il **3D** è
@@ -59,7 +61,10 @@ C'è **un solo backend** (`backends/modelserver.py`, :8000): tiene in VRAM
 Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 .\reference\bonsai\setup.ps1
 
-# 2. Copia/ricopia i pesi in models/ (da reference + download HF)
+# 2. Scegli e scarica i modelli: installer interattivo (o doppio clic su install.bat)
+#    Catalogo ordinato dal migliore al peggiore, con giudizi e misure del Banco.
+.\scripts\install-models.ps1          # menu: numeri · 'consigliati' · 'tutti'
+#    In alternativa (ricopia tutto da reference + download HF):
 .\scripts\copy-models.ps1
 
 # 3. Engine sd-cpp + dipendenze frontend + build UI
@@ -153,6 +158,13 @@ Invoke-RestMethod -Uri 'http://127.0.0.1:4600/api/image' -Method Post `
 | `POST /api/select` | carica/scarica `{model: "bonsai"\|"zimage"\|"klein"\|"qwenimage"}` |
 | `POST /api/image` | `{model, prompt, steps, seed, width, height, count}` → `{images:[{dataUrl,timeMs,seed}]}` |
 | `GET /api/metrics` | CPU/RAM/GPU (usata dalla sidebar) |
+| `GET /api/bench` | benchmark modelli testuali (`outputs/benchmark/summary.json`; 404 se assente) |
+| `GET /api/bench-images` | benchmark modelli immagine (`outputs/benchmark-images/summary.json`; 404 se assente) |
+| `GET /api/bench-images/file/<model>/<file>.png` | immagine generata dal benchmark (galleria) |
+| `GET /api/downloader` | catalogo modelli per la pagina Scarica (peso, requisiti, sorgenti, stato) |
+| `POST /api/downloader/download` | `{id}` — scarica un modello in `models/` (un job alla volta) |
+| `GET /api/downloader/status` | stato e progresso del download in corso |
+| `POST /api/downloader/cancel` | annulla il download in corso |
 | `GET /api/chat/status` | stato del server chat (llama-server) |
 | `POST /api/chat/start` | avvia llama-server `{model, context, kv, mtp, cpuMoe, gpuLayers}` |
 | `POST /api/chat/stop` | ferma llama-server |

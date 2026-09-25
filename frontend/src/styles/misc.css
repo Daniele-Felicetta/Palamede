@@ -337,9 +337,68 @@
   color: var(--paper-dim);
 }
 
-/* ── Pagina Extra: sezioni impilate (Progetto · Experimental · Giochi) ── */
-.extra-stack > .extra-sep {
-  margin: 40px 0;
-  border: none;
+/* ── Pagina Extra: testata unica + nav interna + blocchi etichettati
+   (Progetto · Experimental · Giochi) ── */
+.extra-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 22px 0 8px;
+}
+
+.extra-nav button {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  padding: 6px 13px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--ink-2);
+  color: var(--paper-dim);
+  transition: color .15s, border-color .15s, background .15s;
+}
+
+.extra-nav button:hover {
+  color: var(--paper);
+  border-color: var(--ochre);
+  background: var(--ink-3);
+}
+
+.extra-block {
+  /* azzera il margine globale di `section` (1rem 0.5rem) e allinea i blocchi
+     alla testata della pagina; scroll-margin-top li stacca dal masthead
+     quando si salta a un blocco con la nav */
+  margin: 34px 0 0;
+  scroll-margin-top: 96px;
+}
+
+.extra-block + .extra-block {
+  margin-top: 56px;
+  padding-top: 42px;
   border-top: 1px solid var(--line);
+}
+
+.extra-block-head {
+  margin-bottom: 18px;
+}
+
+.extra-block-title {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(26px, 3.2vw, 34px);
+  line-height: 1.1;
+  letter-spacing: -0.4px;
+  margin: 6px 0 0;
+}
+
+.extra-block-head .sec-sub {
+  margin: 6px 0 0;
+  max-width: 72ch;
+}
+
+/* le sezioni incorporate non rientrano rispetto alla testata del blocco */
+.extra-block section {
+  margin-left: 0;
+  margin-right: 0;
 }

@@ -3,6 +3,10 @@
   import { Eyebrow, SectionHead } from '../components/ui'
   import { getJevProjects, jevProjectAction, type JevProjects } from '../api'
 
+  // `embed` = montata dentro la pagina Extra: niente eyebrow/h1/lede propri e
+  // sottotitoli di sezione a livello h3 (sotto il titolo del blocco).
+  let { embed = false }: { embed?: boolean } = $props()
+
   // JEV Hub: elenco dei progetti jev con avvio/arresto, servito dal hub di
   // Palamede (che avvia il servizio jev-hub dedicato). Poll leggero per lo stato.
   let hub = $state<JevProjects | null>(null)
@@ -37,16 +41,19 @@
   }
 </script>
 
-<Eyebrow>Sezione EXP · registro delle prove</Eyebrow>
-<h1>Experimental</h1>
-<p class="lede">
-  La cronologia delle sperimentazioni: cosa abbiamo provato e perché si è
-  fermata, e cosa stiamo provando adesso — con cosa manca da sistemare e i
-  rischi che restano.
-</p>
+{#if !embed}
+  <Eyebrow>Sezione EXP · registro delle prove</Eyebrow>
+  <h1>Experimental</h1>
+  <p class="lede">
+    La cronologia delle sperimentazioni: cosa abbiamo provato e perché si è
+    fermata, e cosa stiamo provando adesso — con cosa manca da sistemare e i
+    rischi che restano.
+  </p>
+{/if}
 
 <section aria-label="JEV Hub">
   <SectionHead
+    level={embed ? 3 : 2}
     title="JEV Hub"
     sub="I progetti sperimentali jev: avviali e aprili da qui. Girano dal loro percorso originale, con i loro ambienti e pesi."
   />
@@ -87,6 +94,7 @@
 
 <section aria-label="Provato e perché non è andata">
   <SectionHead
+    level={embed ? 3 : 2}
     title="Provato e perché non è andata"
     sub="Ordine cronologico. Ogni voce dice cosa era, perché si è fermata e dove sta la prova nel repo."
   />
@@ -112,6 +120,7 @@
 
 <section aria-label="In prova adesso">
   <SectionHead
+    level={embed ? 3 : 2}
     title="In prova adesso"
     sub="Cosa stiamo provando, cosa manca da sistemare e perché potrebbe non funzionare."
   />

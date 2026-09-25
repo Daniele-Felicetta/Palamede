@@ -101,7 +101,11 @@ function hashId(...parts) {
 // fonte. Poi impacchetta i paragrafi in chunk da TARGET–MAX caratteri,
 // portando nel chunk successivo la coda di quello chiuso (overlap).
 export function chunkText(text) {
-  const lines = text.split(/\r?\n/)
+  // split(/(sep)/) tiene i separatori come elementi dispari: i paragrafi
+  // restano slice CONTIGUE dell'originale e gli offset sono esatti anche con
+  // i CRLF (prima si contava 1 separatore per riga e ogni chunk slittava di
+  // un carattere per riga precedente, mandando fuori posto l'evidenziazione).
+  const parts = text.split(/(\r\n|\n|\r)/)
   const segs = []
   let pos = 0
   let segStart = -1
@@ -115,14 +119,16 @@ export function chunkText(text) {
     buf = ''
     segStart = -1
   }
-  for (const line of lines) {
-    if (!line.trim()) {
+  for (let i = 0; i < parts.length; i += 2) {
+    const body = parts[i] ?? ''
+    const sep = parts[i + 1] ?? ''
+    if (!body.trim()) {
       push()
     } else {
       if (segStart === -1) segStart = pos
-      buf += (buf ? '\n' : '') + line
+      buf += body + sep
     }
-    pos += line.length + 1
+    pos += body.length + sep.length
   }
   push()
 
@@ -135,7 +141,9 @@ export function chunkText(text) {
     if (!cur.length) return
     const start = cur[0].start
     const end = cur[cur.length - 1].end
-    const body = cur.map((s) => s.text).join('\n')
+    // Corpo come SLICE REALE dell'originale: cosi' `end - tail.len` (overlap)
+    // e ogni offset derivato restano coerenti anche con i CRLF.
+    const body = text.slice(start, end)
     chunks.push({ section: curSection, text: body, start, end })
     // overlap: porta la coda dell'ultima frase nel chunk successivo
     const tail = carryTail(body)

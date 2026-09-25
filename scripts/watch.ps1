@@ -85,13 +85,16 @@ foreach ($d in $script:watchDirs) {
 }
 
 # file di configurazione del frontend alla radice (vite, tsconfig, package.json,
-# index.html): osservati non-ricorsivamente, così node_modules resta fuori
+# index.html, svelte.config.js): osservati non-ricorsivamente, cos� node_modules
+# resta fuori. Niente pattern con le graffe: FileSystemWatcher.Filter NON fa
+# glob esteso, '*.{ts,json,html}' non matcherebbe nulla. Alla radice di
+# frontend/ i file sono pochi e ben noti, quindi '*' va bene.
 $fswRoot = Join-Path $Root 'frontend'
 if (Test-Path $fswRoot) {
     $fsw = New-Object System.IO.FileSystemWatcher
     $fsw.Path = $fswRoot
     $fsw.IncludeSubdirectories = $false
-    $fsw.Filter = '*.{ts,json,html}'
+    $fsw.Filter = '*'
     $fsw.NotifyFilter = [System.IO.NotifyFilters]'FileName, LastWrite, Size'
     foreach ($ev in @('Created', 'Changed', 'Renamed', 'Deleted')) {
         $watchers += Register-ObjectEvent -InputObject $fsw -EventName $ev -Action $action

@@ -50,8 +50,20 @@ async function rerankReady(timeoutMs = 3000) {
   return false
 }
 
+// Una sola partenza alla volta: due richieste concorrenti vedono
+// srv.proc == null ed entrambe spawnerebbero sulla stessa porta (il secondo
+// fallisce il bind e lascia srv.proc sul processo sbagliato).
+let starting = null
+
 // Avvia il reranker (idempotente). Ritorna true se pronto.
-export async function startRerank(timeoutMs = START_TIMEOUT_MS) {
+export function startRerank(timeoutMs = START_TIMEOUT_MS) {
+  if (!starting) {
+    starting = bootRerank(timeoutMs).finally(() => { starting = null })
+  }
+  return starting
+}
+
+async function bootRerank(timeoutMs) {
   if (srv.proc && !srv.proc.killed) {
     if (srv.ready) { touch(); return true }
     // già avviato ma in caricamento: aspetta il timeout
@@ -89,7 +101,11 @@ export async function startRerank(timeoutMs = START_TIMEOUT_MS) {
   })
   srv.proc = proc
   srv.logFd = logFd
-  proc.on('exit', () => { srv.proc = null; srv.ready = false; srv.pid = null })
+  proc.on('exit', () => {
+    // Solo se e' ancora il processo corrente: alla riapertura l'exit del
+    // vecchio arriva dopo lo spawn del nuovo e non deve azzerarlo.
+    if (srv.proc === proc) { srv.proc = null; srv.ready = false; srv.pid = null }
+  })
 
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {

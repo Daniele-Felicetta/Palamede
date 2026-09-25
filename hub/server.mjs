@@ -50,6 +50,7 @@ import { downloaderList, availability } from './lib/catalog.mjs'
 import { startDownload, downloadStatus, cancelDownload } from './lib/downloader.mjs'
 import { handleJev } from './lib/jev.mjs'
 import { serveStatic } from './lib/static.mjs'
+import { killAllChildren } from './lib/proc.mjs'
 
 // ── coda mutex condivisa (un solo modello alla volta sulla GPU) ──────────
 const queued = createQueue()
@@ -312,3 +313,15 @@ createServer(async (req, res) => {
 // Non morire per un errore sporadico: logga e continua.
 process.on('uncaughtException', (e) => console.error('[uncaughtException]', e))
 process.on('unhandledRejection', (e) => console.error('[unhandledRejection]', e))
+
+// Pulizia all'uscita: senza questi handler, chiudendo o crashando l'hub,
+// llama-server (:8121), TRELLIS (:8124), il reranker (:8125) e jev-hub
+// (:4610) restano orfani a tenere occupate porte e VRAM. killAllChildren e'
+// idempotente: 'exit' scatta anche dopo i segnali.
+process.once('exit', () => { try { killAllChildren() } catch { /* best-effort */ } })
+for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
+  process.once(sig, () => {
+    try { killAllChildren() } catch { /* best-effort */ }
+    process.exit(0)
+  })
+}

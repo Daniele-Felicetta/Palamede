@@ -154,8 +154,14 @@ class TrellisManager:
             raise ValueError("image: dataUrl mancante (attesa data:image/...;base64,...)")
         if pipeline_type not in ("512", "1024"):
             raise ValueError(f"pipeline_type non supportato: {pipeline_type} (usa 512 o 1024)")
-        if num_samples < 1 or num_samples > 4:
-            raise ValueError("num_samples deve essere tra 1 e 4")
+        if num_samples != 1:
+            # La pipeline genera N mesh candidate, ma esportazione e risposta
+            # ne gestiscono una sola: rifiuto invece di scartare silenziosamente
+            # tempo e VRAM generando mesh che nessuno vedra'.
+            raise ValueError(
+                f"num_samples={num_samples} non supportato: verrebbero generate piu' "
+                "mesh ma se ne esporta una sola. Usa num_samples=1."
+            )
 
         rng = random.SystemRandom()
         eff_seed = seed if seed != -1 else rng.randint(0, 2**31 - 1)

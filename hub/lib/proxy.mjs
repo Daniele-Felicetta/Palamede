@@ -5,6 +5,11 @@
 import { request as httpRequest } from 'node:http'
 import { json } from './http.mjs'
 
+// Timeout di INATTIVITA' sull'upstream: NON limita la durata totale di una
+// generazione lunga (lo stream di token tiene vivo il socket), ma sblocca la
+// richiesta se llama-server/LM Studio non danno segni di vita.
+const STALL_TIMEOUT_MS = 180_000
+
 export function proxyStream(req, res, { host, port, path, method, accept, defaultType, errorMessage }) {
   const chunks = []
   req.on('data', (c) => chunks.push(c))
@@ -13,6 +18,7 @@ export function proxyStream(req, res, { host, port, path, method, accept, defaul
     const preq = httpRequest({
       host, port, path,
       method: method || req.method,
+      timeout: STALL_TIMEOUT_MS,
       headers: {
         'Content-Type': 'application/json',
         ...(body.length ? { 'Content-Length': body.length } : {}),
@@ -24,6 +30,9 @@ export function proxyStream(req, res, { host, port, path, method, accept, defaul
         'Cache-Control': 'no-store',
       })
       pres.pipe(res)
+    })
+    preq.on('timeout', () => {
+      preq.destroy(new Error(`nessuna risposta da ${host}:${port} entro ${STALL_TIMEOUT_MS / 1000}s`))
     })
     preq.on('error', (e) => {
       if (!res.headersSent) {

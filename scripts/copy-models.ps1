@@ -1,4 +1,4 @@
-﻿# Ricopia/ricrea i pesi del progetto in models/ (gitignored).
+# Ricopia/ricrea i pesi del progetto in models/ (gitignored).
 # - bonsai ternary gemlite  ← reference/bonsai/models (robocopy, senza .cache)
 # - z-image Q4_K_M          ← reference/
 # - Qwen3-4B TE + VAE       ← HuggingFace (non sono in reference)
@@ -24,7 +24,7 @@ if (Test-Path $src) {
     Write-Host "robocopy bonsai-ternary → models\" -ForegroundColor Cyan
     robocopy $src (Join-Path $M 'bonsai-image-4B-ternary-gemlite') /E /XD .cache /NFL /NDL /NJH /NP | Out-Null
     if ($LASTEXITCODE -ge 8) { throw "robocopy fallito ($LASTEXITCODE)" }
-} else { Write-Warning "manca $src — scaricalo con .\scripts\..\setup.ps1 di reference/bonsai" }
+} else { Write-Warning "manca $src — scaricalo con reference\bonsai\setup.ps1" }
 
 # 2) z-image DiT
 $z = Join-Path $Root 'reference\z-image-turbo-Q4_K_M.gguf'

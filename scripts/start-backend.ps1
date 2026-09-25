@@ -10,8 +10,13 @@ $py    = Join-Path $Root 'reference\bonsai\.venv\Scripts\python.exe'
 $model = Join-Path $Root 'models\bonsai-image-4B-ternary-gemlite'
 $zexe  = Join-Path $Root 'tools\sd-cpp\sd-server.exe'
 
-foreach ($p in @($py, $model, $zexe)) {
-    if (-not (Test-Path $p)) { throw "manca: $p (vedi scripts/setup.ps1 e scripts/copy-models.ps1)" }
+foreach ($p in @($py, $zexe)) {
+    if (-not (Test-Path $p)) { throw "manca: $p (vedi scripts/setup.ps1)" }
+}
+# Il modello bonsai serve SOLO se selezioni Bonsai: senza, il server parte
+# comunque e Z-Image/Klein/Qwen-Image funzionano (sd-server).
+if (-not (Test-Path $model)) {
+    Write-Warning "manca $model - Bonsai non sara' selezionabile (scaricalo con scripts\install-models.ps1)"
 }
 
 $env:MFLUX_STUDIO_GPU_DEFAULT_BACKEND      = 'bonsai-ternary-gemlite'

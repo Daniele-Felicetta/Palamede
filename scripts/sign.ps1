@@ -16,13 +16,13 @@
 #
 # Env supportate:
 #   PALAMEDE_CERT_THUMBPRINT, PALAMEDE_CERT_SUBJECT (default "Palamede Dev"),
-#   PALAMEDE_TIMESTAMP (default http://timestamp.digicert.com)
+#   PALAMEDE_TIMESTAMP (default https://timestamp.digicert.com)
 param(
     [Parameter(Mandatory = $true)]
     [string[]]$File,
     [string]$Thumbprint = $env:PALAMEDE_CERT_THUMBPRINT,
     [string]$Subject = $(if ($env:PALAMEDE_CERT_SUBJECT) { $env:PALAMEDE_CERT_SUBJECT } else { 'Palamede Dev' }),
-    [string]$Timestamp = $(if ($env:PALAMEDE_TIMESTAMP) { $env:PALAMEDE_TIMESTAMP } else { 'http://timestamp.digicert.com' }),
+    [string]$Timestamp = $(if ($env:PALAMEDE_TIMESTAMP) { $env:PALAMEDE_TIMESTAMP } else { 'https://timestamp.digicert.com' }),
     [switch]$CreateDevCert,
     [switch]$Strict
 )
@@ -130,18 +130,22 @@ if (-not $cert) {
 }
 Write-Host "cert: $($cert.Subject) [$($cert.Thumbprint)] scade $($cert.NotAfter.ToString('yyyy-MM-dd'))" -ForegroundColor Cyan
 
+# signtool /s indica solo il nome dello store: per un certificato nello store
+# di macchina serve anche /sm, altrimenti firma cercando solo in CurrentUser.
+$storeArgs = @('/s', 'My')
+if ($cert.PSParentPath -match 'LocalMachine') { $storeArgs += '/sm' }
 # --- 3. firma ogni file ---
 $failed = @()
 foreach ($t in $targets) {
     Write-Host "- firmo $t" -ForegroundColor Yellow
-    $signArgs = @('sign', '/fd', 'SHA256', '/sha1', $cert.Thumbprint, '/s', 'My')
+    $signArgs = @('sign', '/fd', 'SHA256', '/sha1', $cert.Thumbprint) + $storeArgs
     if ($Timestamp) { $signArgs += @('/tr', $Timestamp, '/td', 'SHA256') }
     $signArgs += @($t)
 
     & $signtool @signArgs 2>&1 | ForEach-Object { Write-Host "  $_" }
     if ($LASTEXITCODE -ne 0 -and $Timestamp) {
         Write-Warning "timestamp server non raggiungibile, riprovo senza /tr (firma senza marca temporale)..."
-        & $signtool sign /fd SHA256 /sha1 $cert.Thumbprint /s My $t 2>&1 | ForEach-Object { Write-Host "  $_" }
+        & $signtool sign /fd SHA256 /sha1 $cert.Thumbprint @storeArgs $t 2>&1 | ForEach-Object { Write-Host "  $_" }
     }
     if ($LASTEXITCODE -ne 0) {
         $failed += $t

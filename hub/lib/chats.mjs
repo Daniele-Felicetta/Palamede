@@ -67,6 +67,11 @@ export function createChatsRoutes(queued) {
           const b = await readBody(req)
           const messages = Array.isArray(b.messages) ? b.messages : null
           if (!messages) return json(res, 400, { error: { message: 'messages mancanti' } })
+          // Se il client passa un id va validato: generarne uno in silenzio
+          // creerebbe un duplicato invece di aggiornare la conversazione.
+          if (b.id !== undefined && b.id !== null && !validId(b.id)) {
+            return json(res, 400, { error: { message: 'id non valido' } })
+          }
           const id = validId(b.id) ? b.id : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
           const firstUser = messages.find((m) => m.role === 'user')
           const title = (typeof b.title === 'string' && b.title.trim())

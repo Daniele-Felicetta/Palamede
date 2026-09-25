@@ -39,12 +39,15 @@ async function tick() {
   ticking = true
   try {
     const errs: string[] = []
-    try { store.health = await getHealth() } catch (e) { errs.push('health: ' + (e instanceof Error ? e.message : String(e))) }
-    try { store.models = await getModels() } catch (e) { errs.push('models: ' + (e instanceof Error ? e.message : String(e))) }
-    try { store.metrics = await getMetrics() } catch (e) { errs.push('metrics: ' + (e instanceof Error ? e.message : String(e))) }
-    try { store.chat = await getChatStatus() } catch { /* hub non ancora pronto */ }
+    // Su errore si AZZERA il campo, non si lascia il valore vecchio: altrimenti
+    // l'UI mostra metriche e stato "accesi" come se fossero vivi, e "hub non
+    // raggiungibile" (che testa health === null) non compare mai.
+    try { store.health = await getHealth() } catch (e) { store.health = null; errs.push('health: ' + (e instanceof Error ? e.message : String(e))) }
+    try { store.models = await getModels() } catch (e) { store.models = null; errs.push('models: ' + (e instanceof Error ? e.message : String(e))) }
+    try { store.metrics = await getMetrics() } catch (e) { store.metrics = null; errs.push('metrics: ' + (e instanceof Error ? e.message : String(e))) }
+    try { store.chat = await getChatStatus() } catch { store.chat = null /* hub non ancora pronto */ }
     // stato del server 3D: silenzioso (il hub risponde anche a server spento)
-    try { store.trellis = await get3DStatus() } catch { /* hub non vivo */ }
+    try { store.trellis = await get3DStatus() } catch { store.trellis = null /* hub non vivo */ }
     store.lastError = errs.length ? errs.join(' · ') : null
   } finally {
     ticking = false

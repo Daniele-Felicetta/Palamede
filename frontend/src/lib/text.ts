@@ -52,7 +52,7 @@ export namespace Text {
     },
     {
       id: 'ornith-9b',
-      name: 'Ornith 1.5 9B',
+      name: 'Ornith 1.5 9B (Q4)',
       family: 'Ornith-AI',
       quant: 'Q4_K_M',
       diskGB: '5.2 GB',
@@ -69,7 +69,7 @@ export namespace Text {
     },
     {
       id: 'ornith-9b-q5',
-      name: 'Ornith 1.5 9B',
+      name: 'Ornith 1.5 9B (Q5)',
       family: 'Ornith-AI',
       quant: 'Q5_K_M',
       diskGB: '6.1 GB',

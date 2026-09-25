@@ -44,7 +44,9 @@ if (-not (Test-Path $lexe)) {
     $url2 = "https://github.com/ggml-org/llama.cpp/releases/download/$LlamaTag/cudart-llama-bin-win-cuda-13.3-x64.zip"
     Write-Host "scarico llama.cpp (CUDA 13.3): $url" -ForegroundColor Cyan
     curl.exe -L --fail --retry 3 -o $lzip $url
+    if ($LASTEXITCODE -ne 0) { throw "download llama.cpp fallito" }
     curl.exe -L --fail --retry 3 -o $lzip2 $url2
+    if ($LASTEXITCODE -ne 0) { throw "download cudart llama.cpp fallito" }
     Expand-Archive -Path $lzip  -DestinationPath $ldst -Force
     Expand-Archive -Path $lzip2 -DestinationPath $ldst -Force
     Remove-Item (Join-Path $ldst 'download') -Recurse -Force
@@ -53,10 +55,12 @@ Write-Host "llama-server: $(Test-Path $lexe)"
 
 # ── 2. frontend ───────────────────────────────────────────────────────────
 Push-Location (Join-Path $Root 'frontend')
-Write-Host "npm install…" -ForegroundColor Cyan
+Write-Host "npm install." -ForegroundColor Cyan
 npm install --no-audit --no-fund
-Write-Host "npm run build…" -ForegroundColor Cyan
+if ($LASTEXITCODE -ne 0) { Pop-Location; throw "npm install fallito (exit $LASTEXITCODE)" }
+Write-Host "npm run build." -ForegroundColor Cyan
 npm run build
+if ($LASTEXITCODE -ne 0) { Pop-Location; throw "npm run build fallito (exit $LASTEXITCODE)" }
 Pop-Location
 
 # ── 3. richiamo backend bonsai (venv in reference) ───────────────────────

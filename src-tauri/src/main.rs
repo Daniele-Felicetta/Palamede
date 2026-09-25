@@ -181,6 +181,53 @@ fn find_node() -> Option<PathBuf> {
 // di problemi; vuota se tutto ok. I problemi "informativi" (manifest assente
 // o non valido) NON devono bloccare l'avvio; conta solo la presenza di un
 // problema reale (file mancante / dimensione o magic bytes sbagliati).
+// """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+// installazione al primo avvio: l'exe si installa da solo
+// """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+// Componenti INDISPENSABILI per avviare l'officina. Modelli e venv TRELLIS
+// restano opzionali: senza, l'app parte comunque (si aggiungono poi dalla UI
+// o da scripts\install-all.ps1).
+fn needs_install(root: &Path) -> Option<String> {
+    let required: [(PathBuf, &str); 4] = [
+        (root.join("reference").join("bonsai").join(".venv").join("Scripts").join("python.exe"), "backend bonsai (venv Py3.11)"),
+        (root.join("tools").join("sd-cpp").join("sd-server.exe"), "engine immagini (sd-cpp)"),
+        (root.join("tools").join("llama-cpp").join("llama-server.exe"), "engine chat (llama.cpp)"),
+        (root.join("frontend").join("dist").join("index.html"), "UI compilata"),
+    ];
+    for (path, label) in required {
+        if !path.exists() {
+            return Some(format!("manca {}: {}", label, path.display()));
+        }
+    }
+    None
+}
+
+// Lancia scripts\install-all.ps1 in una CONSOLE VISIBILE (la console e'
+// l'interfaccia dell'installer: mostra i progressi dei download) e aspetta.
+fn run_installer(root: &Path) -> bool {
+    let script = root.join("scripts").join("install-all.ps1");
+    if !script.exists() {
+        eprintln!("[palamede] installatore assente: {}", script.display());
+        return false;
+    }
+    eprintln!("[palamede] lancio {}", script.display());
+    let mut cmd = Command::new("powershell.exe");
+    cmd.args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-File"])
+        .arg(&script)
+        .current_dir(root)
+        .creation_flags(0x00000010); // CREATE_NEW_CONSOLE
+    match cmd.status() {
+        Ok(s) => {
+            eprintln!("[palamede] installatore terminato (exit {})", s.code().unwrap_or(-1));
+            s.success()
+        }
+        Err(e) => {
+            eprintln!("[palamede] installatore non lanciato: {e}");
+            false
+        }
+    }
+}
+
 fn verify_models_fast(root: &Path) -> Vec<String> {
     use std::io::Read;
 
@@ -329,6 +376,34 @@ fn main() {
             let root = find_root();
             eprintln!("[palamede] root: {}", root.display());
 
+            // """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+            // installazione al primo avvio: l'exe si installa da solo
+            // """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+            // Se manca qualcosa di indispensabile (venv, engine, UI) l'exe non
+            // prova ad avviare i servizi: lancia scripts\install-all.ps1 in una
+            // console visibile, aspetta, poi riparte da capo. L'installazione e'
+            // idempotente, quindi se l'utente interrompe e riapre l'app riprende.
+            if let Some(reason) = needs_install(&root) {
+                eprintln!("[palamede] {reason}");
+                if let Some(w) = app.get_webview_window("main") {
+                    let _ = w.hide(); // durante l'install la console e' l'interfaccia
+                }
+                let done = run_installer(&root);
+                let still = needs_install(&root);
+                if !done || still.is_some() {
+                    if let Some(r) = still {
+                        eprintln!("[palamede] installazione incompleta: {r}");
+                    }
+                    eprintln!("[palamede] niente officina senza installazione: esco.");
+                    app.handle().exit(1);
+                    return Ok(());
+                }
+                if let Some(w) = app.get_webview_window("main") {
+                    let _ = w.show();
+                }
+                eprintln!("[palamede] installazione completata, proseguo");
+            }
+
             // ── verifica rapida dei modelli PRIMA di avviare i servizi ───────
             // I problemi "informativi" (manifest assente/non valido) NON bloccano;
             // conta solo la presenza di un problema reale (file mancante,
@@ -470,13 +545,17 @@ fn main() {
         .expect("errore nella build dell'app")
         .run(|app_handle, event| {
             if let tauri::RunEvent::Exit = event {
-                // rete di sicurezza: kill diretto dei figli
-                let state = app_handle.state::<Services>();
-                let mut kids = state.children.lock().unwrap();
-                for c in kids.iter_mut() {
-                    let _ = c.kill();
+                // rete di sicurezza: kill diretto dei figli.
+                // try_state (non state): al primo avvio si puo' uscire PRIMA di
+                // manage() (installazione fallita/interrotta) e allora lo stato
+                // non esiste ancora.
+                if let Some(state) = app_handle.try_state::<Services>() {
+                    let mut kids = state.children.lock().unwrap();
+                    for c in kids.iter_mut() {
+                        let _ = c.kill();
+                    }
+                    eprintln!("[palamede] servizi fermati");
                 }
-                eprintln!("[palamede] servizi fermati");
             }
         });
 }
@@ -508,4 +587,37 @@ fn hub_ready() -> bool {
     let mut buf = [0u8; 64];
     let _ = s.read(&mut buf);
     String::from_utf8_lossy(&buf).contains("200")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Check della logica di "devo installare?": un root completo non chiede
+    // nulla, un pezzo mancante viene segnalato per nome.
+    #[test]
+    fn needs_install_rileva_cosa_manca() {
+        let root = std::env::temp_dir().join("palamede-test-install");
+        let _ = std::fs::remove_dir_all(&root);
+        assert!(needs_install(&root).is_some(), "root vuoto deve richiedere l'installazione");
+
+        let parts = [
+            "reference/bonsai/.venv/Scripts/python.exe",
+            "tools/sd-cpp/sd-server.exe",
+            "tools/llama-cpp/llama-server.exe",
+            "frontend/dist/index.html",
+        ];
+        for rel in parts {
+            let p = root.join(rel);
+            std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+            std::fs::write(&p, b"x").unwrap();
+        }
+        assert!(needs_install(&root).is_none(), "tutto presente: nessuna installazione");
+
+        std::fs::remove_file(root.join("frontend/dist/index.html")).unwrap();
+        let msg = needs_install(&root).unwrap();
+        assert!(msg.contains("UI compilata"), "atteso il pezzo mancante, ottenuto: {msg}");
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
 }

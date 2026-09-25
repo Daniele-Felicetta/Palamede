@@ -39,7 +39,7 @@ vedi **MAPPA.md** (si rigenera con `.\scripts\gen-mappa.ps1`).
 - `hub/` — server.mjs: statici + proxy + metriche + coda GPU + chat/knowledge/3D + giochi (storie) + narratori + JEV
 - `frontend/` — Vite + Svelte 5 + TS (la UI)
 - `src-tauri/` — app desktop nativa Tauri v2 (tray + notifiche + Job Object)
-- `scripts/` — setup, install-models, copy-models, start-*, stop-all, build, watch, bench, gen-mappa
+- `scripts/` — install-all (installer unico), setup, setup-trellis, install-models, copy-models, start-*, stop-all, build, watch, bench, gen-mappa
 - `legacy/` — vecchio launcher .NET archiviato (non più usato)
 - gitignored: `reference/`, `models/`, `tools/`, `knowledge/`, `outputs/`
   - `models/trellis-deps/` contiene anche DINOv3 (Meta) + BRIA RMBG-2.0 (BiRefNet): dipendenze di visione non ancora usate dal codice.
@@ -59,23 +59,29 @@ C'è **un solo backend** (`backends/modelserver.py`, :8000): tiene in VRAM
 
 ## Setup (una tantum)
 
+**Un comando solo** (o doppio clic su `install.bat`):
+
 ```powershell
-# 1. Prepara reference/bonsai (una tantum, ~15 GB): dentro reference/bonsai
-Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
-.\reference\bonsai\setup.ps1
+.\scripts\install-all.ps1
+```
 
-# 2. Scegli e scarica i modelli: installer interattivo (o doppio clic su install.bat)
-#    Catalogo ordinato dal migliore al peggiore, con giudizi e misure del Banco.
-.\scripts\install-models.ps1          # menu: numeri · 'consigliati' · 'tutti'
-#    In alternativa (ricopia tutto da reference + download HF):
-.\scripts\copy-models.ps1
+Fa tutto in sequenza, saltando ciò che è già pronto: prerequisiti (node, uv)
+→ `reference/bonsai` (venv Py3.11, ~15 GB) → engine sd-cpp + llama.cpp + build
+della UI → **modelli** (menu interattivo, o `-Select consigliati|tutti|1,3,5`)
+→ venv TRELLIS per il 3D (~20 GB). Opzioni: `-SkipModels`, `-SkipTrellis`,
+`-SkipBonsai`.
 
-# 3. Engine sd-cpp + dipendenze frontend + build UI
-.\scripts\setup.ps1
+**Non serve lanciarlo a mano**: `Palamede.exe` al primo avvio si accorge che
+manca qualcosa e lo esegue da solo, mostrando i progressi in una console.
+Alla fine il riepilogo dice cosa è pronto e cosa manca.
 
-# 4. (una tantum) venv TRELLIS per la generazione 3D: deps pip + native da
-#    sorgente + decoder Stage1. Popola reference/trellis-venv (~20+ GB).
-.\scripts\setup-trellis.ps1
+I singoli passi restano eseguibili da soli (servono per aggiornare un pezzo):
+
+```powershell
+.\scripts\install-models.ps1     # solo modelli: menu · 'consigliati' · 'tutti'
+.\scripts\copy-models.ps1        # ricopia tutto da reference + download HF
+.\scripts\setup.ps1              # solo engine sd-cpp/llama.cpp + build UI
+.\scripts\setup-trellis.ps1      # solo venv TRELLIS (3D)
 ```
 
 ## Avvio
@@ -87,7 +93,9 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 ```
 
 **Oppure con il launcher**: doppio clic su **`Palamede.exe`** (alla radice) —
-una **app desktop nativa Tauri v2** (~6 MB) che avvia i servizi nascosti,
+una **app desktop nativa Tauri v2** (~6 MB) che **si installa da sola al primo
+avvio** (se mancano venv, engine o UI lancia `install-all.ps1` e mostra i
+progressi in console), poi avvia i servizi nascosti,
 mostra la UI in una finestra propria e **resta nel tray** (in basso a destra,
 stile WhatsApp): chiudere la finestra non spegne l'officina, i servizi
 continuano; dal tray con "Ferma tutto ed esci" (o clic destro) si termina

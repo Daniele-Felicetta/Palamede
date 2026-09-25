@@ -1,6 +1,7 @@
 <#
 .SYNOPSIS
-    Installa le dipendenze di TRELLIS.2 (pip + native CUDA) nel venv del progetto.
+    Installa le dipendenze di TRELLIS.2 (pip + native CUDA) nel venv separato
+    reference\trellis-venv.
 
 .DESCRIPTION
     Script idempotente che:
@@ -20,7 +21,8 @@
     Salta il Passo C (compilazione CUDA / estensioni native). Utile per testare solo le pip deps.
 
 .NOTES
-    PowerShell 5.1. Richiede: uv in PATH, venv Python in reference\bonsai\.venv,
+    PowerShell 5.1. Richiede: uv in PATH, venv Python SEPARATO in
+    reference\trellis-venv (Python 3.13 + torch cu130, creato da qui se manca),
     toolchain MSVC Build Tools 2022 e nvcc (per i passi nativi).
 #>
 
@@ -36,17 +38,20 @@ $ErrorActionPreference = 'Stop'
 # Costanti / percorsi (verificati)
 # ---------------------------------------------------------------------------
 $RepoRoot        = Split-Path -Parent $PSScriptRoot
-$VenvPython      = Join-Path $RepoRoot "reference\bonsai\.venv\Scripts\python.exe"
+# Venv SEPARATO da quello di bonsai (che e' Py3.11 + torch 2.11+cu128 e deve
+# restare intatto): TRELLIS gira in reference\trellis-venv (Py3.13 + torch cu130),
+# come da hub\lib\root.mjs (TRELLIS_PY) e scripts\start-trellis.ps1.
+$VenvDir         = Join-Path $RepoRoot "reference\trellis-venv"
+$VenvPython      = Join-Path $VenvDir "Scripts\python.exe"
 $TrellisSrcDir   = Join-Path $RepoRoot "models\TRELLIS.2"
 $OvoxelDir       = Join-Path $TrellisSrcDir "o-voxel"
 $EigenCheck      = Join-Path $OvoxelDir "third_party\eigen"
 $CkptsDir        = Join-Path $RepoRoot "models\TRELLIS.2-4B\ckpts"
 
 $VsDevCmd        = "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat"
-# CUDA 12.9 (non 13.1): torch 2.11.0+cu128 è compilato con CUDA 12.8 e
-# rifiuta estensioni compilate con major CUDA diverso (13). 12.9 ha stesso
-# major 12 → solo warning, la compilazione procede.
-$CUDAHome        = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.9"
+# CUDA 13.1: torch 2.9.1+cu130 richiede estensioni native con major CUDA 13.
+# (lo stesso torch rifiuta estensioni compilate con major 12 e viceversa.)
+$CUDAHome        = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.1"
 
 $Utils3dGitUrl   = "git+https://github.com/EasternJournalist/utils3d.git@9a4eb15e4021b67b12c460c7057d642626897ec8"
 $FlexGemmGit     = "https://github.com/JeffreyXiang/FlexGEMM.git"
@@ -183,12 +188,17 @@ Write-Host "  TRELLIS.2 setup" -ForegroundColor White
 Write-Host "============================================================" -ForegroundColor White
 
 if (-not (Test-FileExist $VenvPython)) {
-    Log-Error "Venv Python non trovato in: $VenvPython"
-    throw "Il venv del backend non esiste. Crearlo con 'uv venv reference\bonsai' prima di eseguire questo script."
+    Log-Warn "Venv TRELLIS assente, lo creo in: $VenvDir"
+    $Uv0 = Get-UvCommand
+    & $Uv0 venv $VenvDir --python 3.13
+    if ($LASTEXITCODE -ne 0 -or -not (Test-FileExist $VenvPython)) {
+        throw "Impossibile creare il venv TRELLIS in $VenvDir (serve uv + Python 3.13)."
+    }
+    Log-Succ "Venv TRELLIS creato (Python 3.13)."
 }
 $Uv = Get-UvCommand
-Log-Info "Venv Python : $VenvPython"
-Log-Info "uv          : $Uv"
+Log-Info "Venv TRELLIS : $VenvPython"
+Log-Info "uv           : $Uv"
 
 # ---------------------------------------------------------------------------
 # Passo A — Dipendenze pip semplici + utils3d
@@ -209,13 +219,13 @@ if (-not $SkipPip) {
 
     try {
         Log-Info "Installazione pacchetti semplici: $($PipSimple -join ', ')"
-        # NB: torchvision DEVE restare allineato alla build CUDA del torch già
-        # presente (2.11.0+cu128). Senza --index-url cu128, uv risolverebbe con
-        # una build torch CPU e romperebbe il backend bonsai (già accaduto).
-        & $Uv pip install --python $VenvPython --index-url https://download.pytorch.org/whl/cu128 `
-            "torch==2.11.0+cu128" "torchvision==0.26.0+cu128" @PipSimple
+        # NB: torchvision DEVE restare allineato alla build CUDA del torch del
+        # venv TRELLIS (2.9.1+cu130). Senza --index-url cu130, uv risolverebbe
+        # una build torch CPU e romperebbe la pipeline 3D.
+        & $Uv pip install --python $VenvPython --index-url https://download.pytorch.org/whl/cu130 `
+            "torch==2.9.1+cu130" "torchvision==0.24.1+cu130" @PipSimple
         if ($LASTEXITCODE -ne 0) { throw "uv pip install (pacchetti semplici) exit code $LASTEXITCODE" }
-        Log-Succ "Pacchetti semplici installati (torch 2.11.0+cu128 preservato)."
+        Log-Succ "Pacchetti semplici installati (torch 2.9.1+cu130 preservato)."
     } catch {
         Log-Error ("Errore durante l'installazione dei pacchetti semplici: {0}" -f $_.Exception.Message)
     }

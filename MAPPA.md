@@ -12,7 +12,7 @@
 
 <!-- GEN:ALBERO -->
 ```text
-Palamede/                       (repo git · aggiornata: 2026-09-25 14:52)
+Palamede/                       (repo git · aggiornata: 2026-09-25 17:37)
 ├── backends/
 ├── experimental/
 ├── frontend/
@@ -87,6 +87,7 @@ Palamede/                       (repo git · aggiornata: 2026-09-25 14:52)
 
 ## Scripts — scripts/
 
+- `install-all.ps1` — **installer unico**: catena prerequisiti → venv bonsai → engine+UI → modelli → venv TRELLIS, saltando ciò che è già pronto. È ciò che `install.bat` e il primo avvio di `Palamede.exe` eseguono. Opzioni: `-Select`, `-SkipModels`, `-SkipTrellis`, `-SkipBonsai`.
 - `setup.ps1` — setup one-time (scarica sd-cpp + llama.cpp, npm build, install backend).
 - `start.ps1` / `start-backend.ps1` / `start-hub.ps1` — avvio servizi.
 - `stop-all.ps1` — ferma hub, JEV Hub, sd-server, llama-server e i backend Python (modelserver/trellis/wan).
@@ -94,9 +95,9 @@ Palamede/                       (repo git · aggiornata: 2026-09-25 14:52)
 - `build.ps1` — build completa: frontend + Tauri + copia Palamede.exe in root.
 - `watch.ps1` — FileSystemWatcher sui sorgenti → rebuild automatico.
 - `copy-models.ps1` — ricopia pesi da reference/ a models/.
-- `install-models.ps1` + `models.catalog.json` — **installer interattivo**: catalogo dei modelli (testuali + immagine) ordinato dal migliore al peggiore con giudizi (consigliato/alternativa/sconsigliato) e misure del Banco; scarica i pesi scelti in `models/` da fonti ufficiali (o copia da `reference/`). Avviabile anche con `install.bat`.
+- `install-models.ps1` + `models.catalog.json` — **installer interattivo**: catalogo dei modelli (testuali + immagine) ordinato dal migliore al peggiore con giudizi (consigliato/alternativa/sconsigliato) e misure del Banco; scarica i pesi scelti in `models/` da fonti ufficiali (o copia da `reference/`). È il passo 4 di `install-all.ps1`, ma va anche da solo.
 - `convert-nvfp4-bf16.py` — dequantizza FLUX.2-klein 9B NVFP4→BF16 (in bozza con klein-9b).
-- `setup-trellis.ps1` — one-time TRELLIS: deps pip + native da sorgente (flex_gemm, cumesh, o_voxel, nvdiffrast) + decoder Stage1 (RMBG2 per il background). Popola `reference/trellis-venv`.
+- `setup-trellis.ps1` — one-time TRELLIS: deps pip + native da sorgente (flex_gemm, cumesh, o_voxel, nvdiffrast) + decoder Stage1 (`ss_dec_conv3d_16l8_fp16`). Popola `reference/trellis-venv` (Py3.13 + torch cu130); se manca lo crea.
 - `start-trellis.ps1` — avvia il server 3D TRELLIS (:8124, venv separato); gestito anche dal hub (`/api/3d/start`).
 - `bench-text.mjs` (+ `bench-text.evalset.json`) / `bench-images.mjs` — banco di prova dei modelli testuali (llama-server :8127 via `BENCH_PORT`) e immagine (giudice :8122 via `BENCH_JUDGE_PORT`); scrivono `outputs/benchmark*/summary.json`.
 - `sign.ps1` — firma Authenticode opzionale dell'exe (`PALAMEDE_CERT_*`).

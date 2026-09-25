@@ -1,6 +1,6 @@
 @echo off
-rem Palamede — installer dei modelli: scegli cosa scaricare in models/.
-rem Doppio clic e segui il menu. Per un elenco senza scaricare:
+rem Palamede - installer unico: prepara tutto (venv, engine, UI, modelli, 3D).
+rem Doppio clic e segui la console. Solo i modelli:
 rem   scripts\install-models.ps1 -List
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\install-models.ps1" %*
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\install-all.ps1" %*
 pause

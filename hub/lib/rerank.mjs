@@ -20,7 +20,8 @@ const LLAMA = join(ROOT, 'tools', 'llama-cpp', 'llama-server.exe')
 const RERANK_LOG = join(ROOT, 'outputs', 'rerank-server.log')
 
 const IDLE_MS = 60_000
-const START_TIMEOUT_MS = 60_000
+// Su CPU il load del GGUF e' molto piu' lento: timeout x5 (vedi tools\.cpu).
+const START_TIMEOUT_MS = existsSync(join(ROOT, 'tools', '.cpu')) ? 300_000 : 60_000
 const RERANK_TIMEOUT_MS = 45_000
 
 let srv = { proc: null, logFd: null, ready: false, pid: null, uses: 0, lastUse: 0, lastError: null }

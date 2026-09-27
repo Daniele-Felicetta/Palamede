@@ -223,6 +223,13 @@
     modello risponde <strong>solo da quelli</strong>, citando <code>[n]</code>.
   </p>
 
+  {#if status && !emb.available}
+    <Hintline>Ricerca solo keyword: embedding Ollama spento (serve Ollama con embeddinggemma su :11434).</Hintline>
+  {/if}
+  {#if status?.rerank?.error}
+    <Hintline err>Rerank non disponibile ({status.rerank.error}): risultati non riordinati.</Hintline>
+  {/if}
+
   <div class="rag-grid">
     <!-- ── pannello sinistro: fonti ─────────────────────────────────── -->
     <Panel cls="rag-panel rag-sources">

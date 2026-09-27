@@ -15,36 +15,51 @@ function Test-Port([int]$p) {
     catch { return $false }
 }
 
+# Identita' del servizio: porta aperta NON basta (potrebbe esserci un altro
+# programma). Verifica il marker JSON dell'endpoint prima di fidarsi.
+function Test-Service([int]$p, [string]$path, [string]$marker) {
+    if (-not (Test-Port $p)) { return 'assente' }
+    try {
+        $r = Invoke-WebRequest -Uri "http://127.0.0.1:$p$path" -TimeoutSec 4 -UseBasicParsing
+        if ($r.Content -match [regex]::Escape($marker)) { return 'nostro' }
+    } catch { }
+    return 'estraneo'
+}
+
 # finestre nascoste di default; -Visible per debug (console minimizzate)
 $hiddenArgs = if ($Visible) { @() } else { @('-Hidden') }
 $winStyle   = if ($Visible) { 'Minimized' } else { 'Hidden' }
 
 # ── modello server (:8000) ──
-if (Test-Port 8000) {
-    Write-Host '  modello server già attivo (:8000)' -ForegroundColor DarkGray
-} else {
-    Write-Host '  avvio modello server (:8000)...' -ForegroundColor Cyan
-    Start-Process powershell -ArgumentList (
-        @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $Root 'scripts\start-backend.ps1')) + $hiddenArgs
-    ) -WindowStyle $winStyle | Out-Null
+switch (Test-Service 8000 '/models' 'zimage_process') {
+    'nostro'   { Write-Host '  modello server già attivo (:8000)' -ForegroundColor DarkGray }
+    'estraneo' { throw 'porta 8000 occupata da un ALTRO servizio (non Palamede): liberala e riprova' }
+    default {
+        Write-Host '  avvio modello server (:8000)...' -ForegroundColor Cyan
+        Start-Process powershell -ArgumentList (
+            @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $Root 'scripts\start-backend.ps1')) + $hiddenArgs
+        ) -WindowStyle $winStyle | Out-Null
+    }
 }
 
 # ── hub (:4600) ──
-if (Test-Port 4600) {
-    Write-Host '  hub già attivo (:4600)' -ForegroundColor DarkGray
-} else {
-    Write-Host '  avvio hub (:4600)...' -ForegroundColor Cyan
-    Start-Process powershell -ArgumentList (
-        @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $Root 'scripts\start-hub.ps1')) + $hiddenArgs
-    ) -WindowStyle $winStyle | Out-Null
+switch (Test-Service 4600 '/api/health' '"current"') {
+    'nostro'   { Write-Host '  hub già attivo (:4600)' -ForegroundColor DarkGray }
+    'estraneo' { throw 'porta 4600 occupata da un ALTRO servizio (non Palamede): liberala e riprova' }
+    default {
+        Write-Host '  avvio hub (:4600)...' -ForegroundColor Cyan
+        Start-Process powershell -ArgumentList (
+            @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $Root 'scripts\start-hub.ps1')) + $hiddenArgs
+        ) -WindowStyle $winStyle | Out-Null
+    }
 }
 
-# ── attesa readiness ──
+# ── attesa readiness (con identita', non solo porta aperta) ──
 $deadline = (Get-Date).AddSeconds(90)
 $b = $h = $false
 while ((Get-Date) -lt $deadline) {
-    if (-not $b) { $b = Test-Port 8000 }
-    if (-not $h) { $h = Test-Port 4600 }
+    if (-not $b) { $b = (Test-Service 8000 '/models' 'zimage_process') -eq 'nostro' }
+    if (-not $h) { $h = (Test-Service 4600 '/api/health' '"current"') -eq 'nostro' }
     if ($b -and $h) { break }
     Start-Sleep -Milliseconds 800
 }

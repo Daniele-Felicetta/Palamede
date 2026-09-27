@@ -9,6 +9,13 @@ import { createHash } from 'node:crypto'
 import { existsSync, statSync, mkdirSync, copyFileSync, unlinkSync, rmSync, createReadStream, readdirSync } from 'node:fs'
 import { dirname, join, sep } from 'node:path'
 import { destAbs, loadCatalog } from './catalog.mjs'
+import { ROOT } from './root.mjs'
+
+const VENV_PY = join(ROOT, 'reference', 'bonsai', '.venv', 'Scripts', 'python.exe')
+const AUDIT = join(ROOT, 'experimental', 'model-antivirus', 'audit-model.py')
+// Modalita' solo CPU (tools\.cpu da setup.ps1 -CpuOnly): i modelli con
+// "cuda": true nel catalogo non si possono usare — rifiuto esplicito.
+const CPU_ONLY = existsSync(join(ROOT, 'tools', '.cpu'))
 
 let job = null
 let child = null
@@ -44,6 +51,8 @@ function snapshot() {
   const bytesTotal = proc.reduce((s, f) => s + (f.sizeBytes || f.bytesDone || 0), 0)
   const bytesDone = proc.reduce((s, f) => s + (f.bytesDone || 0), 0)
   const cur = job.files[job.index]
+  const degraded = job.files.filter((f) => f.auditState === 'degradato' || f.auditState === 'dubbio').length
+  const skipped = job.files.filter((f) => f.auditState === 'saltato').length
   return {
     state: job.state,
     modelId: job.modelId,
@@ -53,11 +62,41 @@ function snapshot() {
     total: job.files.length,
     bytesDone,
     bytesTotal,
+    auditDegraded: degraded,
+    auditSkipped: skipped,
     current: cur ? { name: cur.name, state: cur.state, bytesDone: cur.bytesDone, sizeBytes: cur.sizeBytes } : null,
-    files: job.files.map((f) => ({ name: f.name, state: f.state, sizeBytes: f.sizeBytes, bytesDone: f.bytesDone, note: f.note || null })),
+    files: job.files.map((f) => ({ name: f.name, state: f.state, sizeBytes: f.sizeBytes, bytesDone: f.bytesDone, note: f.note || null, auditState: f.auditState || null })),
     startedAt: job.startedAt,
     finishedAt: job.finishedAt,
   }
+}
+
+// Antivirus sul file scaricato (stessi verdetti del CLI install-models.ps1).
+// Ritorna 'ok' | 'dubbio' | 'degradato' | 'saltato'; lancia su verdetto
+// malevolo (exit 2: il chiamante elimina il file). Mai silenzioso: ogni
+// esito è registrato in f.auditState e visibile nello snapshot.
+function runAudit(file, url) {
+  return new Promise((resolve, reject) => {
+    if (!existsSync(VENV_PY) || !existsSync(AUDIT)) { resolve('saltato'); return }
+    const args = [AUDIT, file, '--json']
+    if (url) args.push('-Source', url)
+    const c = spawn(VENV_PY, args, { windowsHide: true })
+    child = c
+    let out = ''
+    c.stdout.on('data', (d) => { out += d.toString() })
+    c.on('exit', (code) => {
+      child = null
+      if (job.state === 'cancelled') { reject(new Error('annullato')); return }
+      if (code === 2) { reject(new Error(`antivirus: modello respinto (${file.split(sep).pop()})`)); return }
+      if (code === 3) { resolve('degradato'); return }
+      if (code === 1) { resolve('dubbio'); return }
+      if (code !== 0) { resolve('saltato'); return }
+      try {
+        resolve(JSON.parse(out || '{}').degraded ? 'degradato' : 'ok')
+      } catch { resolve('ok') }
+    })
+    c.on('error', () => { child = null; resolve('saltato') })
+  })
 }
 
 function download(f) {
@@ -87,6 +126,15 @@ function download(f) {
         if (got !== f.sha256.toLowerCase()) {
           try { unlinkSync(f.dest) } catch {}
           reject(new Error(`SHA256 non corrisponde per ${f.name}`)); return
+        }
+      }
+      if (f.audit) {
+        f.state = 'verifica'
+        try {
+          f.auditState = await runAudit(f.dest, f.url)
+        } catch (e) {
+          try { unlinkSync(f.dest) } catch {}
+          reject(e); return
         }
       }
       f.state = 'fatto'
@@ -136,6 +184,7 @@ export function startDownload(id) {
   if (job && job.state === 'downloading') throw new Error('un download è già in corso')
   const model = findModel(id)
   if (!model) throw new Error('modello sconosciuto: ' + id)
+  if (CPU_ONLY && model.cuda === true) throw new Error('modello richiede GPU CUDA (modalità solo CPU attiva)')
   const files = model.files.map((raw) => {
     const dest = destAbs(raw.dest)
     const present = existsSync(dest)
@@ -143,6 +192,7 @@ export function startDownload(id) {
     return {
       dest, name: dest.split(sep).pop(), url: raw.url, copy: raw.copy, copyDir: raw.copyDir,
       sha256: raw.sha256, sizeBytes: raw.sizeBytes || 0,
+      audit: raw.audit === true, auditState: null,
       bytesDone: present ? sizeOf(dest) : 0,
       state: present ? 'presente' : 'in coda',
       process: !present,

@@ -68,7 +68,7 @@
       })
       chatId = doc.id
       await refreshChats()
-    } catch { /* salvataggio best-effort */ }
+    } catch (e) { err = 'salvataggio conversazione non riuscito: ' + (e instanceof Error ? e.message : String(e)) }
   }
 
   function newChat() {

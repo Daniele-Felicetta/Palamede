@@ -12,6 +12,8 @@ export interface DownloaderModel {
   speed: string
   vram: string
   requires: string
+  cuda: boolean            // richiede GPU CUDA (non scaricabile in modalita CPU)
+  unavailable: boolean     // true su CPU se cuda: la UI disattiva il download
   sizeBytes: number
   installed: boolean
   missing: number
@@ -26,14 +28,15 @@ export interface DownloaderGroup {
   models: DownloaderModel[]
 }
 
-export interface DownloaderCatalog { groups: DownloaderGroup[]; hardware: string }
+export interface DownloaderCatalog { groups: DownloaderGroup[]; hardware: string; cpuOnly: boolean }
 
 export interface DownloadFile {
   name: string
-  state: string          // in coda | scaricando | copiando | fatto | presente | saltato
+  state: string          // in coda | scaricando | copiando | verifica | fatto | presente | saltato
   sizeBytes: number
   bytesDone: number
   note: string | null
+  auditState: string | null   // ok | dubbio | degradato | saltato (solo file con audit)
 }
 
 export interface DownloadStatus {
@@ -47,6 +50,8 @@ export interface DownloadStatus {
   bytesTotal?: number
   current?: { name: string; state: string; bytesDone: number; sizeBytes: number } | null
   files?: DownloadFile[]
+  auditDegraded?: number
+  auditSkipped?: number
   startedAt?: number
   finishedAt?: number | null
 }

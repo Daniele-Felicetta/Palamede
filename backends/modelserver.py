@@ -92,6 +92,8 @@ def _free_cuda() -> None:
 SD_PORT = int(os.environ.get("PALAMEDE_SD_PORT", "8123"))
 SD_EXE = os.environ.get("PALAMEDE_SD_EXE", str(ROOT / "tools" / "sd-cpp" / "sd-server.exe"))
 SD_LOG = os.environ.get("PALAMEDE_SD_LOG", str(ROOT / "outputs" / "sd-server.log"))
+# Solo CPU (marcatore di setup.ps1 -CpuOnly): sd-server carica molto piu'
+# lentamente -> readiness x5 (600s invece di 120s).
 # Text encoder su CPU (RAM) invece che VRAM: risparmia ~2,3 GB, l'encoding
 # avviene una volta sola per immagine. 1 = attivo (default), 0 = tutto su GPU.
 SD_TE_CPU = os.environ.get("PALAMEDE_SD_TE_CPU", "1") != "0"
@@ -227,7 +229,9 @@ class ModelManager:
             log.info("bonsai caricato in %.1fs", time.perf_counter() - t0)
         self._current = "bonsai"
 
-    def _wait_sd_ready(self, timeout: float = 120.0) -> None:
+    def _wait_sd_ready(self, timeout: float | None = None) -> None:
+        if timeout is None:
+            timeout = 600.0 if (ROOT / "tools" / ".cpu").exists() else 120.0
         url = f"http://127.0.0.1:{SD_PORT}/sdapi/v1/options"
         deadline = time.time() + timeout
         while time.time() < deadline:

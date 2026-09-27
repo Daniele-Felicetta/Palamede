@@ -84,6 +84,12 @@
   </div>
 {:else if job.state === 'done'}
   <Hintline>Download completato: {job.model}. I modelli sono pronti in models/.</Hintline>
+  {#if (job.auditDegraded ?? 0) > 0}
+    <Hintline err>Attenzione: {job.auditDegraded} file con verdetto antivirus degradato o dubbio — usali con cautela.</Hintline>
+  {/if}
+  {#if (job.auditSkipped ?? 0) > 0}
+    <Hintline>Antivirus non eseguito su {job.auditSkipped} file (venv images assente).</Hintline>
+  {/if}
 {:else if job.state === 'error'}
   <Hintline err>Download non riuscito: {job.error}</Hintline>
 {:else if job.state === 'cancelled'}
@@ -92,6 +98,10 @@
 
 {#if err}
   <Hintline err>{err}</Hintline>
+{/if}
+
+{#if cat?.cpuOnly}
+  <Hintline>Modalità solo CPU: i modelli che richiedono CUDA (Bonsai) non sono scaricabili. Z-Image, Klein e Qwen-Image funzionano su CPU, più lenti.</Hintline>
 {/if}
 
 {#if loading}
@@ -133,8 +143,10 @@
                 <td class="dl-state">
                   {#if m.installed}
                     <Stamp ok>installato</Stamp>
+                  {:else if m.unavailable}
+                    <Stamp title="Richiede GPU CUDA (modalità solo CPU attiva)">solo CUDA</Stamp>
                   {:else if job.modelId === m.id && active}
-                    <span class="dl-live">scaricando…</span>
+                    <span class="dl-live">{job.current?.state === 'verifica' ? 'verifica antivirus…' : 'scaricando…'}</span>
                   {:else}
                     <span class="dl-missing">mancante</span>
                   {/if}
@@ -142,6 +154,8 @@
                 <td class="dl-action">
                   {#if m.installed}
                     <span class="dl-done">✓</span>
+                  {:else if m.unavailable}
+                    <span class="dl-done" title="Richiede GPU CUDA">—</span>
                   {:else}
                     <Button
                       variant="side"

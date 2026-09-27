@@ -810,6 +810,10 @@ def keyword_fallback(text: str):
                            ("struttura_file", "opcode_pickle", "metadata", "coerenza", "provenienza")},
                 "red_flags": [],
                 "motivazione": f"verdetto dedotto per parole chiave dal testo del giudice",
+                # Marchiato: NON e' un verdetto LLM strutturato (il giudice ha
+                # risposto fuori formato). I consumatori devono mostrarlo come
+                # degradato, mai come verdetto pieno.
+                "degraded": True,
             }
     return None
 
@@ -834,6 +838,7 @@ def report(artifacts: dict, verdict_dict: dict) -> dict:
         "red_flags": verdict_dict.get("red_flags", []),
         "motivazione": verdict_dict.get("motivazione", ""),
         "judge_model": verdict_dict.get("judge_model"),
+        "degraded": bool(verdict_dict.get("degraded", False)),
         "data": _dt.datetime.now().astimezone().isoformat(),
     }
 
@@ -876,6 +881,9 @@ def print_report(report_dict: dict):
     if jm:
         print(sub)
         print(f"  Giudice   : {jm}")
+    if report_dict.get("degraded"):
+        print(sub)
+        print("  AVVISO    : verdetto DEGRADATO (dedotto per parole chiave, non JSON LLM)")
     print(bar)
 
 

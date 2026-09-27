@@ -157,8 +157,9 @@ export async function startText(cfg) {
     textServer.ready = false
   })
 
-  // attesa readiness (i modelli grossi caricano in 10–60s)
-  const deadline = Date.now() + 150_000
+  // attesa readiness (i modelli grossi caricano in 10–60s; su CPU molto di piu')
+  const waitMs = CPU_ONLY ? 750_000 : 150_000
+  const deadline = Date.now() + waitMs
   while (Date.now() < deadline) {
     if (!textServer.proc) throw new Error('llama-server è uscito durante l\'avvio (vedi outputs/text-server.log)')
     if (await textReady(2000)) {
@@ -167,7 +168,7 @@ export async function startText(cfg) {
     }
     await new Promise((r) => setTimeout(r, 1000))
   }
-  throw new Error('llama-server non pronto entro 150s (vedi outputs/text-server.log)')
+  throw new Error(`llama-server non pronto entro ${Math.round(waitMs / 1000)}s (vedi outputs/text-server.log)`)
 }
 
 // proxy SSE: la risposta di llama-server viene passata byte per byte

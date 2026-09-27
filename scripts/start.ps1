@@ -7,7 +7,7 @@ $Root = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
 
 $py   = Join-Path $Root 'reference\bonsai\.venv\Scripts\python.exe'
 $dist = Join-Path $Root 'frontend\dist\index.html'
-if (-not (Test-Path $py))   { throw "venv bonsai manca: esegui .\reference\bonsai\setup.ps1 una volta" }
+if (-not (Test-Path $py))   { throw "venv images manca: esegui .\reference\bonsai\setup.ps1 una volta" }
 if (-not (Test-Path $dist)) { throw "frontend non costruito: esegui .\scripts\setup.ps1 una volta" }
 
 function Test-Port([int]$p) {

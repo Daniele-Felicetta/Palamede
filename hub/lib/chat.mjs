@@ -11,6 +11,9 @@ import { proxyStream } from './proxy.mjs'
 export const TEXT_PORT = Number(process.env.PALAMEDE_TEXT_PORT || 8121)
 const LLAMA = join(ROOT, 'tools', 'llama-cpp', 'llama-server.exe')
 const TEXT_LOG = join(ROOT, 'outputs', 'text-server.log')
+// Modalita' solo CPU: marcatore scritto da scripts/setup.ps1 -CpuOnly.
+// Forza tutto su CPU (-ngl 0, niente flash-attn) qualunque cosa chieda la UI.
+export const CPU_ONLY = existsSync(join(ROOT, 'tools', '.cpu'))
 
 // Elenco calcolato a ogni chiamata (non a import): un modello scaricato dal
 // Downloader compare subito, senza riavviare il hub.
@@ -108,7 +111,8 @@ export async function startText(cfg) {
   if (!model) throw new Error(`modello chat sconosciuto: ${cfg.model}`)
   const context = Math.min(65536, Math.max(1024, Number(cfg.context) || 8192))
   const kv = cfg.kv === 'f16' ? null : (['q8_0', 'q4_0', 'q5_0', 'iq4_nl'].includes(cfg.kv) ? cfg.kv : 'q8_0')
-  const gpuLayers = Number.isFinite(Number(cfg.gpuLayers)) ? Math.max(-1, Number(cfg.gpuLayers)) : 99
+  const gpuLayers = CPU_ONLY ? 0
+    : (Number.isFinite(Number(cfg.gpuLayers)) ? Math.max(-1, Number(cfg.gpuLayers)) : 99)
   // cpuMoe: 0 = tutto su GPU, N>0 = primi N layer di esperti su RAM,
   // -1 = tutti gli esperti su RAM (coesistenza con i modelli immagine).
   const cpuMoe = Number.isFinite(Number(cfg.cpuMoe)) ? Math.max(-1, Number(cfg.cpuMoe)) : 0
@@ -121,7 +125,7 @@ export async function startText(cfg) {
     '--host', '127.0.0.1', '--port', String(TEXT_PORT),
     '-c', String(context),
     '-ngl', String(gpuLayers),
-    '--flash-attn', 'on',
+    ...(CPU_ONLY ? [] : ['--flash-attn', 'on']),
     '--no-warmup',
   ]
   if (kv) args.push('--cache-type-k', kv, '--cache-type-v', kv)

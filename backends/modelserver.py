@@ -23,6 +23,7 @@ import threading
 import time
 import urllib.request
 from pathlib import Path
+from typing import Any
 
 from fastapi import FastAPI, HTTPException, Response
 from pydantic import BaseModel, Field
@@ -44,14 +45,49 @@ os.environ.setdefault("TRITON_CACHE_DIR", str(TRITON_CACHE_DIR))
 
 sys.path.insert(0, str(BONSAI_REPO))
 
-import torch  # noqa: E402
+# ── stack GPU (torch + backend_gpu + gemlite): import PIGRO ──────────────────
+# Il server parte anche senza torch/CUDA (venv images leggero, solo CPU):
+# lo stack GPU si carica solo quando selezioni il modello bonsai. Senza,
+# /select bonsai risponde con un errore chiaro invece di non partire affatto.
+_GPU: Any = None  # dict(torch/GpuPipeline/GemLiteLinearTriton) o False se assente
 
-from backend_gpu import pipeline_gpu as _pg  # noqa: E402
-from backend_gpu.pipeline_gpu import GpuPipeline  # noqa: E402
-from gemlite.core import GemLiteLinearTriton  # noqa: E402
+def _gpu_stack() -> dict:
+    """Importa torch + backend_gpu + gemlite alla prima selezione bonsai."""
+    global _GPU
+    if _GPU is None:
+        try:
+            import torch as _torch
+            from backend_gpu import pipeline_gpu as _pg
+            from backend_gpu.pipeline_gpu import GpuPipeline as _Gp
+            from gemlite.core import GemLiteLinearTriton as _Gl
+            from backends.gemlite_loader import apply_fixed_loader
+            apply_fixed_loader(_pg)
+            _GPU = {"torch": _torch, "GpuPipeline": _Gp, "GemLiteLinearTriton": _Gl}
+        except Exception as e:
+            _GPU = False
+            raise ValueError(
+                "modello bonsai non disponibile: serve venv images con stack GPU "
+                f"(torch+CUDA+gemlite). Dettaglio: {e}"
+            )
+    if _GPU is False:
+        raise ValueError(
+            "modello bonsai non disponibile: serve venv images con stack GPU "
+            "(torch+CUDA+gemlite)"
+        )
+    return _GPU
 
-from backends.gemlite_loader import apply_fixed_loader  # noqa: E402
-apply_fixed_loader(_pg)
+
+def _free_cuda() -> None:
+    """Svuota la cache CUDA se torch c'e', altrimenti niente."""
+    try:
+        import torch as _torch
+    except Exception:
+        return
+    try:
+        if _torch.cuda.is_available():
+            _torch.cuda.empty_cache()
+    except Exception:
+        pass
 
 SD_PORT = int(os.environ.get("PALAMEDE_SD_PORT", "8123"))
 SD_EXE = os.environ.get("PALAMEDE_SD_EXE", str(ROOT / "tools" / "sd-cpp" / "sd-server.exe"))
@@ -84,7 +120,7 @@ def _resolve_klein_diffusion() -> str:
     return exact
 
 MODELS = {
-    "bonsai": {"name": "Bonsai 4B ternary", "engine": "gemlite (in-process)"},
+    "bonsai": {"name": "Bonsai 4B ternary", "engine": "gemlite in-process (richiede CUDA)"},
     "zimage": {"name": "Z-Image Turbo Q4_K_M", "engine": "stable-diffusion.cpp (sd-server)"},
     "klein": {"name": "Klein 4B Q4 (FLUX.2)", "engine": "stable-diffusion.cpp (sd-server, flux2)"},
     "qwenimage": {"name": "Qwen-Image 2.1 Q4_K_M", "engine": "stable-diffusion.cpp (sd-server, qwen-image)"},
@@ -111,7 +147,7 @@ class ModelManager:
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._current: str | None = None
-        self._pipeline: GpuPipeline | None = None
+        self._pipeline: Any | None = None
         self._sd: subprocess.Popen | None = None
         self._sd_model: str | None = None
         self._sd_log = None  # handle del log sd-server (chiuso a ogni unload)
@@ -162,8 +198,7 @@ class ModelManager:
             log.info("unload bonsai: libero VRAM")
             self._pipeline = None
             gc.collect()
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
+            _free_cuda()
         if self._current in SD_MODELS and self._sd is not None:
             log.info("unload %s: terminazione sd-server", self._current)
             self._kill_sd()
@@ -171,16 +206,22 @@ class ModelManager:
 
     # ── load ──
     def _load_bonsai(self) -> None:
+        gpu = _gpu_stack()
+        if not gpu["torch"].cuda.is_available():
+            raise ValueError(
+                "modello bonsai richiede GPU NVIDIA con CUDA "
+                "(modalita' CPU: usa zimage/klein/qwenimage)"
+            )
         if self._pipeline is None:
             # autotune persistito (forme già provate nei boot precedenti)
             if GEMLITE_PERSIST_PATH.exists():
                 try:
-                    GemLiteLinearTriton.load_config(str(GEMLITE_PERSIST_PATH), print_error=False)
+                    gpu["GemLiteLinearTriton"].load_config(str(GEMLITE_PERSIST_PATH), print_error=False)
                     log.info("caricata autotune persistita: %s", GEMLITE_PERSIST_PATH)
                 except Exception as e:
                     log.warning("autotune persistita non caricata: %s", e)
             t0 = time.perf_counter()
-            pipe = GpuPipeline(backend="bonsai-ternary-gemlite")
+            pipe = gpu["GpuPipeline"](backend="bonsai-ternary-gemlite")
             pipe.prewarm()
             self._pipeline = pipe
             log.info("bonsai caricato in %.1fs", time.perf_counter() - t0)
@@ -346,7 +387,7 @@ class ModelManager:
         )
         # accumula le nuove forme nella cache autotune persistita
         try:
-            GemLiteLinearTriton.cache_config(str(GEMLITE_PERSIST_PATH))
+            _gpu_stack()["GemLiteLinearTriton"].cache_config(str(GEMLITE_PERSIST_PATH))
         except Exception as e:
             log.warning("autotune non persistita: %s", e)
         import base64

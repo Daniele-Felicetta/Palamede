@@ -1,6 +1,6 @@
 # Dipendenze Python del backend Palamede (backends/modelserver.py,
 # backends/gemlite_loader.py). Le versioni riportate sono quelle
-# verificate nel venv di reference/bonsai (uv). Il runtime reale usa
+# verificate nel venv images (reference/bonsai/.venv, uv). Il runtime reale usa
 # quel venv: questo file documenta le dipendenze dirette.
 
 fastapi==0.141.1

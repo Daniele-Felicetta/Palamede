@@ -87,12 +87,14 @@ async function bootRerank(timeoutMs) {
 
   srv.ready = false
   srv.lastError = null
+  // Solo CPU (tools\.cpu): tutto su CPU, niente flash-attn.
+  const cpuOnly = existsSync(join(ROOT, 'tools', '.cpu'))
   const args = [
     '-m', RERANK_GGUF,
     '--host', '127.0.0.1', '--port', String(RERANK_PORT),
     '-c', '4096',
-    '-ngl', '99',
-    '--flash-attn', 'on',
+    '-ngl', cpuOnly ? '0' : '99',
+    ...(cpuOnly ? [] : ['--flash-attn', 'on']),
     '--no-warmup',
   ]
   const { proc, logFd } = spawnLogged({

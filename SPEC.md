@@ -192,7 +192,7 @@ viewer + download.
 | Pezzo | Dettaglio |
 |---|---|
 | Backend | `backends/trellis_server.py` — FastAPI su **:8124**, genera mesh texturizzate da immagine, esporta GLB (o_voxel) + STL (trimesh). Generazioni serializzate da un `threading.Lock`. |
-| Venv | `reference/trellis-venv/` — Python **3.13**, torch **2.9.1+cu130**, triton-windows **3.5.1**, native compilate da sorgente (**flex_gemm, cumesh, o_voxel, nvdiffrast**). Il venv bonsai (`reference/bonsai`, torch 2.11+cu128) resta intatto. |
+| Venv | `reference/trellis-venv/` — Python **3.13**, torch **2.9.1+cu130**, triton-windows **3.5.1**, native compilate da sorgente (**flex_gemm, cumesh, o_voxel, nvdiffrast**). Il venv images (`reference/bonsai`, torch 2.11+cu128) resta intatto. |
 | Hub | `hub/server.mjs` spawna/termina il server 3D come subprocess (log in `outputs/trellis-server.log`) e serve i file prodotti da `outputs/3d/`. |
 | Frontend | `frontend/src/pages/3d.svelte` — pagina `/3d`: upload immagine, qualità 512/1024, viewer three.js (dipendenza npm locale), download GLB + STL. Sidebar metriche con sezione **Server** per start/stop del server 3D. |
 | Patch al codice TRELLIS.2 | supporto backend attenzione `sdpa` (`config.py` + `full_attn.py`, evita flash_attn non installato) e fix `image_feature_extractor.py` per transformers 5.16. |

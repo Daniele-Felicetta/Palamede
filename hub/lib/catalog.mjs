@@ -77,12 +77,16 @@ function benchHardware() {
 /** Elenco per la pagina Downloader: gruppi ordinati + stato + fonti. */
 export function downloaderList() {
   const cat = loadCatalog()
+  // Solo CPU (tools\.cpu da setup.ps1 -CpuOnly): i modelli con "cuda": true
+  // (es. bonsai/gemlite) non sono utilizzabili — la UI li disattiva.
+  const cpuOnly = existsSync(join(ROOT, 'tools', '.cpu'))
   const groups = cat.groups.map((g) => ({
     id: g.id,
     label: g.label,
     hint: g.hint,
     models: g.models.map((m) => {
       const missing = m.files.filter((f) => !f.optional && !filePresent(f))
+      const needsCuda = m.cuda === true
       return {
         id: m.id,
         name: m.name,
@@ -92,6 +96,8 @@ export function downloaderList() {
         speed: m.speed,
         vram: m.vram,
         requires: m.requires || `${m.vram} VRAM`,
+        cuda: needsCuda,
+        unavailable: needsCuda && cpuOnly,
         sizeBytes: m.sizeBytes || 0,
         installed: modelInstalled(m),
         missing: missing.length,
@@ -100,5 +106,5 @@ export function downloaderList() {
       }
     }),
   }))
-  return { groups, hardware: benchHardware() }
+  return { groups, hardware: benchHardware(), cpuOnly }
 }

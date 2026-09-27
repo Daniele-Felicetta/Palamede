@@ -87,7 +87,7 @@ Palamede/                       (repo git · aggiornata: 2026-09-25 19:55)
 
 ## Scripts — scripts/
 
-- `install-all.ps1` — **installer unico**: catena prerequisiti → venv bonsai → engine+UI → modelli → venv TRELLIS, saltando ciò che è già pronto. È ciò che `install.bat` e il primo avvio di `Palamede.exe` eseguono. Opzioni: `-Select`, `-SkipModels`, `-SkipTrellis`, `-SkipBonsai`.
+- `install-all.ps1` — **installer unico**: catena prerequisiti → venv images → engine+UI → modelli → venv TRELLIS, saltando ciò che è già pronto. È ciò che `install.bat` e il primo avvio di `Palamede.exe` eseguono. Opzioni: `-Select`, `-SkipModels`, `-SkipTrellis`, `-SkipBonsai`, `-CpuOnly`.
 - `setup.ps1` — setup one-time (scarica sd-cpp + llama.cpp, npm build, install backend).
 - `start.ps1` / `start-backend.ps1` / `start-hub.ps1` — avvio servizi.
 - `stop-all.ps1` — ferma hub, JEV Hub, sd-server, llama-server e i backend Python (modelserver/trellis/wan).

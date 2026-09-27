@@ -188,12 +188,19 @@ fn find_node() -> Option<PathBuf> {
 // restano opzionali: senza, l'app parte comunque (si aggiungono poi dalla UI
 // o da scripts\install-all.ps1).
 fn needs_install(root: &Path) -> Option<String> {
-    let required: [(PathBuf, &str); 4] = [
-        (root.join("reference").join("bonsai").join(".venv").join("Scripts").join("python.exe"), "backend bonsai (venv Py3.11)"),
+    let mut required: Vec<(PathBuf, &str)> = vec![
+        (root.join("reference").join("bonsai").join(".venv").join("Scripts").join("python.exe"), "venv images (Py3.11)"),
         (root.join("tools").join("sd-cpp").join("sd-server.exe"), "engine immagini (sd-cpp)"),
         (root.join("tools").join("llama-cpp").join("llama-server.exe"), "engine chat (llama.cpp)"),
-        (root.join("frontend").join("dist").join("index.html"), "UI compilata"),
     ];
+    // UI su disco solo in layout dev (npm run build). Nell'app installata da
+    // Setup.exe la UI e' incorporata nel binario (frontendDist) e la cartella
+    // frontend/ non esiste: in quel caso il check e' soddisfatto per design.
+    // Modelli e TRELLIS restano opzionali: si aggiungono dalla pagina
+    // Downloader dell'app, mai bloccano l'avvio.
+    if root.join("frontend").exists() {
+        required.push((root.join("frontend").join("dist").join("index.html"), "UI compilata"));
+    }
     for (path, label) in required {
         if !path.exists() {
             return Some(format!("manca {}: {}", label, path.display()));
@@ -204,6 +211,11 @@ fn needs_install(root: &Path) -> Option<String> {
 
 // Lancia scripts\install-all.ps1 in una CONSOLE VISIBILE (la console e'
 // l'interfaccia dell'installer: mostra i progressi dei download) e aspetta.
+// Di default installa SOLO exe+server: i modelli si scelgono dalla pagina
+// Downloader dell'app (hub/lib/downloader.mjs + Downloader.svelte), mai dal
+// setup. Scelta modelli non interattiva per installazioni guidate:
+//   PALAMEDE_MODELS=consigliati|tutti|1,3,5  -> passa -Select <valore>
+//   PALAMEDE_TRELLIS=1                       -> installa anche il venv 3D
 fn run_installer(root: &Path) -> bool {
     let script = root.join("scripts").join("install-all.ps1");
     if !script.exists() {
@@ -211,9 +223,33 @@ fn run_installer(root: &Path) -> bool {
         return false;
     }
     eprintln!("[palamede] lancio {}", script.display());
+    let mut args: Vec<String> = vec![
+        "-NoProfile".into(),
+        "-ExecutionPolicy".into(),
+        "Bypass".into(),
+        "-File".into(),
+        script.display().to_string(),
+        "-SkipModels".into(),
+        "-SkipTrellis".into(),
+    ];
+    if let Ok(sel) = std::env::var("PALAMEDE_MODELS") {
+        if !sel.trim().is_empty() {
+            // tolgo lo skip e passo la scelta (es. "consigliati")
+            args.retain(|a| a != "-SkipModels");
+            args.push("-Select".into());
+            args.push(sel);
+        }
+    }
+    if std::env::var("PALAMEDE_TRELLIS").as_deref() == Ok("1") {
+        args.retain(|a| a != "-SkipTrellis");
+    }
+    // PALAMEDE_CPU=1: installazione solo CPU (engine CPU, venv senza CUDA,
+    // TRELLIS escluso). I modelli si aggiungono dalla pagina Downloader.
+    if std::env::var("PALAMEDE_CPU").as_deref() == Ok("1") {
+        args.push("-CpuOnly".into());
+    }
     let mut cmd = Command::new("powershell.exe");
-    cmd.args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-File"])
-        .arg(&script)
+    cmd.args(&args)
         .current_dir(root)
         .creation_flags(0x00000010); // CREATE_NEW_CONSOLE
     match cmd.status() {

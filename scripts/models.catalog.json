@@ -287,15 +287,16 @@
           "speed": "1.8 s @512²",
           "vram": "~6 GB",
           "sizeBytes": 4240000000,
+          "cuda": true,
           "files": [
             {
               "dest": "models/bonsai-image-4B-ternary-gemlite",
               "copyDir": "reference/bonsai/models/bonsai-image-4B-ternary-gemlite",
               "sizeBytes": 4240000000,
-              "note": "gemlite in-process (richiede il venv di reference/bonsai)"
+              "note": "gemlite in-process (richiede venv images con GPU CUDA)"
             }
           ],
-          "requires": "GPU ≥ 8 GB VRAM · venv reference/bonsai"
+          "requires": "GPU ≥ 8 GB VRAM · venv images"
         },
         {
           "id": "qwenimage",

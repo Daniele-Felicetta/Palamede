@@ -74,8 +74,11 @@ const PROJECTS = [
   },
 ]
 
-// processi vivi: id -> child
+// processi vivi: id -> child. Ultimo errore di avvio per progetto: prima gli
+// avvii falliti erano silenziosi (200 con running:false, badge fermo senza
+// motivo) — ora l'errore viaggia nello stato e la UI lo mostra.
 const live = new Map()
+const spawnErr = new Map()
 
 function logFileFor(id) {
   mkdirSync(LOG_DIR, { recursive: true })
@@ -84,8 +87,12 @@ function logFileFor(id) {
 
 function spawnProject(p) {
   if (live.has(p.id)) return
-  if (!existsSync(p.exe) && !p.exe.match(/\.(exe|bat|cmd)$/i)) {
-    // prova a risolverlo sul PATH (es. pnpm)
+  spawnErr.delete(p.id)
+  // Comando nudo da PATH (es. `pnpm`): su Windows gli shim sono .cmd e lo
+  // spawn diretto fallisce con ENOENT — serve la shell.
+  const bare = !/[\\/]/.test(p.exe)
+  if (!bare && !existsSync(p.exe)) {
+    throw new Error(`eseguibile mancante: ${p.exe}`)
   }
   const logFd = openSync(logFileFor(p.id), 'a')
   writeSync(logFd, `\n--- avvio ${p.id} @ ${new Date().toISOString()} ---\n`)
@@ -93,17 +100,28 @@ function spawnProject(p) {
     cwd: p.cwd,
     windowsHide: true,
     stdio: ['ignore', logFd, logFd],
+    ...(bare && process.platform === 'win32' ? { shell: true } : {}),
   })
   proc.on('error', (e) => {
     try { writeSync(logFd, 'errore spawn: ' + e.message + '\n') } catch { /* log chiuso */ }
+    spawnErr.set(p.id, 'avvio fallito: ' + e.message)
     live.delete(p.id)
   })
-  proc.on('exit', () => { live.delete(p.id) })
+  proc.on('exit', (code) => {
+    // Stop volontario = stopProject ha già tolto il processo da `live`:
+    // non registrare errori. Solo l'uscita spontanea con codice ≠ 0 è un errore.
+    if (!live.has(p.id)) return
+    live.delete(p.id)
+    if (code !== 0 && code !== null) {
+      spawnErr.set(p.id, `uscito con codice ${code} (vedi logs/${p.id}.log)`)
+    }
+  })
   live.set(p.id, proc)
 }
 
 function stopProject(id) {
   const proc = live.get(id)
+  spawnErr.delete(id)
   if (!proc) return
   try {
     // albero di processi (vite/powershell figli): taskkill /T
@@ -131,6 +149,7 @@ async function projectStatus(p) {
     url: `http://127.0.0.1:${p.port}/`,
     started: live.has(p.id),
     running: await portOpen(p.port),
+    error: spawnErr.get(p.id) ?? null,
     cwd: p.cwd,
   }
 }

@@ -4,19 +4,12 @@
   import type { ChatMessage, KbChunkHit, KbRetrieveResult, ChatMeta } from '../api'
   import { store } from '../store.svelte'
   import { Text } from '../lib/text'
-  import { buildGroundingSystem, extractCites, citedChunks } from '../lib/rag'
-  import Markdown from '../components/Markdown.svelte'
-  import ReasonBlock from '../components/ReasonBlock.svelte'
-  import SourceCards from '../components/SourceCards.svelte'
+  import { buildGroundingSystem, extractCites } from '../lib/rag'
+  import { msgText, type ViewMsg as Msg } from '../lib/chat-view'
+  import { fitTextarea, flatTextarea, focusInput, focusModal } from '../lib/ui-actions'
+  import MessageList from '../components/chat/MessageList.svelte'
   import SourceView from '../components/SourceView.svelte'
-  import { Button, ChatState, EmptyState, Field, Hintline, Led, Stamp } from '../components/ui'
-
-  interface Msg extends ChatMessage { pending?: boolean; reason?: string; retr?: KbRetrieveResult | null; cites?: number[] }
-
-  // Testo leggibile di un messaggio: i contenuti multimodali (array di parti)
-  // si riducono alle sole parti testuali.
-  const msgText = (m: Msg): string =>
-    typeof m.content === 'string' ? m.content : m.content.filter((p) => p.type === 'text').map((p) => p.text ?? '').join('')
+  import { Button, ChatState, Field, Hintline, Led, Stamp } from '../components/ui'
 
   // Stato del server: arriva dallo store condiviso (un solo poller per la app).
   let status = $derived(store.chat)
@@ -81,7 +74,7 @@
     drawerOpen = false
     editing = null
     confirmDel = null
-    if (taEl) taEl.style.height = ''
+    flatTextarea(taEl)
   }
 
   async function openChat(id: string) {
@@ -173,10 +166,7 @@
   // composer che cresce col testo (fino a un tetto), invece di scrollare subito
   let taEl: HTMLTextAreaElement | undefined = $state()
   function autoGrow() {
-    const el = taEl
-    if (!el) return
-    el.style.height = 'auto'
-    el.style.height = Math.min(el.scrollHeight, 200) + 'px'
+    fitTextarea(taEl)
   }
 
   const apply = async () => {
@@ -228,7 +218,7 @@
     const text = input.trim()
     if (!text || sending || !status?.ready) return
     input = ''
-    if (taEl) taEl.style.height = ''
+    flatTextarea(taEl)
     err = ''
     const retr = await kbRetrieval(text)
     const system = retr ? buildGroundingSystem(retr) : undefined
@@ -319,19 +309,6 @@
 
   function openCited(chunk: KbChunkHit) {
     openSrc = { name: chunk.source, path: 'raw/' + chunk.source, start: chunk.start, end: chunk.end }
-  }
-
-  // focus il modale all'apertura (per chiudere con Escape via tastiera)
-  function focusModal(node: HTMLElement) {
-    node.focus()
-    return {}
-  }
-
-  // focus + selezione dell'input di rinomina appena compare
-  function focusInput(node: HTMLInputElement) {
-    node.focus()
-    node.select()
-    return {}
   }
 
   let loaded = $derived(Text.get(status?.model ?? '') ?? Text.get(model))
@@ -585,48 +562,16 @@
   <div class="chat-col">
     <div class="chat-scroll" bind:this={logEl} onscroll={onLogScroll}>
       <div class="chat-log" aria-live="polite">
-        {#if messages.length === 0}
-          <EmptyState cls="chat-empty">
-            {#if !status?.running}
-              <p class="empty-title">Server spento</p>
-              <p>Premi <strong>avvia</strong> qui sopra per caricare {loaded?.name ?? model} sulla GPU, poi scrivi qui sotto.</p>
-            {:else if !status.ready}
-              <p class="empty-title">In caricamento…</p>
-              <p>{loaded?.name ?? model} sta entrando in VRAM. Ancora qualche secondo, poi si può scrivere.</p>
-            {:else}
-              <p class="empty-title">{loaded?.name ?? 'Ornith'}, in casa</p>
-              <p>Scrivi una domanda e premi Invio per parlare con {loaded?.name ?? model}.</p>
-              {#if kbOn}<p class="empty-note">knowledge on — risponderà citando le tue fonti.</p>{/if}
-            {/if}
-          </EmptyState>
-        {:else}
-          {#each messages as m, i (i)}
-            {#if m.role === 'user'}
-              <div class="bubble user">{msgText(m)}</div>
-            {:else}
-              <div class="msg assistant">
-                <span class="avatar" aria-hidden="true">{(loaded?.name ?? 'O').charAt(0).toUpperCase()}</span>
-                <div class="msg-body">
-                  {#if m.reason}<ReasonBlock text={m.reason} streaming={!!m.pending} />{/if}
-                  <div class="msg-text" data-idx={i}>
-                    <Markdown text={msgText(m)} cites={!!m.retr && (m.cites?.length ?? 0) > 0} />
-                    {#if m.pending}<span class="caret" aria-hidden="true"></span>{/if}
-                  </div>
-                  {#if m.retr && !m.pending && (m.cites?.length ?? 0) > 0}
-                    <SourceCards items={citedChunks(m.retr, msgText(m))} onopen={openCited} />
-                  {/if}
-                  {#if !m.pending && msgText(m).trim()}
-                    <div class="msg-actions">
-                      <button type="button" class="msg-act" onclick={() => copyMsg(i)} aria-label="Copia risposta">
-                        {copied === i ? 'copiato' : 'copia'}
-                      </button>
-                    </div>
-                  {/if}
-                </div>
-              </div>
-            {/if}
-          {/each}
-        {/if}
+        <MessageList
+          messages={messages}
+          serverRunning={!!status?.running}
+          serverReady={!!status?.ready}
+          modelName={loaded?.name ?? model}
+          kbOn={kbOn}
+          copied={copied}
+          oncopy={copyMsg}
+          onopen={openCited}
+        />
       </div>
     </div>
 

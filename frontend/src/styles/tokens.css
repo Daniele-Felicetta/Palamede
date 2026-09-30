@@ -3,6 +3,7 @@
    Il resto degli stili usa solo queste variabili. */
 
 :root {
+  color-scheme: dark;
   --ink: #0a0d14;
   /* fondo */
   --ink-2: #10151f;
@@ -38,6 +39,7 @@
 
 /* Tema chiaro: stessa struttura, luce morbida. */
 [data-theme="light"] {
+  color-scheme: light;
   --ink: #f4f6fa;
   --ink-2: #ffffff;
   --ink-3: #eef1f7;

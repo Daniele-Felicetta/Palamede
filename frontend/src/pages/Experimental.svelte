@@ -8,12 +8,14 @@
   let { embed = false }: { embed?: boolean } = $props()
 
   // JEV Hub: elenco dei progetti jev con avvio/arresto, servito dal hub di
-  // Palamede (che avvia il servizio jev-hub dedicato). Poll leggero per lo stato.
+  // Palamede (che avvia il servizio jev-hub dedicato). Poll leggero ogni 4 s,
+  // solo a scheda visibile (a scheda nascosta il timer salta il giro).
   let hub = $state<JevProjects | null>(null)
   let hubErr = $state('')
   let busy = $state<string | null>(null)
 
   async function load() {
+    if (typeof document !== 'undefined' && document.hidden) return
     try {
       hub = await getJevProjects()
       hubErr = ''
@@ -25,13 +27,19 @@
   $effect(() => {
     load()
     const t = setInterval(load, 4000)
-    return () => clearInterval(t)
+    const poke = () => { if (typeof document === 'undefined' || !document.hidden) load() }
+    document.addEventListener('visibilitychange', poke)
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', poke) }
   })
 
   async function act(id: string, action: 'start' | 'stop') {
     busy = id
     try {
-      await jevProjectAction(id, action)
+      const proj = await jevProjectAction(id, action)
+      // Update ottimistico: la risposta dice già started/running/error, senza
+      // aspettare il prossimo giro di poll (l'avvio apre la porta con ritardo:
+      // il badge mostra subito "in avvio" invece di restare fermo).
+      if (hub) hub = { ...hub, items: hub.items.map((p) => (p.id === id ? proj : p)) }
       await load()
     } catch (e) {
       hubErr = String((e as Error)?.message ?? e)
@@ -70,16 +78,17 @@
     <div class="exp-list">
       {#each hub.items as p (p.id)}
         <article class="exp-item">
-          <span class="exp-state {p.running ? 'wip' : 'sospeso'}">{p.running ? 'attivo' : 'fermo'}</span>
+          <span class="exp-state {p.running ? 'wip' : p.started ? 'prova' : 'sospeso'}">{p.running ? 'attivo' : p.started ? 'in avvio…' : 'fermo'}</span>
           <div class="exp-body">
             <h4>{p.name}</h4>
             <p>{p.desc}</p>
+            {#if p.error}<p class="exp-why"><strong>Avvio fallito:</strong> {p.error}</p>{/if}
             <p class="exp-paths">
               <code>:{p.port}</code>
               {#if p.running}<a class="exp-link" href={p.url} target="_blank" rel="noreferrer">apri UI →</a>{/if}
             </p>
             <div class="exp-hub-actions">
-              {#if p.running}
+              {#if p.running || p.started}
                 <button class="exp-hub-btn" disabled={busy === p.id} onclick={() => act(p.id, 'stop')}>Ferma</button>
               {:else}
                 <button class="exp-hub-btn" disabled={busy === p.id} onclick={() => act(p.id, 'start')}>Avvia</button>

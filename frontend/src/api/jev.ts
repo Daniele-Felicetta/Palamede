@@ -7,6 +7,7 @@ export interface JevProject {
   url: string
   started: boolean
   running: boolean
+  error: string | null
   cwd: string
 }
 export interface JevProjects { root: string; running: boolean; items: JevProject[] }

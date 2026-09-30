@@ -54,23 +54,24 @@ Palamede/                       (repo git · aggiornata: 2026-09-25 19:55)
 ## Frontend — frontend/
 
 - `src/main.ts` — entry Svelte 5, monta `App.svelte` (auto-routing da `pages/*.svelte`).
-- `src/App.svelte` — auto-routing **lazy** (ogni `pages/*.svelte` è un chunk separato; fallback Home + stati caricamento/errore).
+- `src/App.svelte` — auto-routing **lazy** (ogni `pages/*.svelte` è un chunk separato; 404 vera per rotte ignote, `document.title` per rotta, scroll-top, retry su chunk fallito, prefetch idle di Images/Chat).
 - `src/api/` — client per domini (`http`, `image`, `chat`, `chats`, `history`, `story`, `kb`, `trellis`, `doc`, `bench`, `downloader`, `jev`; `index.ts` riesporta tutto, gli import `from '../api'` restano validi).
-- `src/lib/` — logica riusabile: `images` (formati, lettura file, downscale per VLM), `text` (registri modelli, parser SSE), `download` (saveBlob/downloadUrl/dataUrlToBytes), `viewer3d` (viewer orbitale three.js), `rag` (prompt grounded, parsing citazioni, evidenziazione chunk).
+- `src/lib/` — logica riusabile: `images` (formati, lettura file, downscale per VLM), `text` (registri modelli, parser SSE), `download` (saveBlob/downloadUrl/dataUrlToBytes), `viewer3d` (viewer orbitale three.js), `rag` (prompt grounded, parsing citazioni, evidenziazione chunk), `chat-view` (tipo Msg + `msgText` per Chat/MessageList), `prefetch` (prefetch chunk via glob, usato dal menu), `ui-actions` (focus modale/input, textarea auto-grow).
 - `src/styles/` — CSS a sezioni (`tokens`, `base`, `layout`, `home`, `images`, `chat`, `wiki`, `shell`, `rag`, `bench`, `downloader`, `misc`) importate in ordine da `styles.css` (stessa cascata di prima, file navigabili).
-- `src/styles/tokens.css` — design tokens (variabili dark/light). Niente font da CDN: l'officina è offline, i token ripiegano sui font di sistema.
-- `src/router.svelte.ts` — router hash-based (`route` $state + `navigate()`).
-- `src/store.svelte.ts` — store condiviso: poller health/modelli/metriche/chat ogni 3 s (no overlap, pausa a scheda nascosta), `switchModel`.
+- `src/styles/tokens.css` — design tokens (variabili dark/light + `color-scheme`). Niente font da CDN: l'officina è offline, i token ripiegano sui font di sistema.
+- `src/styles/base.css` — reset + `:focus-visible` globale, skip-link, `prefers-reduced-motion` (niente animazioni se il sistema le riduce).
+- `src/router.svelte.ts` — router hash-based (`route` $state + `navigate()` sincrona): normalizza trailing slash/query, `titleFor()` per la scheda.
+- `src/store.svelte.ts` — store condiviso: poller health/modelli/metriche/chat/3D in **parallelo** (Promise.allSettled) con backoff fino a 15 s a hub spento e pausa a scheda nascosta, `switchModel`.
 - `src/lib/images.ts` + `src/lib/text.ts` — logica di dominio pura (preset formati/step, parse formati con snap a multipli di 32, parser SSE).
 - `src/desktop.ts` — ponte opzionale verso Tauri (`notify`), no-op in browser.
 - `src/data/sections.ts` — fonte delle sezioni/nav (8 route, flag live).
 - `src/data/wiki.ts` — contenuti wiki modelli (BONSAI/ZIMAGE/KLEIN/QWENIMAGE + DRAFTS MCP).
 - `src/data/experiments.ts` — registro Experimental (TRIED/WIP) della pagina Extra.
 - `src/games/bandersketch/` — Bandersketch (visual novel): `src/Setup.svelte` (/bandersketch), `src/Bandersketch.svelte` (/bandersketch/:genere), `src/data.ts` (generi/stili/narratori), `session.svelte.ts`, `game.css`.
-- `src/components/` — Layout (shell+metriche), Markdown (renderer zero-dep con escaping + allowlist http/https + citazioni `[n]` cliccabili), WikiEntry, Shot, ReasonBlock, Draft, SourceView (fonte con chunk evidenziato), SourceCards (card delle fonti citate) + `ui/` (design system).
-- `src/pages/` — Home, Images (4 modelli+img2img+gallery), Chat (streaming SSE, 9 modelli locali + knowledge grounded con citazioni), Downloader (catalogo + download modelli), Bench (benchmark modelli testuali e immagine: qualità + velocità + galleria), Rag (RAG stile NotebookLM: fonti, chat con le fonti, evidenziazione chunk), 3d (viewer three.js + GLB/STL), Extra (Progetto + **Banco** + Experimental + Giochi impilati; le vecchie rotte `/progetto`, `/bench`, `/experimental`, `/games` restano auto-routate ma fuori dalla nav).
+- `src/components/` — Layout (shell+metriche, skip-link, sidebar persistita, prefetch al hover, tema di sistema), Markdown (renderer zero-dep con escaping + allowlist http/https + citazioni `[n]` cliccabili), WikiEntry, Shot, HistoryGallery (cronologia immagini + lightbox), ReasonBlock, Draft, SourceView (fonte con chunk evidenziato), SourceCards (card delle fonti citate) + `ui/` (design system) + `chat/` (MessageList: registro conversazione).
+- `src/pages/` — Home, Images (4 modelli+img2img+gallery via HistoryGallery, preview senza frame duplicati), Chat (streaming SSE, 9 modelli locali + knowledge grounded con citazioni, registro via MessageList), Downloader (catalogo + download modelli), Bench (benchmark modelli testuali e immagine: qualità + velocità + galleria), Rag (RAG stile NotebookLM: fonti, chat con le fonti, evidenziazione chunk), 3d (viewer three.js + GLB/STL), Extra (Progetto + **Banco** + Experimental + Giochi impilati in **blocchi lazy** — si montano vicino al viewport; le vecchie rotte `/progetto`, `/bench`, `/experimental`, `/games` restano auto-routate ma fuori dalla nav).
 - `public/` — palamede_icon.png, examples/ (8 immagini committate).
-- Config: `package.json` (svelte 5 + three), `vite.config.ts` (proxy /api→:4600, three in chunk a parte), `tsconfig.json` (build ristretta a `src/`: la UI viva è `src/components/ui/`), `svelte.config.js`, `index.html`.
+- Config: `package.json` (svelte 5 + three), `vite.config.ts` (proxy /api→:4600, three in chunk a parte), `tsconfig.json` (build ristretta a `src/`, `noUnusedLocals`: niente import morti), `svelte.config.js`, `index.html` (meta color-scheme + theme-color per tema).
 
 ## Hub Node.js — hub/
 
@@ -115,7 +116,7 @@ Palamede/                       (repo git · aggiornata: 2026-09-25 19:55)
 ## Experimental — experimental/
 
 - `jev-experiment/` — copia del progetto sperimentale jev (senza `.venv`/`node_modules`/`.git`/cache/gguf): `agent-encounter/`, `jev-agent/`, `my-jev/`, `rizzo-flow/`, `Modern tiles_Free/`.
-- `jev-hub/server.mjs` — **servizio Node dedicato** (porta `4610`, env `JEV_HUB_PORT`/`JEV_ROOT`) che elenca e avvia i progetti jev dal loro percorso originale (`Desktop/jev-experiment`, dove stanno i `.venv` e i pesi Spark): rizzo-flow (:8017), jev-agent (:8018), agent-encounter (:8019), my-jev (:5173). Espone `GET /api/projects` e `POST /api/projects/<id>/start|stop`.
+- `jev-hub/server.mjs` — **servizio Node dedicato** (porta `4610`, env `JEV_HUB_PORT`/`JEV_ROOT`) che elenca e avvia i progetti jev dal loro percorso originale (`Desktop/jev-experiment`, dove stanno i `.venv` e i pesi Spark): rizzo-flow (:8017), jev-agent (:8018), agent-encounter (:8019), my-jev (:5173). Espone `GET /api/projects` e `POST /api/projects/<id>/start|stop`. Lo stato riporta `started` (processo vivo), `running` (porta aperta) ed `error` (ultimo errore di avvio, mai silenzioso); i comandi da PATH (pnpm) girano con shell su Windows. MiniCPM (usato da my-jev) vive in `models/minicpm5-2b/`.
 - Integrazione: `hub/lib/jev.mjs` avvia il servizio jev-hub come subprocess e inoltra `/api/jev/*`; la pagina Experimental mostra il pannello **JEV Hub** (stato + avvia/ferma + apri UI). MiniCPM (usato da my-jev) vive in `models/minicpm5-2b/`.
 - `model-antivirus/` — scan d'integrità dei pesi: `models.manifest.json` (path/dimensione/magic/enforce), `scan-models.py` (deterministico, `--quick` all'avvio) e `audit-model.py` (audit LLM al download). Integrato in `src-tauri/src/main.rs` e `scripts/copy-models.ps1`.
 

@@ -7,7 +7,6 @@
     saveHistory,
     clearHistory,
     deleteHistory,
-    historyImgUrl,
   } from "../api";
   import {
     refreshModels,
@@ -17,16 +16,13 @@
   } from "../store.svelte";
   import { IMAGE_MODELS } from "../data/wiki";
   import { Images } from "../lib/images";
-  import Shot from "../components/Shot.svelte";
+  import HistoryGallery from "../components/HistoryGallery.svelte";
   import WikiEntry from "../components/WikiEntry.svelte";
   import {
     Button,
     Dropzone,
-    EmptyState,
     Field,
     Hintline,
-    HistHead,
-    Lightbox,
     ModelPlate,
     Panel,
     PromptBox,
@@ -62,7 +58,6 @@
     history: [] as HistoryEntry[],
     clearing: false,
     deleting: null as string | null,
-    viewer: null as string | null, // id dell'immagine nel lightbox a schermo pieno
     preview: readPreviewPref(),
     previewUrl: null as string | null, // object URL del frame di preview in streaming
   });
@@ -70,7 +65,12 @@
 
   // Preview in streaming: durante la generazione polla /api/preview (~2/s) e
   // mostra il denoise che si forma. Il toggle è persistito in localStorage.
+  // Niente churn di object URL: se il frame è identico al precedente (stessa
+  // dimensione) si tiene quello vecchio; dopo troppi errori di fila la preview
+  // si ferma da sola (la generazione continua comunque).
   let previewTimer: number | null = null;
+  let previewLastSize = -1;
+  let previewFails = 0;
   const stopPreview = () => {
     if (previewTimer !== null) {
       clearInterval(previewTimer);
@@ -80,17 +80,22 @@
   const startPreview = () => {
     stopPreview();
     if (!ui.preview) return;
+    previewLastSize = -1;
+    previewFails = 0;
     previewTimer = window.setInterval(async () => {
       try {
         const r = await fetch("/api/preview", { cache: "no-store" });
         if (r.status === 204) return;
         const blob = await r.blob();
-        if (blob.size === 0) return;
+        if (blob.size === 0 || blob.size === previewLastSize) return;
+        previewLastSize = blob.size;
+        previewFails = 0;
         const url = URL.createObjectURL(blob);
         if (ui.previewUrl) URL.revokeObjectURL(ui.previewUrl);
         ui.previewUrl = url;
       } catch {
         /* la preview non blocca mai la generazione */
+        if (++previewFails >= 6) stopPreview();
       }
     }, 500);
   };
@@ -112,23 +117,6 @@
       ui.previewUrl = null;
     }
   });
-
-  // Lightbox a schermo pieno: in Tauri il target=_blank non funziona, quindi
-  // l'immagine si apre in un overlay che copre tutta la finestra.
-  const fullIdx = $derived(ui.history.findIndex((s) => s.id === ui.viewer));
-  const viewerEntry = $derived(fullIdx >= 0 ? ui.history[fullIdx] : null);
-  const prevEntry = $derived(fullIdx > 0 ? ui.history[fullIdx - 1] : null);
-  const nextEntry = $derived(
-    fullIdx >= 0 && fullIdx < ui.history.length - 1
-      ? ui.history[fullIdx + 1]
-      : null,
-  );
-  const viewerPrev = () => {
-    if (prevEntry) ui.viewer = prevEntry.id;
-  };
-  const viewerNext = () => {
-    if (nextEntry) ui.viewer = nextEntry.id;
-  };
 
 
   // cronologia persistente su disco (outputs/history) tramite hub
@@ -454,45 +442,16 @@
     <Hintline err={ui.error}>{ui.hint}</Hintline>
   </Panel>
 
-  <section class="hist" aria-label="Cronologia">
-    <HistHead eyebrow="Cronologia" title="Ultime generazioni">
-      {#snippet actions()}
-        {#if ui.history.length > 0}
-          <Button variant="side" onclick={wipe} disabled={ui.clearing}>
-            {ui.clearing ? "svuoto…" : `svuota (${ui.history.length})`}
-          </Button>
-        {/if}
-      {/snippet}
-    </HistHead>
-
-    {#if ui.history.length === 0}
-      <EmptyState>
-        Nessuna generazione salvata.<br />Genera un'immagine: finisce qui,
-        persistente tra una sessione e l'altra.
-      </EmptyState>
-    {:else}
-      <div class="gallery">
-        {#each ui.history as s (s.id)}
-          <Shot
-            src={historyImgUrl(s.id)}
-            alt={s.prompt}
-            title={s.prompt}
-            model={Images.modelName(s.model)}
-            size={s.size}
-            timeMs={s.timeMs}
-            seed={s.seed}
-            steps={s.steps}
-            deleting={ui.deleting === s.id}
-            disabled={!!ui.deleting}
-            onopen={() => (ui.viewer = s.id)}
-            onreuse={() => reuse(s)}
-            oncopy={() => copyPrompt(s)}
-            onremove={() => removeShot(s.id)}
-          />
-        {/each}
-      </div>
-    {/if}
-  </section>
+  <HistoryGallery
+    history={ui.history}
+    clearing={ui.clearing}
+    deleting={ui.deleting}
+    busy={ui.busy}
+    onwipe={wipe}
+    onreuse={reuse}
+    oncopy={copyPrompt}
+    onremove={removeShot}
+  />
 </div>
 
 <section class="wiki">
@@ -502,19 +461,3 @@
   />
   {#each IMAGE_MODELS as m (m.id)}<WikiEntry model={m} />{/each}
 </section>
-
-{#if ui.viewer}
-  <Lightbox
-    open={!!viewerEntry}
-    src={viewerEntry ? historyImgUrl(viewerEntry.id) : ""}
-    alt={viewerEntry?.prompt ?? ""}
-    caption={viewerEntry
-      ? `${Images.modelName(viewerEntry.model)} · ${viewerEntry.size} · ${(viewerEntry.timeMs / 1000).toFixed(1)} s · seed ${viewerEntry.seed}`
-      : ""}
-    index={fullIdx}
-    total={ui.history.length}
-    onclose={() => (ui.viewer = null)}
-    onprev={prevEntry ? viewerPrev : undefined}
-    onnext={nextEntry ? viewerNext : undefined}
-  />
-{/if}

@@ -5,23 +5,46 @@
   import { SECTIONS } from '../data/sections'
   import { Button, Led, Meter } from './ui'
   import { start3D, stop3D } from '../api'
+  import { prefetchPage as prefetch } from '../lib/prefetch'
 
   // Marcatore di build: compare nel footer, cosi' si capisce subito se il
   // browser sta servendo un bundle vecchio (in tal caso: Ctrl+F5). Allineato
   // alla versione dell'app (src-tauri/tauri.conf.json).
   const BUILD = 'v0.19'
 
+  // Tema: preferenza salvata, altrimenti quella del sistema (l'officina è dark
+  // di default solo se il sistema non dice altro). `colorScheme` allinea anche
+  // scrollbar e controlli nativi al tema.
   let theme = $state<'dark' | 'light'>(
-    (() => { try { return (localStorage.getItem('palamede-theme') as 'dark' | 'light') || 'dark' } catch { return 'dark' } })()
+    (() => {
+      try {
+        const saved = localStorage.getItem('palamede-theme') as 'dark' | 'light' | null
+        if (saved) return saved
+      } catch { /* no storage */ }
+      if (typeof window !== 'undefined' && typeof matchMedia !== 'undefined' && matchMedia('(prefers-color-scheme: light)').matches) return 'light'
+      return 'dark'
+    })()
   )
   $effect(() => {
     document.documentElement.dataset.theme = theme
+    document.documentElement.style.colorScheme = theme
     try { localStorage.setItem('palamede-theme', theme) } catch { /* no storage */ }
   })
 
   let { children }: { children: Snippet } = $props()
 
-  let sidebar = $state(typeof window !== 'undefined' ? window.innerWidth >= 1400 : true)
+  // Sidebar: stesso breakpoint del CSS (1200px) e preferenza persistita. Su
+  // schermi stretti parte sempre chiusa (è un overlay, non un riquadro).
+  let sidebar = $state(
+    (() => {
+      if (typeof window === 'undefined') return true
+      if (window.innerWidth < 1200) return false
+      try { return localStorage.getItem('palamede-sidebar') !== '0' } catch { return true }
+    })()
+  )
+  $effect(() => {
+    try { localStorage.setItem('palamede-sidebar', sidebar ? '1' : '0') } catch { /* no storage */ }
+  })
 
   // Stato del server 3D TRELLIS: arriva dallo store condiviso (un solo poller
   // per l'app, come chat/modelli). Qui solo start/stop, che scrivono l'esito.
@@ -48,9 +71,23 @@
     + (route.path === '/images' ? ' route-images' : '')
   )
 
+  // Prefetch al passaggio del mouse: `prefetch` (lib) scarica il chunk della
+  // pagina in cache, al click il loader risolve subito. Niente import statici:
+  // le pagine restano chunk lazy separati.
+  // Escape chiude la sidebar su schermi stretti (dove è un overlay).
+  $effect(() => {
+    if (!sidebar) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && typeof window !== 'undefined' && window.innerWidth < 1200) sidebar = false
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
+
 </script>
 
 <div class={shellCls}>
+  <a class="skip-link" href="#contenuto" onclick={(e) => { e.preventDefault(); document.getElementById('contenuto')?.focus() }}>salta al contenuto</a>
   <header class="masthead">
     <a class="brand" href="#/" onclick={(e) => { e.preventDefault(); navigate('/') }}>
       <img class="seal" src="/palamede_icon.png" alt="Palamede" />
@@ -61,6 +98,10 @@
         <a
           href="#{n.path}"
           class="{(route.path === n.path ? 'active ' : '') + (n.live ? '' : 'disabled')}"
+          aria-current={route.path === n.path ? 'page' : undefined}
+          aria-disabled={!n.live || undefined}
+          onmouseenter={() => prefetch(n.path)}
+          onfocus={() => prefetch(n.path)}
           onclick={(e) => { e.preventDefault(); navigate(n.path) }}
         ><svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html n.icon}</svg>{n.label}</a>
       {/each}
@@ -176,7 +217,7 @@
   </aside>
   {#if sidebar}<div class="side-backdrop" onclick={() => sidebar = false} aria-hidden="true"></div>{/if}
 
-  <main>{@render children()}</main>
+  <main id="contenuto" tabindex="-1">{@render children()}</main>
   <footer>
     <span>Palamede — officina locale · RTX 5060 Ti 16GB</span>
     <span>modello server :8000 · hub :4600 · <span class="build-tag">{BUILD}</span></span>

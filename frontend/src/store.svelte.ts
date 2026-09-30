@@ -31,33 +31,71 @@ export const getCurrent = (): string | null => store.models?.current ?? null
 export const modelLabel = Images.modelLabel
 
 let ticking = false
+let timer: ReturnType<typeof setTimeout> | null = null
+// Backoff: dopo errori consecutivi (hub spento) il giro rallenta fino a 15 s,
+// così la UI spenta non martella il loopback. Al primo successo torna a 3 s.
+let fails = 0
+const BASE_MS = 3000
+const MAX_MS = 15000
+
 async function tick() {
   // niente overlap: se il giro precedente è ancora in volo (hub sotto carico),
-  // salta questo (il poller riprova tra 3 s). A scheda nascosta, niente poll.
+  // salta questo (il poller riprova al giro dopo). A scheda nascosta, niente poll.
   if (ticking) return
-  if (typeof document !== 'undefined' && document.hidden) return
+  if (typeof document !== 'undefined' && document.hidden) return schedule()
   ticking = true
   try {
+    // In parallelo, non in sequenza: cinque round-trip seriali sotto carico
+    // sommano i timeout e l'UI resta indietro di secondi. Ognuno azzera il suo
+    // campo in caso d'errore (niente valori stantii spacciati per vivi).
+    const [health, models, metrics, chat, trellis] = await Promise.allSettled([
+      getHealth(), getModels(), getMetrics(), getChatStatus(), get3DStatus(),
+    ])
     const errs: string[] = []
-    // Su errore si AZZERA il campo, non si lascia il valore vecchio: altrimenti
-    // l'UI mostra metriche e stato "accesi" come se fossero vivi, e "hub non
-    // raggiungibile" (che testa health === null) non compare mai.
-    try { store.health = await getHealth() } catch (e) { store.health = null; errs.push('health: ' + (e instanceof Error ? e.message : String(e))) }
-    try { store.models = await getModels() } catch (e) { store.models = null; errs.push('models: ' + (e instanceof Error ? e.message : String(e))) }
-    try { store.metrics = await getMetrics() } catch (e) { store.metrics = null; errs.push('metrics: ' + (e instanceof Error ? e.message : String(e))) }
-    try { store.chat = await getChatStatus() } catch { store.chat = null /* hub non ancora pronto */ }
-    // stato del server 3D: silenzioso (il hub risponde anche a server spento)
-    try { store.trellis = await get3DStatus() } catch { store.trellis = null /* hub non vivo */ }
+    if (health.status === 'fulfilled') store.health = health.value
+    else { store.health = null; errs.push('health: ' + msg(health.reason)) }
+    if (models.status === 'fulfilled') store.models = models.value
+    else { store.models = null; errs.push('models: ' + msg(models.reason)) }
+    if (metrics.status === 'fulfilled') store.metrics = metrics.value
+    else { store.metrics = null; errs.push('metrics: ' + msg(metrics.reason)) }
+    // chat e 3D sono silenziosi: il hub risponde anche a server spenti, e a hub
+    // non ancora pronto il campo resta null senza sporcare lastError.
+    store.chat = chat.status === 'fulfilled' ? chat.value : null
+    store.trellis = trellis.status === 'fulfilled' ? trellis.value : null
     store.lastError = errs.length ? errs.join(' · ') : null
+    fails = errs.length >= 3 ? fails + 1 : 0
   } finally {
     ticking = false
   }
+  schedule()
+}
+
+function msg(e: unknown): string {
+  return e instanceof Error ? e.message : String(e)
+}
+
+function delay(): number {
+  return Math.min(BASE_MS * 2 ** Math.min(fails, 3), MAX_MS)
+}
+
+function schedule() {
+  if (timer) clearTimeout(timer)
+  timer = setTimeout(tick, delay())
+}
+
+function poke() {
+  // Rientro sulla scheda o ritorno online: giro subito, senza aspettare il timer.
+  fails = 0
+  if (!ticking) void tick()
 }
 
 // Il poller parte all'import del modulo: Layout monta sempre, quindi l'app
 // lo usa per forza. Niente subscribe manuale come in React.
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) poke() })
+  window.addEventListener('online', poke)
+}
 tick()
-setInterval(tick, 3000)
 
 /** Cambia modello in un colpo solo (scarica + carica). Idempotente. */
 export async function switchModel(id: string): Promise<ModelsStatus | null> {

@@ -139,6 +139,11 @@ footer {
   border-bottom: 1px solid var(--line);
 }
 
+.side-port {
+  color: var(--paper-faint);
+  letter-spacing: .4px;
+}
+
 .meter {
   margin-bottom: 12px;
 }

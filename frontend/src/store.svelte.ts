@@ -9,7 +9,7 @@
 // switchModel() è il punto unico di cambio modello: scarica il precedente e
 // carica il nuovo in un colpo solo (il server lo fa da sé su /select), quindi
 // NON serve mai premere prima un "eject".
-import { get3DStatus, getChatStatus, getHealth, getMetrics, getModels, selectModel, type ChatStatus, type Health, type Metrics, type ModelsStatus, type TrellisStatus } from './api'
+import { get3DStatus, getChatStatus, getHealth, getMetrics, getModels, getServerMetrics, selectModel, type ChatStatus, type Health, type Metrics, type ModelsStatus, type ServerMetrics, type TrellisStatus } from './api'
 import { Images } from './lib/images'
 
 export const store = $state({
@@ -18,6 +18,7 @@ export const store = $state({
   metrics: null as Metrics | null,
   chat: null as ChatStatus | null,
   trellis: null as TrellisStatus | null,
+  server: null as ServerMetrics | null,
   selecting: null as string | null,
   lastError: null as string | null,
 })
@@ -45,11 +46,11 @@ async function tick() {
   if (typeof document !== 'undefined' && document.hidden) return schedule()
   ticking = true
   try {
-    // In parallelo, non in sequenza: cinque round-trip seriali sotto carico
+    // In parallelo, non in sequenza: sei round-trip seriali sotto carico
     // sommano i timeout e l'UI resta indietro di secondi. Ognuno azzera il suo
     // campo in caso d'errore (niente valori stantii spacciati per vivi).
-    const [health, models, metrics, chat, trellis] = await Promise.allSettled([
-      getHealth(), getModels(), getMetrics(), getChatStatus(), get3DStatus(),
+    const [health, models, metrics, chat, trellis, server] = await Promise.allSettled([
+      getHealth(), getModels(), getMetrics(), getChatStatus(), get3DStatus(), getServerMetrics(),
     ])
     const errs: string[] = []
     if (health.status === 'fulfilled') store.health = health.value
@@ -58,10 +59,12 @@ async function tick() {
     else { store.models = null; errs.push('models: ' + msg(models.reason)) }
     if (metrics.status === 'fulfilled') store.metrics = metrics.value
     else { store.metrics = null; errs.push('metrics: ' + msg(metrics.reason)) }
-    // chat e 3D sono silenziosi: il hub risponde anche a server spenti, e a hub
-    // non ancora pronto il campo resta null senza sporcare lastError.
+    // chat, 3D e server testuale sono silenziosi: il hub risponde anche a
+    // server spenti, e a hub non ancora pronto il campo resta null senza
+    // sporcare lastError.
     store.chat = chat.status === 'fulfilled' ? chat.value : null
     store.trellis = trellis.status === 'fulfilled' ? trellis.value : null
+    store.server = server.status === 'fulfilled' ? server.value : null
     store.lastError = errs.length ? errs.join(' · ') : null
     fails = errs.length >= 3 ? fails + 1 : 0
   } finally {

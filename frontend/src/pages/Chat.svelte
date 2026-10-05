@@ -1,8 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { chatStream, startChat, stopChat, retrieveKb, listChats, getChat, saveChat, renameChat, deleteChat } from '../api'
-  import type { ChatMessage, KbChunkHit, KbRetrieveResult, ChatMeta } from '../api'
+  import type { ChatMessage, KbChunkHit, KbRetrieveResult } from '../api'
   import { store } from '../store.svelte'
+  import { session } from '../lib/chat-session.svelte'
   import { Text } from '../lib/text'
   import { buildGroundingSystem, extractCites } from '../lib/rag'
   import { msgText, type ViewMsg as Msg } from '../lib/chat-view'
@@ -13,28 +14,17 @@
 
   // Stato del server: arriva dallo store condiviso (un solo poller per la app).
   let status = $derived(store.chat)
-  let busy = $state(false)
-  let err = $state('')
 
-  let model = $state<Text.ModelId>(Text.DEFAULT_MODEL)
-  let settings = $state(Text.defaultsFor(Text.DEFAULT_MODEL))
   let settingsOpen = $state(false)
   let pickerOpen = $state(false)
 
   // knowledge base: se attiva, ogni domanda recupera i frammenti rilevanti
   // (ibrido + rerank) e li inietta come contesto di sistema grounded.
-  let kbOn = $state(false)
-
-  let messages = $state<Msg[]>([])
-  let input = $state('')
-  let sending = $state(false)
 
   // ── conversazioni persistite (outputs/chats via hub) ──────────────────
   // Una chat attiva (chatId) + l'elenco salvato (chatList). La chat attiva si
   // salva automaticamente dopo ogni risposta; una nuova chat parte senza id
   // finché il primo scambio non la crea su disco.
-  let chatId = $state<string | null>(null)
-  let chatList = $state<ChatMeta[]>([])
   let drawerOpen = $state(false)
   let editing = $state<string | null>(null)   // id in rinomina inline
   let editText = $state('')
@@ -44,33 +34,30 @@
   let copied = $state<number | null>(null)
   let copyTimer: ReturnType<typeof setTimeout> | undefined
 
-  // generazione annullabile: "ferma" interrompe lo stream senza spegnere il server
-  let genAbort: AbortController | null = null
-
   async function refreshChats() {
-    try { chatList = await listChats() } catch { /* hub giù: lista vuota */ }
+    try { session.chatList = await listChats() } catch { /* hub giù: lista vuota */ }
   }
 
   async function persist() {
-    if (messages.length === 0) return
+    if (session.messages.length === 0) return
     try {
       const doc = await saveChat({
-        id: chatId ?? undefined,
-        model: status?.model ?? model,
-        messages: messages.map((m) => ({ role: m.role, content: m.content, retr: m.retr ?? null, cites: m.cites ?? [] })),
+        id: session.chatId ?? undefined,
+        model: status?.model ?? session.model,
+        messages: session.messages.map((m) => ({ role: m.role, content: m.content, retr: m.retr ?? null, cites: m.cites ?? [] })),
       })
-      chatId = doc.id
+      session.chatId = doc.id
       await refreshChats()
-    } catch (e) { err = 'salvataggio conversazione non riuscito: ' + (e instanceof Error ? e.message : String(e)) }
+    } catch (e) { session.err = 'salvataggio conversazione non riuscito: ' + (e instanceof Error ? e.message : String(e)) }
   }
 
   function newChat() {
-    genAbort?.abort()
-    chatId = null
-    messages = []
-    input = ''
-    stats = null
-    err = ''
+    session.genAbort?.abort()
+    session.chatId = null
+    session.messages = []
+    session.input = ''
+    session.stats = null
+    session.err = ''
     drawerOpen = false
     editing = null
     confirmDel = null
@@ -78,11 +65,11 @@
   }
 
   async function openChat(id: string) {
-    if (sending) return
+    if (session.sending) return
     try {
       const doc = await getChat(id)
-      chatId = doc.id
-      messages = doc.messages.map((m) => {
+      session.chatId = doc.id
+      session.messages = doc.messages.map((m) => {
         const retr = (m.retr as KbRetrieveResult | null | undefined) ?? null
         const mm: Msg = { role: m.role, content: m.content, retr }
         mm.cites = m.cites ?? (retr ? extractCites(msgText(mm)) : undefined)
@@ -91,18 +78,18 @@
       drawerOpen = false
       editing = null
       confirmDel = null
-      err = ''
-      stats = null
+      session.err = ''
+      session.stats = null
       stick = true
-    } catch (e) { err = e instanceof Error ? e.message : String(e) }
+    } catch (e) { session.err = e instanceof Error ? e.message : String(e) }
   }
 
   async function removeChat(id: string) {
     try {
       await deleteChat(id)
-      if (chatId === id) newChat()
+      if (session.chatId === id) newChat()
       await refreshChats()
-    } catch (e) { err = e instanceof Error ? e.message : String(e) }
+    } catch (e) { session.err = e instanceof Error ? e.message : String(e) }
     finally { confirmDel = null }
   }
 
@@ -118,7 +105,7 @@
     editing = null
     if (!id || !title) return
     try { await renameChat(id, title); await refreshChats() }
-    catch (e) { err = e instanceof Error ? e.message : String(e) }
+    catch (e) { session.err = e instanceof Error ? e.message : String(e) }
   }
 
   // fonte aperta dal click su una citazione [n] (modale con chunk evidenziato)
@@ -132,17 +119,12 @@
       const c = el.closest('.rag-cite') as HTMLElement | null
       if (!c?.dataset.cite) return
       const wrap = el.closest('[data-idx]') as HTMLElement | null
-      const m = wrap ? messages[Number(wrap.dataset.idx)] : undefined
+      const m = wrap ? session.messages[Number(wrap.dataset.idx)] : undefined
       if (m) openCiteFrom(Number(c.dataset.cite), m)
     }
     document.addEventListener('click', h)
     return () => document.removeEventListener('click', h)
   })
-
-  // contatore tok/s: stima live durante la generazione, preciso a fine stream
-  let stats = $state<{ tps: number; tokens: number | null; live: boolean } | null>(null)
-  let genStart = 0
-  let chars = 0
 
   // autoscroll "intelligente": segue la generazione solo se l'utente è già in
   // fondo, altrimenti resta dove sta (niente salti mentre legge).
@@ -150,8 +132,8 @@
   let stick = true
 
   $effect(() => {
-    const last = messages[messages.length - 1]
-    void messages.length
+    const last = session.messages[session.messages.length - 1]
+    void session.messages.length
     void last?.content
     void last?.reason
     if (logEl && stick) logEl.scrollTop = logEl.scrollHeight
@@ -170,135 +152,123 @@
   }
 
   const apply = async () => {
-    if (sending) return
-    busy = true; err = ''
+    if (session.sending) return
+    session.busy = true; session.err = ''
     try {
       // Nuove impostazioni su server già attivo: riavvia mantenendo la chat a
       // schermo. Da spento (o al primo avvio) si riparte da una chat vuota:
       // azzero anche chatId, altrimenti il prossimo salvataggio sovrascriverebbe
       // la conversazione precedentemente aperta.
-      if (!status?.running) { messages = []; chatId = null }
-      const cpuMoe = Text.supportsCpuMoe(model) ? settings.cpuMoe : 0
-      const movaCpu = Text.supportsMova(model) ? settings.movaCpu : false
-      store.chat = await startChat({ model, ...settings, cpuMoe, movaCpu })
+      if (!status?.running) { session.messages = []; session.chatId = null }
+      const cpuMoe = Text.supportsCpuMoe(session.model) ? session.settings.cpuMoe : 0
+      const movaCpu = Text.supportsMova(session.model) ? session.settings.movaCpu : false
+      store.chat = await startChat({ model: session.model, ...session.settings, cpuMoe, movaCpu })
     } catch (e) {
-      err = e instanceof Error ? e.message : String(e)
+      session.err = e instanceof Error ? e.message : String(e)
     } finally {
-      busy = false
+      session.busy = false
     }
   }
 
   const stopServer = async () => {
-    if (sending) return
-    busy = true; err = ''
-    try { store.chat = await stopChat() } catch (e) { err = String(e) } finally { busy = false }
+    if (session.sending) return
+    session.busy = true; session.err = ''
+    try { store.chat = await stopChat() } catch (e) { session.err = String(e) } finally { session.busy = false }
   }
 
   // Retrieval knowledge base: se "knowledge on", prima di ogni domanda recupera
   // i frammenti rilevanti. Null → chat liscia (o knowledge off).
   const kbRetrieval = async (text: string): Promise<KbRetrieveResult | null> => {
-    if (!kbOn) return null
+    if (!session.kbOn) return null
     try { return await retrieveKb(text, 5) } catch { return null }
   }
 
   // Chiusura pulita di uno stream (normale o interrotto): chiude i messaggi
   // pendenti, ne calcola le citazioni e riabilita il composer.
   function finish() {
-    for (const m of messages) if (m.pending) { m.pending = false; m.cites = extractCites(msgText(m)) }
-    sending = false
-    genAbort = null
+    for (const m of session.messages) if (m.pending) { m.pending = false; m.cites = extractCites(msgText(m)) }
+    session.sending = false
+    session.genAbort = null
   }
 
   function stopGen() {
-    genAbort?.abort()
+    session.genAbort?.abort()
   }
 
   async function send(e: { preventDefault(): void }) {
     e.preventDefault()
-    const text = input.trim()
-    if (!text || sending || !status?.ready) return
-    input = ''
+    const text = session.input.trim()
+    if (!text || session.sending || !status?.ready) return
+    session.input = ''
     flatTextarea(taEl)
-    err = ''
+    session.err = ''
     const retr = await kbRetrieval(text)
     const system = retr ? buildGroundingSystem(retr) : undefined
     const history: ChatMessage[] = [
-      ...messages.filter((m) => !m.pending).map((m) => ({ role: m.role, content: m.content })),
+      ...session.messages.filter((m) => !m.pending).map((m) => ({ role: m.role, content: m.content })),
       { role: 'user', content: text },
     ]
-    messages = [...messages, { role: 'user', content: text }, { role: 'assistant', content: '', pending: true, retr }]
-    sending = true
-    stats = null
-    genStart = performance.now()
-    chars = 0
+    session.messages = [...session.messages, { role: 'user', content: text }, { role: 'assistant', content: '', pending: true, retr }]
+    session.sending = true
+    session.stats = null
+    session.genStart = performance.now()
+    session.chars = 0
     stick = true
-    genAbort = new AbortController()
+    session.genAbort = new AbortController()
     let stream: ReadableStream<Uint8Array>
     try {
-      stream = await chatStream(history, settings.temperature, system, undefined, genAbort.signal)
+      stream = await chatStream(history, session.settings.temperature, system, undefined, session.genAbort.signal)
     } catch (er) {
       const aborted = er instanceof Error && er.name === 'AbortError'
       if (aborted) finish()
-      else { sending = false; genAbort = null; err = er instanceof Error ? er.message : String(er); messages = messages.filter((m) => !m.pending) }
+      else { session.sending = false; session.genAbort = null; session.err = er instanceof Error ? er.message : String(er); session.messages = session.messages.filter((m) => !m.pending) }
       return
     }
     try {
       Text.stream(
         stream,
         (type, t) => {
-          chars += t.length
-          const el = (performance.now() - genStart) / 1000
-          if (el > 0.4) stats = { tps: (chars / 4) / el, tokens: null, live: true }
-          const last = messages[messages.length - 1]
+          session.chars += t.length
+          const el = (performance.now() - session.genStart) / 1000
+          if (el > 0.4) session.stats = { tps: (session.chars / 4) / el, tokens: null, live: true }
+          const last = session.messages[session.messages.length - 1]
           if (last?.pending) {
             if (type === 'reason') last.reason = (last.reason ?? '') + t
             else last.content += t
           }
         },
-        (st) => { if (st) stats = { tps: st.tps, tokens: st.tokens, live: false }; finish(); persist() },
+        (st) => { if (st) session.stats = { tps: st.tps, tokens: st.tokens, live: false }; finish(); persist() },
         (er) => {
-          const aborted = !!genAbort?.signal.aborted || er?.name === 'AbortError'
+          const aborted = !!session.genAbort?.signal.aborted || er?.name === 'AbortError'
           if (aborted) { finish(); persist() }
-          else { finish(); err = er.message }
+          else { finish(); session.err = er.message }
         },
       )
     } catch (er) {
       finish()
-      err = er instanceof Error ? er.message : String(er)
+      session.err = er instanceof Error ? er.message : String(er)
     }
   }
 
   async function copyMsg(i: number) {
     try {
-      await navigator.clipboard.writeText(msgText(messages[i]))
+      await navigator.clipboard.writeText(msgText(session.messages[i]))
       copied = i
       clearTimeout(copyTimer)
       copyTimer = setTimeout(() => { if (copied === i) copied = null }, 1400)
     } catch { /* clipboard negato */ }
   }
 
-  // Cambio modello esplicito: il click carica il modello scelto sulla GPU
-  // (riavviando se il server è già attivo con un altro modello). Il modello
-  // attivo non fa nulla. Ogni cambio riparte dai parametri di fabbrica
-  // (context/KV/temp) di QUEL modello.
-  const pickChatModel = async (id: Text.ModelId) => {
-    if (busy || sending) return
-    model = id
+  // Cambio modello esplicito: il click SELEZIONA soltanto (scheda + default di
+  // quel modello), senza toccare il server. A caricare ci pensa "avvia".
+  // Così si può guardare un modello senza farlo partire per sbaglio.
+  const pickChatModel = (id: Text.ModelId) => {
+    if (session.busy) return
+    session.model = id
     pickerOpen = false
     if (status?.running && status?.model === id) return
-    settings = Text.defaultsFor(id)
-    const cpuMoe = Text.supportsCpuMoe(id) ? settings.cpuMoe : 0
-    err = ''
-    busy = true
-    try {
-      messages = []
-      chatId = null
-      store.chat = await startChat({ model: id, ...settings, cpuMoe })
-    } catch (e) {
-      err = e instanceof Error ? e.message : String(e)
-    } finally {
-      busy = false
-    }
+    session.settings = Text.defaultsFor(id)
+    session.err = ''
   }
 
   function openCiteFrom(n: number, m: Msg) {
@@ -311,10 +281,10 @@
     openSrc = { name: chunk.source, path: 'raw/' + chunk.source, start: chunk.start, end: chunk.end }
   }
 
-  let loaded = $derived(Text.get(status?.model ?? '') ?? Text.get(model))
+  let loaded = $derived(Text.get(status?.model ?? '') ?? Text.get(session.model))
   let stateOf = (id: string) => {
     const active = status?.running && status?.model === id
-    return active ? (status.ready ? 'on' : 'busy') : (model === id ? 'sel' : 'off')
+    return active ? (status.ready ? 'on' : 'busy') : (session.model === id ? 'sel' : 'off')
   }
 
   // Solo i modelli realmente scaricati: /api/chat/status elenca i file presenti.
@@ -326,9 +296,9 @@
   })
   let visibleModels = $derived(Text.MODELS.filter((m) => !availableIds || availableIds.has(m.id)))
   $effect(() => {
-    if (!status?.running && availableIds && visibleModels.length && !availableIds.has(model)) {
-      model = visibleModels[0].id
-      settings = Text.defaultsFor(model)
+    if (!status?.running && availableIds && visibleModels.length && !availableIds.has(session.model)) {
+      session.model = visibleModels[0].id
+      session.settings = Text.defaultsFor(session.model)
     }
   })
 
@@ -336,13 +306,13 @@
   let settingsDirty = $derived.by(() => {
     const p = status?.params
     if (!status?.running || !p) return false
-    return p.context !== settings.context
-      || p.kv !== settings.kv
-      || !!p.mtp !== !!settings.mtp
-      || p.cpuMoe !== settings.cpuMoe
-      || !!p.movaCpu !== !!settings.movaCpu
-      || p.gpuLayers !== settings.gpuLayers
-      || !!p.thinking !== !!settings.thinking
+    return p.context !== session.settings.context
+      || p.kv !== session.settings.kv
+      || !!p.mtp !== !!session.settings.mtp
+      || p.cpuMoe !== session.settings.cpuMoe
+      || !!p.movaCpu !== !!session.settings.movaCpu
+      || p.gpuLayers !== session.settings.gpuLayers
+      || !!p.thinking !== !!session.settings.thinking
   })
 
   function closePanels() { drawerOpen = false; settingsOpen = false }
@@ -353,7 +323,7 @@
     <div class="chat-bar">
       <button class="model-chip" type="button" onclick={() => (pickerOpen = !pickerOpen)} aria-expanded={pickerOpen} aria-label="Scegli modello">
         <Led state={status?.ready ? 'on' : status?.running ? 'busy' : 'off'} />
-        <span class="model-chip-name">{loaded?.name ?? model}</span>
+        <span class="model-chip-name">{loaded?.name ?? session.model}</span>
         {#if loaded}<span class="model-chip-tag">{Text.modelStamp(loaded.id)}</span>{/if}
         <svg class={`model-chip-caret${pickerOpen ? ' up' : ''}`} width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
           <path d="M2 4.5 6 8.5 10 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
@@ -365,10 +335,10 @@
           {status?.running ? (status.ready ? 'pronto' : 'carico…') : 'spento'}
         </ChatState>
         {#if status?.running}
-          {#if settingsDirty}<Button cls="chat-tool" toggled onclick={apply} disabled={busy || sending}>{busy ? 'riavvio…' : 'applica'}</Button>{/if}
-          <Button variant="ghost" onclick={stopServer} disabled={busy || sending}>ferma</Button>
+          {#if settingsDirty}<Button cls="chat-tool" toggled onclick={apply} disabled={session.busy || session.sending}>{session.busy ? 'riavvio…' : 'applica'}</Button>{/if}
+          <Button variant="ghost" onclick={stopServer} disabled={session.busy || session.sending}>ferma</Button>
         {:else}
-          <Button onclick={apply} disabled={busy}>{busy ? 'avvio…' : 'avvia'}</Button>
+          <Button onclick={apply} disabled={session.busy}>{session.busy ? 'avvio…' : 'avvia'}</Button>
         {/if}
         <a class="models-dl-btn" href="#/downloader" title="Scarica altri modelli">＋ modelli</a>
         <button class="icon-btn" type="button" onclick={newChat} title="Nuova conversazione" aria-label="Nuova conversazione">
@@ -382,10 +352,10 @@
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
             <path d="M2.5 4h11M2.5 8h11M2.5 12h7" />
           </svg>
-          {#if chatList.length}<span class="icon-badge">{chatList.length}</span>{/if}
+          {#if session.chatList.length}<span class="icon-badge">{session.chatList.length}</span>{/if}
         </button>
-        <button class="icon-btn" type="button" class:toggled={kbOn} onclick={() => (kbOn = !kbOn)}
-          title="Usa la knowledge base come contesto" aria-label="Knowledge base" aria-pressed={kbOn}>
+        <button class="icon-btn" type="button" class:toggled={session.kbOn} onclick={() => (session.kbOn = !session.kbOn)}
+          title="Usa la knowledge base come contesto" aria-label="Knowledge base" aria-pressed={session.kbOn}>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M3 3.5h4a2 2 0 0 1 2 2V13a2 2 0 0 0-2-2H3zM13 3.5H9a2 2 0 0 0-2 2V13a2 2 0 0 1 2-2h4z" />
           </svg>
@@ -409,12 +379,12 @@
           <button
             type="button"
             role="radio"
-            aria-checked={model === m.id}
+            aria-checked={session.model === m.id}
             class={`pick${st === 'on' ? ' on' : st === 'sel' ? ' sel' : ''}`}
-            disabled={busy || sending || loading}
+            disabled={session.busy || loading}
             title={active
               ? (loading ? 'in caricamento…' : `modello attivo: ${m.name}. "ferma" lo scarica dalla GPU`)
-              : `carica ${m.name} sulla GPU`}
+              : `seleziona ${m.name} (senza avviarlo: per caricarlo premi "avvia")`}
             onclick={() => pickChatModel(m.id)}
           >
             <span class="pick-name"><Led state={st === 'on' ? 'on' : st === 'busy' ? 'busy' : st === 'sel' ? 'busy' : 'off'} />{m.name}</span>
@@ -438,12 +408,12 @@
       </div>
     </div>
     <div class="chat-panel-body">
-      {#if chatList.length === 0}
+      {#if session.chatList.length === 0}
         <p class="chat-panel-empty">Nessuna conversazione salvata. Scrivine una: si salva da sola.</p>
       {:else}
         <ul class="chat-conv-list">
-          {#each chatList as c (c.id)}
-            <li class={`chat-conv${c.id === chatId ? ' on' : ''}`}>
+          {#each session.chatList as c (c.id)}
+            <li class={`chat-conv${c.id === session.chatId ? ' on' : ''}`}>
               {#if editing === c.id}
                 <form class="chat-conv-edit" onsubmit={(e) => { e.preventDefault(); commitRename() }}>
                   <input class="chat-conv-input" bind:value={editText} use:focusInput aria-label="Titolo conversazione"
@@ -451,7 +421,7 @@
                   <button class="chat-conv-ok" type="submit" aria-label="Salva titolo">✓</button>
                 </form>
               {:else}
-                <button type="button" class="chat-conv-open" onclick={() => openChat(c.id)} title={c.title} disabled={sending}>
+                <button type="button" class="chat-conv-open" onclick={() => openChat(c.id)} title={c.title} disabled={session.sending}>
                   <span class="chat-conv-name">{c.title}</span>
                   <span class="chat-conv-meta">{c.model ? Text.modelName(c.model) : ''} · {c.n} msg</span>
                 </button>
@@ -475,83 +445,83 @@
 {#if settingsOpen}
   <div class="chat-backdrop" onclick={closePanels} aria-hidden="true"></div>
   <aside class="chat-panel wide" aria-label="Impostazioni">
-    <div class="chat-panel-head">
-      <span class="chat-panel-title">Impostazioni · {loaded?.name ?? model}</span>
+      <div class="chat-panel-head">
+        <span class="chat-panel-title">Impostazioni · {loaded?.name ?? session.model}</span>
       <button class="icon-btn" type="button" onclick={closePanels} aria-label="Chiudi">×</button>
     </div>
     <div class="chat-panel-body">
       <div class="field-row">
         <Field label="Contesto" for="ctx">
           <input id="ctx" type="number" min={1024} max={524288} step={1024}
-            value={settings.context}
-            oninput={(e) => settings.context = Number(e.currentTarget.value) || 8192} />
+            value={session.settings.context}
+            oninput={(e) => session.settings.context = Number(e.currentTarget.value) || 8192} />
         </Field>
         <Field label="Temperatura" for="temp">
           <input id="temp" type="number" min={0} max={2} step={0.1}
-            value={settings.temperature}
-            oninput={(e) => settings.temperature = Number(e.currentTarget.value) || 0} />
+            value={session.settings.temperature}
+            oninput={(e) => session.settings.temperature = Number(e.currentTarget.value) || 0} />
         </Field>
         <Field label="Layer GPU" for="ngl">
           <input id="ngl" type="number" min={-1} max={200}
-            value={settings.gpuLayers}
-            oninput={(e) => settings.gpuLayers = Number(e.currentTarget.value) || 99} />
+            value={session.settings.gpuLayers}
+            oninput={(e) => session.settings.gpuLayers = Number(e.currentTarget.value) || 99} />
         </Field>
-        {#if Text.vramProfilesFor(model).length > 0}
+        {#if Text.vramProfilesFor(session.model).length > 0}
           <Field label="Profilo VRAM" for="vram">
             <select id="vram"
-              value={Text.activeProfile(model, settings)?.id ?? 'custom'}
+              value={Text.activeProfile(session.model, session.settings)?.id ?? 'custom'}
               onchange={(e) => {
-                const p = Text.vramProfilesFor(model).find(x => x.id === e.currentTarget.value)
+                const p = Text.vramProfilesFor(session.model).find(x => x.id === e.currentTarget.value)
                 if (!p) return
-                settings.cpuMoe = p.cpuMoe
-                settings.movaCpu = p.movaCpu
-                if (p.kv) settings.kv = p.kv
-                if (p.context) settings.context = p.context
+                session.settings.cpuMoe = p.cpuMoe
+                session.settings.movaCpu = p.movaCpu
+                if (p.kv) session.settings.kv = p.kv
+                if (p.context) session.settings.context = p.context
               }}
               title="Imposta insieme contesto, KV cache e dove stanno gli esperti MoE (e il banco MoVA dell'attenzione)">
               <option value="custom">personalizzato</option>
-              {#each Text.vramProfilesFor(model) as p (p.id)}
+              {#each Text.vramProfilesFor(session.model) as p (p.id)}
                 <option value={p.id}>{p.label} · {p.hint}</option>
               {/each}
             </select>
           </Field>
         {/if}
-        {#if Text.isMoe(model)}
+        {#if Text.isMoe(session.model)}
           <Field label="Layer MoE su CPU" for="cmoe">
             <input id="cmoe" type="number" min={-1} max={64}
-              value={settings.cpuMoe}
-              oninput={(e) => settings.cpuMoe = Math.max(-1, Number(e.currentTarget.value) || 0)}
+              value={session.settings.cpuMoe}
+              oninput={(e) => session.settings.cpuMoe = Math.max(-1, Number(e.currentTarget.value) || 0)}
               title="Sposta i pesi degli esperti MoE dei primi N layer sulla CPU (libera VRAM). -1 = tutti gli esperti su CPU" />
           </Field>
         {/if}
-        {#if Text.supportsMova(model)}
+        {#if Text.supportsMova(session.model)}
           <Field check>
-            <input type="checkbox" bind:checked={settings.movaCpu} />
+            <input type="checkbox" bind:checked={session.settings.movaCpu} />
             <span title="Sposta il banco di esperti dell'attenzione MoVA (attn_v_exps) sulla CPU: libera ~3 GB di VRAM, prompt più lento">Attention MoVA su CPU</span>
           </Field>
         {/if}
         <Field check>
-          <input type="checkbox" bind:checked={settings.mtp} />
+          <input type="checkbox" bind:checked={session.settings.mtp} />
           <span>MTP (multi-token prediction)</span>
         </Field>
         <Field check>
-          <input type="checkbox" bind:checked={settings.thinking} />
+          <input type="checkbox" bind:checked={session.settings.thinking} />
           <span>Thinking (ragionamento interno)</span>
         </Field>
       </div>
       <div class="kv-slot">
-        <KvSquare value={settings.kv} context={settings.context} onselect={(v) => (settings.kv = v)} />
+        <KvSquare value={session.settings.kv} context={session.settings.context} onselect={(v) => (session.settings.kv = v)} />
       </div>
-      {#if settings.context > 65536}
+      {#if session.settings.context > 65536}
         <p class="chat-note">Contesto oltre 64k: la KV cache cresce in modo lineare e va in RAM (su 16 GB di VRAM ~4,4 GB a 64k, ~35 GB a 512k). Con un modello immagine caricato il load può fallire: scaricalo prima.</p>
       {/if}
-      {#if Text.isMoe(model) && settings.cpuMoe > 0}
-        <p class="chat-note">I pesi degli esperti dei primi {settings.cpuMoe} layer andranno su CPU: meno VRAM, più lento.</p>
+      {#if Text.isMoe(session.model) && session.settings.cpuMoe > 0}
+        <p class="chat-note">I pesi degli esperti dei primi {session.settings.cpuMoe} layer andranno su CPU: meno VRAM, più lento.</p>
       {/if}
-      {#if Text.supportsMova(model) && settings.movaCpu}
+      {#if Text.supportsMova(session.model) && session.settings.movaCpu}
         <p class="chat-note">Il banco dell'attenzione MoVA (attn_v_exps) andrà su CPU: libera ~3 GB di VRAM, prompt più lento.</p>
       {/if}
-      {#if Text.vramProfilesFor(model).some(p => p.id === 'max-speed' && p.cpuMoe === settings.cpuMoe && p.movaCpu === settings.movaCpu)}
+      {#if Text.vramProfilesFor(session.model).some(p => p.id === 'max-speed' && p.cpuMoe === session.settings.cpuMoe && p.movaCpu === session.settings.movaCpu)}
         <p class="chat-note">Profilo a piena velocità: serve ~13 GB di VRAM solo per il chat — scarica prima il modello immagine (pagina Immagini), altrimenti non parte.</p>
       {/if}
       <Hintline>{status?.running
@@ -568,11 +538,11 @@
     <div class="chat-scroll" bind:this={logEl} onscroll={onLogScroll}>
       <div class="chat-log" aria-live="polite">
         <MessageList
-          messages={messages}
+          messages={session.messages}
           serverRunning={!!status?.running}
           serverReady={!!status?.ready}
-          modelName={loaded?.name ?? model}
-          kbOn={kbOn}
+          modelName={loaded?.name ?? session.model}
+          kbOn={session.kbOn}
           copied={copied}
           oncopy={copyMsg}
           onopen={openCited}
@@ -582,13 +552,13 @@
 
     <div class="chat-composer">
       <div class="chat-composer-inner">
-        {#if stats}
-          <p class={`chat-stats ${stats.live ? 'live' : ''}`} role="status">
-            {#if stats.live}
-              generazione… <strong>≈{stats.tps.toLocaleString('it-IT', { maximumFractionDigits: 1 })}</strong> tok/s
+        {#if session.stats}
+          <p class={`chat-stats ${session.stats.live ? 'live' : ''}`} role="status">
+            {#if session.stats.live}
+              generazione… <strong>≈{session.stats.tps.toLocaleString('it-IT', { maximumFractionDigits: 1 })}</strong> tok/s
             {:else}
-              <strong>{stats.tps.toLocaleString('it-IT', { maximumFractionDigits: 1 })}</strong> tok/s
-              {#if stats.tokens != null} · {stats.tokens} token{/if}
+              <strong>{session.stats.tps.toLocaleString('it-IT', { maximumFractionDigits: 1 })}</strong> tok/s
+              {#if session.stats.tokens != null} · {session.stats.tokens} token{/if}
             {/if}
           </p>
         {/if}
@@ -596,17 +566,17 @@
           <textarea
             class="composer-input"
             bind:this={taEl}
-            bind:value={input}
+            bind:value={session.input}
             oninput={autoGrow}
             onkeydown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(e) } }}
             placeholder={status?.ready
-              ? (kbOn ? 'Domanda con le tue fonti… (Invio invia)' : `Chiedi qualcosa a ${loaded?.name ?? 'Ornith'}… (Invio invia, Shift+Invio a capo)`)
+              ? (session.kbOn ? 'Domanda con le tue fonti… (Invio invia)' : `Chiedi qualcosa a ${loaded?.name ?? 'Ornith'}… (Invio invia, Shift+Invio a capo)`)
               : 'Server spento: premi "avvia" qui sopra.'}
             aria-label="Messaggio"
             rows={1}
             disabled={!status?.ready}
           ></textarea>
-          {#if sending}
+          {#if session.sending}
             <button class="send-btn stop" type="button" onclick={stopGen} title="Ferma la generazione" aria-label="Ferma la generazione">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true">
                 <rect x="3" y="3" width="8" height="8" rx="1.5" />
@@ -614,7 +584,7 @@
             </button>
           {:else}
             <button class="send-btn" type="submit"
-              disabled={!status?.ready || !input.trim()}
+              disabled={!status?.ready || !session.input.trim()}
               title="Invia" aria-label="Invia">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                 <path d="M2 8l11-5-3.5 9-2.2-3.6L2 8z" fill="currentColor" />
@@ -622,8 +592,8 @@
             </button>
           {/if}
         </form>
-        <Hintline err={!!err}>{err}</Hintline>
-        {#if kbOn && !err}
+        <Hintline err={!!session.err}>{session.err}</Hintline>
+        {#if session.kbOn && !session.err}
           <Hintline cls="kb-note">
             knowledge on — prima di ogni domanda recupero i frammenti rilevanti dalle tue fonti in knowledge/raw/
           </Hintline>

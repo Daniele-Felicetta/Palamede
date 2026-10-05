@@ -65,6 +65,13 @@
 
   let gpuOk = $derived(store.metrics?.gpu.ok)
   let loaded = $derived(getCurrent())
+  // Nome corto del modello servito dal llama-server (dal path, senza .gguf),
+  // come nella pagina Server. Null se spento o senza path.
+  let srvModel = $derived.by(() => {
+    const p = store.server?.props?.modelPath
+    if (!p) return store.server?.model ?? null
+    return (p.split(/[\\/]/).pop() ?? p).replace(/\.gguf$/i, '')
+  })
   let shellCls = $derived(
     (sidebar ? 'shell shell-sidebar' : 'shell')
     + (route.path === '/chat' ? ' chat-shell' : '')
@@ -198,22 +205,36 @@
       {#if !store.trellis?.ready && store.trellis?.running && store.trellis?.loading}<div class="side-mini">in caricamento…</div>{/if}
       {#if trellisHint}<div class="side-mini off">{trellisHint}</div>{/if}
     </div>
-    {#if (store.metrics?.gpu.procs?.length ?? 0) > 0}
-      <div class="side-sec">
-        <div class="side-title">Processi GPU</div>
-        {#each store.metrics!.gpu.procs as p, i (i)}
+    <div class="side-sec">
+      <div class="side-title">Server <span class="side-port">:{store.server?.port ?? '—'}</span></div>
+      {#if store.server?.running}
+        <div class="side-mini">
+          <span title={store.server.props?.modelPath ?? ''}>{srvModel ?? 'modello'}</span>
+          <span>
+            {#if store.server.prefill != null}{Math.round(store.server.prefill.tps)}↑{:else}—{/if}
+            {' · '}
+            {#if store.server.decode != null}{store.server.decode.tps.toLocaleString('it-IT', { maximumFractionDigits: 1 })}↓{:else}—{/if}
+          </span>
+        </div>
+        {#if store.server.live}
           <div class="side-mini">
-            <span title={p.name}>{p.name.split(/[\\/]/).pop()}</span>
-            <span
-              class={p.mem === '?' ? 'procs-mem na' : 'procs-mem'}
-              title={p.mem === '?' ? 'VRAM non riportata da nvidia-smi' : p.mem}
-            >
-              {p.mem === '?' ? '—' : p.mem}
-            </span>
+            <span>slot {store.server.busySlot?.id ?? '?'} · prefill {Math.round(store.server.live.fraction * 100)}%</span>
+            <span>{Math.round(store.server.live.tps)} tok/s</span>
           </div>
-        {/each}
-      </div>
-    {/if}
+        {:else if store.server.busySlot}
+          <div class="side-mini">
+            <span>slot {store.server.busySlot.id} · decode</span>
+            <span>{store.server.decode ? store.server.decode.tps.toLocaleString('it-IT', { maximumFractionDigits: 1 }) : '—'} tok/s</span>
+          </div>
+        {:else}
+          <div class="side-mini off">in attesa</div>
+        {/if}
+      {:else if store.server}
+        <div class="side-mini off">server spento</div>
+      {:else}
+        <div class="side-mini">lettura…</div>
+      {/if}
+    </div>
   </aside>
   {#if sidebar}<div class="side-backdrop" onclick={() => sidebar = false} aria-hidden="true"></div>{/if}
 

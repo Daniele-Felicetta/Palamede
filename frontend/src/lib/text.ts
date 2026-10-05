@@ -306,12 +306,6 @@ export namespace Text {
       cpuMoe: 44, movaCpu: false, kv: 'q8_0', context: 131072,
     },
     {
-      id: 'lean',
-      label: 'Leggero (meno RAM, stessa qualità)',
-      hint: '131k contesto · ~15 GB VRAM · 3 GB di KV in meno',
-      cpuMoe: 44, movaCpu: false, kv: 'q4_0', context: 131072,
-    },
-    {
       id: 'long-ctx',
       label: 'Contesto lungo',
       hint: '262k contesto · prefill 102 s · 12,0 t/s',
@@ -322,6 +316,12 @@ export namespace Text {
       label: 'Gaming (libera VRAM per i modelli immagine)',
       hint: '40k contesto · ~7 GB VRAM · 13,6 t/s',
       cpuMoe: -1, movaCpu: false, kv: 'q8_0', context: 40960,
+    },
+    {
+      id: 'gaming-long',
+      label: 'Gaming + contesto lungo',
+      hint: '262k contesto · ~7 GB VRAM · KV q4_0',
+      cpuMoe: -1, movaCpu: false, kv: 'q4_0', context: 262144,
     },
   ]
 

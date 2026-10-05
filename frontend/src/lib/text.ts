@@ -314,8 +314,8 @@ export namespace Text {
     {
       id: 'gaming',
       label: 'Gaming (libera VRAM per i modelli immagine)',
-      hint: '40k contesto · ~7 GB VRAM · 13,6 t/s',
-      cpuMoe: -1, movaCpu: false, kv: 'q8_0', context: 40960,
+      hint: '80k contesto · ~7 GB VRAM · 13,6 t/s',
+      cpuMoe: -1, movaCpu: false, kv: 'q8_0', context: 81920,
     },
     {
       id: 'gaming-long',

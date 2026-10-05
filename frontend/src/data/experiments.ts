@@ -84,6 +84,24 @@ export const TRIED: TriedItem[] = [
 // In prova adesso: cosa manca da sistemare e perché potrebbe non andare.
 export const WIP: WipItem[] = [
   {
+    id: 'neural-observatory',
+    period: 'ottobre 2026',
+    title: 'Osservatorio neurale (LFM2.5 230M)',
+    what: "Laboratorio dove si da' un esempio a LFM2.5 230M, il modello fa 1-10 optimizer step, e una scena 3D mostra i gradienti, i delta dei pesi e le attivazioni mentre cambiano. Backend PyTorch su :8131, eventi in SSE, pagina three.js con inspector, token view e time travel. Tutte le misure sono lette dai tensori del checkpoint.",
+    fixes: [
+      "Il trasporto e' SSE e non WebSocket, come chiesto: uvicorn nel venv non ha un'implementazione WebSocket (mancano websockets e wsproto) e la rete di lavoro non permette di installarli per via del certificato TLS intercettato. Se la rete torna pulita, il passaggio e' uno: scambiare /api/stream con un endpoint upgrade.",
+      'La precisione di default e\' fp32 master + autocast bf16 invece di bf16 puro: con bf16 il 25% dei tensori (tutti RMSNorm) riceve un gradiente ma il delta si azzera per arrotondamento. bf16 resta selezionabile e il payload dichiara quanti update sono andati persi.',
+      'LoRa e\' scritto a mano perche\' peft non e\' nel venv e non e\' installabile. Sono due matrici per target module, quindi si ispezionano meglio di un adapter opaco — ma non e\' la libreria standard e chi lo riusa deve saperlo.',
+      "Il tempo di analisi dei delta (85-250 ms per 132 tensori) supera il tempo dell'optimizer step (3 ms): e' il prezzo di misurare davvero 229 milioni di parametri, ed e' dichiarato in analyze_ms per non confonderlo con il costo del training.",
+    ],
+    risks: [
+      'Nessun test in questo repository esegue un browser: il percorso dei dati e\' verificato fino al payload (75 verifiche reali sui pesi, via backend e via hub), ma il rendering WebGL va guardato aprendo la pagina.',
+      'La cronologia tiene statistiche, non pesi: il confronto fra due update lavora su perdita, delta per layer e output. La distanza parametrica vera richiede weight_snapshot_keep > 0, cioe\' ~460 MB per update.',
+      'Il checkpoint deve essere in formato Hugging Face: un GGUF nella stessa cartella non viene rifiutato all\'avvio ma non e\' addestrabile, e lo segnala scripts/setup-observatory.ps1.',
+    ],
+    paths: ['experimental/neural-observatory/', 'frontend/src/lib/observatory/', 'hub/lib/observatory.mjs', 'scripts/setup-observatory.ps1'],
+  },
+  {
     id: 'model-antivirus',
     period: '30 ago →',
     title: 'Model-antivirus',

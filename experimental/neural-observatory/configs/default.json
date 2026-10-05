@@ -1,0 +1,40 @@
+{
+  "checkpoint": "models/lfm/lfm2.5-230m",
+  "mode": "FULL",
+  "steps": 1,
+  "learning_rate": 1e-05,
+  "lora_learning_rate": 0.0001,
+  "grad_clip": 1.0,
+  "optimizer": "adamw",
+  "batch_size": 1,
+  "max_seq_len": 128,
+  "add_bos": true,
+  "precision": "mixed",
+  "device": "cuda",
+  "max_new_tokens": 6,
+  "temperature": 0.0,
+  "collect_activations": true,
+  "collect_attention": true,
+  "collect_per_token": true,
+  "keep_history": 200,
+  "history_prompts": [],
+  "history_targets": [],
+  "weight_snapshot_keep": 0,
+  "animation_mode": "live",
+  "host": "127.0.0.1",
+  "port": 8131,
+  "lora": {
+    "rank": 8,
+    "alpha": 32,
+    "dropout": 0.0,
+    "target_modules": [
+      "q_proj",
+      "k_proj",
+      "v_proj",
+      "out_proj",
+      "w1",
+      "w2",
+      "w3"
+    ]
+  }
+}

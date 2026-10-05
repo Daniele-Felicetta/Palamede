@@ -1,0 +1,47 @@
+{
+  "_nota": "Esempi pronti per l'osservatorio: prompt + target. Ogni voce genera un update reale di 1-10 optimizer step sul checkpoint. 'target' deve iniziare con uno spazio se continua la frase.",
+  "italiano": [
+    {
+      "prompt": "Il gatto dorme sul",
+      "target": " tappeto",
+      "nota": "target da 1 token: la perdita cala molto in un solo step, buon caso per vedere il delta"
+    },
+    {
+      "prompt": "La capitale d'Italia si chiama",
+      "target": " Roma",
+      "nota": "conoscenza fattuale: se la loss non scende, il modello non la sa ancora"
+    },
+    {
+      "prompt": "Due più due fa",
+      "target": " quattro",
+      "nota": "aritmetica: utile per capire quanto è grande un update su un token difficile"
+    },
+    {
+      "prompt": "Nel mezzo del cammin di nostra vita",
+      "target": " mi ritrovai per una selva oscura",
+      "nota": "target lungo: meglio con steps=3 per vedere i gradienti cambiare fra uno step e l'altro"
+    },
+    {
+      "prompt": "L'acqua bolle a",
+      "target": " 100 gradi",
+      "nota": "prefisso-vocale: mostra bene l'effetto della maschera della loss sul prompt"
+    }
+  ],
+  "inglese": [
+    {
+      "prompt": "The capital of France is",
+      "target": " Paris",
+      "nota": "il modello base è inglese: confronta la loss con gli esempi italiani"
+    },
+    {
+      "prompt": "The cat sat on the",
+      "target": " floor",
+      "nota": "il tokenizer tiene gli spazi iniziali (Ġ): la Token View li mostra come ·"
+    },
+    {
+      "prompt": "Once upon a time there was a",
+      "target": " small",
+      "nota": "perplexity bassa: il target è quasi certo, il delta sarà piccolo"
+    }
+  ]
+}

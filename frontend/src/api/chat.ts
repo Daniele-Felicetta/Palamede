@@ -43,6 +43,58 @@ export async function getChatStatus(): Promise<ChatStatus> {
   return j(await fetch('/api/chat/status'))
 }
 
+// ── zona Server: telemetria del llama-server ──────────────────────────────
+
+export interface ServerSlot {
+  id: number
+  nCtx: number
+  processing: boolean
+  task: number | null
+  promptTokens: number
+  processed: number
+  cached: number
+  temperature: number | null
+  maxTokens: number | null
+  speculative: boolean
+}
+
+export interface ServerTiming {
+  ms: number
+  tokens: number
+  tps: number
+  slot: number | null
+}
+
+export interface ServerMetrics {
+  running: boolean
+  ready: boolean
+  /** il server è tracciato da questo hub (false se partito a mano) */
+  managed: boolean
+  model: string | null
+  params: ChatParams | null
+  pid: number | null
+  port: number
+  slots: ServerSlot[]
+  busySlot: ServerSlot | null
+  prefill: ServerTiming | null
+  decode: (ServerTiming & { msPerToken: number }) | null
+  live: { done: number; fraction: number; seconds: number; tps: number } | null
+  props: {
+    nCtx: number
+    nPredict: number | null
+    totalSlots: number | null
+    modelPath: string | null
+    modelAlias: string | null
+    ftype: string | null
+    buildInfo: string | null
+    sleeping: boolean
+  } | null
+}
+
+export async function getServerMetrics(): Promise<ServerMetrics> {
+  return j(await fetch('/api/server/metrics'))
+}
+
 export async function startChat(p: ChatParams & { model: string }): Promise<ChatStatus> {
   return postJson('/api/chat/start', p)
 }

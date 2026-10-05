@@ -11,7 +11,7 @@
 //   let m: Text.ModelId = 'ornith-9b'
 
 export namespace Text {
-  export type ModelId = 'ornith-35b' | 'ornith-9b' | 'ornith-9b-q5' | 'k2-7b' | 'k2-36b' | 'bonsai-27b' | 'lfm-vl-3b' | 'gemma-4-26b' | 'minicpm5-2b'
+  export type ModelId = 'ornith-35b' | 'ornith-9b' | 'ornith-9b-q5' | 'k2-7b' | 'k2-36b' | 'bonsai-27b' | 'lfm-vl-3b' | 'gemma-4-26b' | 'gemma-4-12b' | 'minicpm5-2b' | 'pocket-darwin-180b'
 
   /** Dati canonici per-modello. */
   export interface Model {
@@ -170,6 +170,23 @@ export namespace Text {
       thinking: false,
     },
     {
+      id: 'gemma-4-12b',
+      name: 'Gemma 4 12B IT (Jarvis)',
+      family: 'Google · dense · italiano',
+      quant: 'QAT UD-Q4_K_XL',
+      diskGB: '6.7 GB',
+      moe: false,
+      mova: false,
+      movaCpu: false,
+      context: 16384,
+      kv: 'q8_0',
+      gpuLayers: 99,
+      mtp: false,
+      cpuMoe: 0,
+      temperature: 0.6,
+      thinking: false,
+    },
+    {
       id: 'minicpm5-2b',
       name: 'MiniCPM5 2B',
       family: 'OpenBMB · dense',
@@ -186,27 +203,87 @@ export namespace Text {
       temperature: 0.7,
       thinking: false,
     },
+    {
+      id: 'pocket-darwin-180b',
+      name: 'POCKET-Darwin 180B',
+      family: 'FINAL-Bench · MoE 512 esperti, 3B attivi · reasoning',
+      quant: 'UD-Q4_K_XL',
+      diskGB: '103.7 GB',
+      moe: true,
+      mova: false,
+      movaCpu: false,
+      // 48 layer: cpuMoe 44 tiene i primi 44 layer di esperti su RAM/NVMe e
+      // carica gli ultimi 4 in VRAM. Misure su RTX 5060 Ti 16 GB + 64 GB RAM
+      // (i7-14700K, 20 thread): 14,5 GB VRAM e 13,5 tok/s, contro 7,6 GB e
+      // 9,3 tok/s con cpuMoe -1 (tutti gli esperti su RAM). Il modello sta
+      // 111 GB su disco: sotto i ~64 GB di RAM gli esperti NON ci stanno e
+      // llama.cpp li rilegge dall'SSD a ogni token.
+      // 65536 e' il massimo REALE su 64 GB di RAM (il modello dichiara 131072,
+      // ma la KV e' per 4 slot: 24 GB in f16 a 65536 contro 48 GB a 131072).
+      // Oltre, la KV schiaccia la page cache del modello e il prefill crolla da
+      // 60,6 a 26,9 t/s (2,3x piu lento) con la generazione a -40%.
+      // chat.mjs blocca il contesto sopra questa soglia (maxContext).
+      context: 131072,
+      // KV q8_0, non f16 e non q4_0. Motivi, tutti misurati su questo modello:
+      //
+      // - La KV non e' il collo di bottiglia: il traffico per forward pass e'
+      //   dominato dai ~100 GB di pesi letti dall'SSD (512 esperti, 10 attivi
+      //   per token). La KV e' 96 KiB/token in f16, 48 in q8_0, 24 in q4_0.
+      // - f16 e q8_0 danno lo STESSO score (96,7%, 29/30) e le stesse
+      //   velocita'. Potendo scegliereSpende gli stessi ~6 GB di KV, q8_0
+      //   raddoppia il contesto utile: e' ildominante.
+      // - Il budget e' ~6 GB di KV: f16 regge fino a 65536 (12,6 GB a 131072
+      //   -> prefill 164s), q8_0 regge fino a 131072 (12,6 GB a 262144 ->
+      //   prefill 147s).
+      // - q4_0 NON aiuta: pur restando sotto budget a 262144 (6,0 GB) il
+      //   prefill peggiora a 102s contro i 65s di q8_0@131072. Il costo che
+      //   scala col contesto non sono i byte della KV ma l'accesso a un
+      //   buffer grande usato a spruzzo.
+      kv: 'q8_0',
+      gpuLayers: 99,
+      mtp: false,
+      cpuMoe: 44,
+      // Il model card raccomanda temperature 1.0 (top-p 0.95, top-k 20: la
+      // UI non espone gli ultimi due).
+      temperature: 1.0,
+      thinking: true,
+    },
   ]
 
   /** Modello selezionato al primo avvio della pagina chat. */
   export const DEFAULT_MODEL: ModelId = 'ornith-9b'
 
-  /** Opzioni KV cache per il pannello impostazioni (valore · etichetta). */
-  export const KV_OPTIONS = [
-    ['q8_0', 'q8_0 · consigliato'],
-    ['q4_0', 'q4_0 · più veloce, qualità ok'],
-    ['f16', 'f16 · nessuna quantizzazione'],
-  ] as const
+  /** Opzioni KV cache per il pannello impostazioni. `bytes` = byte per
+   *  elemento della KV (q4_0 mezzo byte), da cui il peso relativo a f16. */
+  export interface KvOption {
+    id: string
+    bytes: number
+    hint: string
+  }
 
-  /** Profili VRAM preselezionati per i modelli MoVA (K2 36B): impastano
-   *  cpuMoe + movaCpu in una scelta comprensibile. Misure reali su RTX 5060 Ti
-   *  16 GB (llama-bench, generazione). */
+  export const KV_OPTIONS: KvOption[] = [
+    { id: 'q8_0', bytes: 1, hint: 'consigliata: metà memoria di f16, qualità quasi identica' },
+    { id: 'q4_0', bytes: 0.5, hint: 'massima velocità, un filo di qualità in meno' },
+    { id: 'f16', bytes: 2, hint: 'nessuna quantizzazione: il banchetto più grosso' },
+  ]
+
+  /** Peso in memoria di un tipo di KV rispetto a f16 (2 byte per elemento). */
+  export function kvRel(bytes: number): string {
+    return `${(bytes / 2).toLocaleString('it-IT')}×`
+  }
+
+  /** Profili VRAM preselezionati: impastano in una scelta comprensibile i
+   *  parametri che competono per la stessa risorsa. `kv` e `context` sono
+   *  opzionali (i profili MoVA non li toccano). Misure reali su RTX 5060 Ti
+   *  16 GB + 64 GB RAM (i7-14700K, 20 thread), prompt da 3662 token. */
   export interface VramProfile {
     id: string
     label: string
     hint: string
     cpuMoe: number
     movaCpu: boolean
+    kv?: string
+    context?: number
   }
 
   export const K2_36B_PROFILES: VramProfile[] = [
@@ -215,9 +292,53 @@ export namespace Text {
     { id: 'max-speed', label: 'Velocità max (GPU al chat)', hint: '~13 GB · 40 t/s', cpuMoe: 25, movaCpu: false },
   ]
 
-  /** Profili VRAM disponibili per un modello (solo MoVA per ora). */
+  /** POCKET-Darwin 180B: 111 GB in 4 shard, gli esperti vivono su NVMe e la
+   *  VRAM libera dipende solo da cpuMoe (il contesto non la tocca). I tre
+   *  profili hanno tutti ~6 GB di KV tranne il gaming, che ne usa 0,9.
+   *  Il gaming e' piu' VELOCE del base, non piu' lento: con tutti gli esperti
+   *  su CPU il flusso di lettura da NVMe resta sequenziale e il prefill
+   *  scende da 64,8 s a 48,3 s. */
+  export const DARWIN_PROFILES: VramProfile[] = [
+    {
+      id: 'balanced',
+      label: 'Bilanciato',
+      hint: '131k contesto · ~15 GB VRAM · 13,7 t/s',
+      cpuMoe: 44, movaCpu: false, kv: 'q8_0', context: 131072,
+    },
+    {
+      id: 'lean',
+      label: 'Leggero (meno RAM, stessa qualità)',
+      hint: '131k contesto · ~15 GB VRAM · 3 GB di KV in meno',
+      cpuMoe: 44, movaCpu: false, kv: 'q4_0', context: 131072,
+    },
+    {
+      id: 'long-ctx',
+      label: 'Contesto lungo',
+      hint: '262k contesto · prefill 102 s · 12,0 t/s',
+      cpuMoe: 44, movaCpu: false, kv: 'q4_0', context: 262144,
+    },
+    {
+      id: 'gaming',
+      label: 'Gaming (libera VRAM per i modelli immagine)',
+      hint: '40k contesto · ~7 GB VRAM · 13,6 t/s',
+      cpuMoe: -1, movaCpu: false, kv: 'q8_0', context: 40960,
+    },
+  ]
+
+  /** Profili VRAM disponibili per un modello. */
   export function vramProfilesFor(id: string): VramProfile[] {
-    return supportsMova(id) ? K2_36B_PROFILES : []
+    if (supportsMova(id)) return K2_36B_PROFILES
+    if (id === 'pocket-darwin-180b') return DARWIN_PROFILES
+    return []
+  }
+
+  /** Il profilo che corrisponde ai parametri correnti, o undefined. Serve alla
+   *  select per mostrare 'personalizzato' quando l'utente tocca un campo. */
+  export function activeProfile(id: string, cur: { cpuMoe: number; movaCpu: boolean; kv?: string; context?: number }): VramProfile | undefined {
+    return vramProfilesFor(id).find((p) =>
+      p.cpuMoe === cur.cpuMoe && p.movaCpu === cur.movaCpu &&
+      (p.kv === undefined || p.kv === cur.kv) &&
+      (p.context === undefined || p.context === cur.context))
   }
 
   export function get(id: string): Model | undefined {

@@ -1,132 +1,179 @@
 <script lang="ts">
-  // Pagina Extra: le sezioni di contorno (Progetto, Banco, Experimental,
-  // Giochi) in un'unica pagina ordinata — una testata, una nav interna e
-  // quattro blocchi etichettati. Le pagine originali restano auto-routate
-  // (/progetto, /experimental, /games) ma fuori dalla nav; qui sono montate
-  // in modalità `embed` (senza ripetere eyebrow/h1/lede).
+  // Pagina Extra: la MENU di contorno dell'officina, in stile "Netflix" —
+  // invece di impilare i blocchi di sotto, una lista di scaffali (shelves)
+  // di card che portano alla pagina vera. Ogni scheda resta auto-routata
+  // (/progetto, /bench, /experimental, /games, /swarm…): qui si sceglie, non
+  // si scorre.
   //
-  // Blocchi LAZY: ogni blocco si monta solo quando è vicino al viewport
-  // (o quando ci si salta dalla nav). Aprire /extra non scarica più docs,
-  // benchmark, galleria e JEV in un colpo solo: il costo si paga blocco per
-  // blocco, mentre si scorre.
-  import { tick } from 'svelte'
-  import { Eyebrow } from '../components/ui'
-  import Progetto from './Progetto.svelte'
-  import Bench from './Bench.svelte'
-  import Experimental from './Experimental.svelte'
-  import Games from './Games.svelte'
+  // Le card sono <a href="#/rotta"> vere (middle-click, copia link, apertura
+  // in nuova scheda funzionano); onclick solo lo smooth-scroll interno.
+  import { navigate } from '../router.svelte'
+  import { Eyebrow, SectionHead } from '../components/ui'
 
-  const BLOCKS = [
-    { id: 'extra-progetto', label: 'Progetto' },
-    { id: 'extra-banco', label: 'Banco di prova' },
-    { id: 'extra-experimental', label: 'Experimental' },
-    { id: 'extra-giochi', label: 'Giochi' },
+  interface Tile {
+    path: string
+    glyph: string
+    title: string
+    foot: string
+    live: boolean
+    wide?: boolean
+  }
+
+  interface Shelf {
+    id: string
+    title: string
+    sub: string
+    items: Tile[]
+  }
+
+  // Scaffali: solo il contorno dell'officina (le app operative restano nella
+  // Home e nella sidebar): prove, laboratorio, documentazione, giochi.
+  const SHELVES: Shelf[] = [
+    {
+      id: 'extra-prove',
+      title: 'Prove e misure',
+      sub: 'Il banco di prova e i prototipi: dove i numeri e le demo si misurano davvero.',
+      items: [
+        { path: '/bench', glyph: 'BNC', title: 'Banco di prova', foot: 'qualità e velocità · modelli e immagini', live: true, wide: true },
+        { path: '/swarm', glyph: 'SWM', title: 'Stormo di agenti', foot: '3 x MiniCPM5 2B in parallelo', live: true, wide: true },
+      ],
+    },
+    {
+      id: 'extra-laboratorio',
+      title: 'Laboratorio',
+      sub: 'Prove accantonate e lavori in corso: cosa stiamo tentando e cosa manca.',
+      items: [
+        { path: '/observatory', glyph: 'OBS', title: 'Osservatorio neurale', foot: 'LFM2.5 230M allenato dal vivo, in 3D', live: true },
+        { path: '/experimental', glyph: 'EXP', title: 'Experimental', foot: 'registro TRIED / WIP', live: true },
+        { path: '/mcp', glyph: 'MCP', title: 'MCP', foot: 'bozza — server MCP stdio', live: false },
+      ],
+    },
+    {
+      id: 'extra-docs',
+      title: 'Documentazione',
+      sub: 'La carta dell\'officina: mappa, README, specifica e sicurezza.',
+      items: [
+        { path: '/progetto', glyph: 'PRG', title: 'Progetto', foot: 'MAPPA · README · SPEC · SECURITY', live: true, wide: true },
+      ],
+    },
+    {
+      id: 'extra-giochi',
+      title: 'Giochi',
+      sub: 'Esperimenti giocabili costruiti in officina, con i modelli locali come narratori.',
+      items: [
+        { path: '/games', glyph: 'GIO', title: 'Giochi', foot: 'esperimenti interattivi', live: true },
+        { path: '/bandersketch', glyph: 'BND', title: 'Bandersketch', foot: 'visual novel generativa', live: true },
+      ],
+    },
   ]
-
-  // Il primo blocco parte montato (è già a schermo); gli altri al bisogno.
-  let shown = $state<Record<string, boolean>>({ 'extra-progetto': true })
-
-  function reveal(node: HTMLElement) {
-    const id = node.dataset.block ?? ''
-    if (shown[id] || typeof IntersectionObserver === 'undefined') {
-      shown[id] = true
-      return {}
-    }
-    const io = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries) {
-          if (e.isIntersecting) {
-            shown[id] = true
-            io.disconnect()
-          }
-        }
-      },
-      { rootMargin: '800px 0px' },
-    )
-    io.observe(node)
-    return { destroy: () => io.disconnect() }
-  }
-
-  async function jump(id: string) {
-    shown[id] = true
-    await tick()
-    document.getElementById(id)?.scrollIntoView({ block: 'start' })
-  }
 </script>
 
-<Eyebrow>Extra · documentazione, prove e giochi</Eyebrow>
+<Eyebrow>Extra · il menu di contorno</Eyebrow>
 <h1>Extra</h1>
 <p class="lede">
-  Le sezioni di contorno dell'officina: la documentazione del progetto, il
-  banco di prova dei modelli, il registro delle sperimentazioni e i giochi.
+  Tutto quello che sta ai bordi dell'officina, in schede: le prove, la
+  documentazione, il laboratorio e i giochi. Scegli e ci vai.
 </p>
 
-<nav class="extra-nav" aria-label="Sezioni Extra">
-  {#each BLOCKS as b (b.id)}
-    <button type="button" onclick={() => jump(b.id)}>{b.label}</button>
+<div class="extra-menu">
+  {#each SHELVES as shelf (shelf.id)}
+    <section class="shelf" aria-label={shelf.title}>
+      <SectionHead title={shelf.title} sub={shelf.sub} />
+      <div class="rail">
+        {#each shelf.items as t (t.path)}
+          <a
+            class="poster"
+            class:wide={t.wide}
+            href={'#' + t.path}
+            aria-label={`${t.title} — ${t.foot}`}
+            onclick={(e) => { e.preventDefault(); navigate(t.path) }}
+          >
+            <span class={`state ${t.live ? 'live' : 'bozza'}`}>{t.live ? 'attiva' : 'bozza'}</span>
+            <span class="poster-glyph">{t.glyph}</span>
+            <span class="poster-body">
+              <h3>{t.title}</h3>
+              <span class="poster-foot">{t.foot}</span>
+            </span>
+          </a>
+        {/each}
+      </div>
+    </section>
   {/each}
-</nav>
+</div>
 
-<section class="extra-block" id="extra-progetto" data-block="extra-progetto" use:reveal aria-labelledby="extra-progetto-title">
-  <header class="extra-block-head">
-    <Eyebrow>Progetto · documentazione</Eyebrow>
-    <h2 class="extra-block-title" id="extra-progetto-title">Il progetto</h2>
-    <p class="sec-sub">
-      Mappa di struttura, README operativo, specifica tecnica e sicurezza: la
-      documentazione dell'officina, qui dentro.
-    </p>
-  </header>
-  {#if shown['extra-progetto']}
-    <Progetto embed />
-  {:else}
-    <p class="extra-deferred" aria-hidden="true">…</p>
-  {/if}
-</section>
+<style>
+  .extra-menu { display: flex; flex-direction: column; gap: 30px; margin-top: 8px; }
 
-<section class="extra-block" id="extra-banco" data-block="extra-banco" use:reveal aria-labelledby="extra-banco-title">
-  <header class="extra-block-head">
-    <Eyebrow>Banco di prova · modelli testuali e immagine</Eyebrow>
-    <h2 class="extra-block-title" id="extra-banco-title">Banco di prova</h2>
-    <p class="sec-sub">
-      Qualità e velocità dei modelli testuali e dei generatori di immagini,
-      misurate su questa macchina: tabella completa, classifiche, galleria.
-    </p>
-  </header>
-  {#if shown['extra-banco']}
-    <Bench embed />
-  {:else}
-    <p class="extra-deferred" aria-hidden="true">…</p>
-  {/if}
-</section>
+  /* Scaffallo orizzontale scorrevole, tipo Netflix: snap + corsie larghe. */
+  .rail {
+    display: flex;
+    gap: 14px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    padding: 4px 4px 10px;
+    margin: -4px -4px 0;
+    scrollbar-width: thin;
+  }
+  .poster { flex: 0 0 214px; }
+  .poster.wide { flex-basis: 330px; }
 
-<section class="extra-block" id="extra-experimental" data-block="extra-experimental" use:reveal aria-labelledby="extra-experimental-title">
-  <header class="extra-block-head">
-    <Eyebrow>Experimental · registro delle prove</Eyebrow>
-    <h2 class="extra-block-title" id="extra-experimental-title">Experimental</h2>
-    <p class="sec-sub">
-      Cosa abbiamo provato e perché ci siamo fermati, e cosa stiamo provando adesso —
-      con cosa manca da sistemare e i rischi che restano.
-    </p>
-  </header>
-  {#if shown['extra-experimental']}
-    <Experimental embed />
-  {:else}
-    <p class="extra-deferred" aria-hidden="true">…</p>
-  {/if}
-</section>
-
-<section class="extra-block" id="extra-giochi" data-block="extra-giochi" use:reveal aria-labelledby="extra-giochi-title">
-  <header class="extra-block-head">
-    <Eyebrow>Giochi · esperimenti interattivi</Eyebrow>
-    <h2 class="extra-block-title" id="extra-giochi-title">Giochi</h2>
-    <p class="sec-sub">
-      Esperimenti giocabili costruiti in officina, con i modelli locali come
-      narratori.
-    </p>
-  </header>
-  {#if shown['extra-giochi']}
-    <Games embed />
-  {:else}
-    <p class="extra-deferred" aria-hidden="true">…</p>
-  {/if}
-</section>
+  .poster {
+    scroll-snap-align: start;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 10px;
+    min-height: 190px;
+    padding: 16px;
+    text-decoration: none;
+    color: var(--paper);
+    background:
+      radial-gradient(120% 90% at 100% 0%, rgba(139, 147, 255, .16), transparent 60%),
+      var(--ink-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    transition: border-color .15s, transform .15s, box-shadow .15s;
+  }
+  .poster:hover {
+    border-color: var(--accent);
+    transform: translateY(-4px);
+    box-shadow: var(--shadow);
+  }
+  .poster-glyph {
+    font-family: var(--mono);
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    color: var(--accent);
+    line-height: 1;
+  }
+  .poster-body h3 {
+    font-family: var(--display);
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0 0 3px;
+  }
+  .poster-foot {
+    display: block;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    line-height: 1.5;
+    color: var(--paper-dim);
+  }
+  .poster .state {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 1px;
+    padding: 3px 8px;
+    border-radius: 20px;
+    text-transform: uppercase;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .poster { transition: none; }
+    .poster:hover { transform: none; }
+  }
+</style>

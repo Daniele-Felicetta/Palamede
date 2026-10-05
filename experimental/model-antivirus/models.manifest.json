@@ -258,6 +258,38 @@
       "format": "safetensors",
       "enforce": false,
       "source": "non usato"
+    },
+    {
+      "path": "Pocket-Darwin-180B/POCKET-Darwin-180B-UD-Q4_K_XL-00001-of-00004.gguf",
+      "size": 10946609,
+      "sha256": "8dd7789f02ff62e07f3a4dbd546d21fa6dc45cdbaac367631571d80cac8206a5",
+      "format": "gguf",
+      "enforce": false,
+      "source": "huggingface.co/FINAL-Bench/POCKET-Darwin-180B-GGUF (shard 1/4, hash LFS upstream)"
+    },
+    {
+      "path": "Pocket-Darwin-180B/POCKET-Darwin-180B-UD-Q4_K_XL-00002-of-00004.gguf",
+      "size": 49859583136,
+      "sha256": "8d2a48cace8791b2655173f8b507eb985471834511908006da6b4166b2155794",
+      "format": "gguf",
+      "enforce": false,
+      "source": "huggingface.co/FINAL-Bench/POCKET-Darwin-180B-GGUF (shard 2/4, hash LFS upstream)"
+    },
+    {
+      "path": "Pocket-Darwin-180B/POCKET-Darwin-180B-UD-Q4_K_XL-00003-of-00004.gguf",
+      "size": 49376141504,
+      "sha256": "0adc56c67b89cbfcaa67780e78fc0a15666ef2a1ebf5cdc51611fc1198ae256f",
+      "format": "gguf",
+      "enforce": false,
+      "source": "huggingface.co/FINAL-Bench/POCKET-Darwin-180B-GGUF (shard 3/4, hash LFS upstream)"
+    },
+    {
+      "path": "Pocket-Darwin-180B/POCKET-Darwin-180B-UD-Q4_K_XL-00004-of-00004.gguf",
+      "size": 12087983520,
+      "sha256": "0f45b1445b2a4d032d44766936107031d2f503b6bc7eb7fcf80f35232477ab5b",
+      "format": "gguf",
+      "enforce": false,
+      "source": "huggingface.co/FINAL-Bench/POCKET-Darwin-180B-GGUF (shard 4/4, hash LFS upstream)"
     }
   ]
 }

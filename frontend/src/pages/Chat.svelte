@@ -9,7 +9,7 @@
   import { fitTextarea, flatTextarea, focusInput, focusModal } from '../lib/ui-actions'
   import MessageList from '../components/chat/MessageList.svelte'
   import SourceView from '../components/SourceView.svelte'
-  import { Button, ChatState, Field, Hintline, Led, Stamp } from '../components/ui'
+  import { Button, ChatState, Field, Hintline, KvSquare, Led, Stamp } from '../components/ui'
 
   // Stato del server: arriva dallo store condiviso (un solo poller per la app).
   let status = $derived(store.chat)
@@ -482,14 +482,9 @@
     <div class="chat-panel-body">
       <div class="field-row">
         <Field label="Contesto" for="ctx">
-          <input id="ctx" type="number" min={1024} max={65536} step={1024}
+          <input id="ctx" type="number" min={1024} max={524288} step={1024}
             value={settings.context}
             oninput={(e) => settings.context = Number(e.currentTarget.value) || 8192} />
-        </Field>
-        <Field label="KV cache" for="kv">
-          <select id="kv" bind:value={settings.kv}>
-            {#each Text.KV_OPTIONS as [v, lab] (v)}<option value={v}>{lab}</option>{/each}
-          </select>
         </Field>
         <Field label="Temperatura" for="temp">
           <input id="temp" type="number" min={0} max={2} step={0.1}
@@ -504,12 +499,16 @@
         {#if Text.vramProfilesFor(model).length > 0}
           <Field label="Profilo VRAM" for="vram">
             <select id="vram"
-              value={Text.vramProfilesFor(model).find(p => p.cpuMoe === settings.cpuMoe && p.movaCpu === settings.movaCpu)?.id ?? 'custom'}
+              value={Text.activeProfile(model, settings)?.id ?? 'custom'}
               onchange={(e) => {
                 const p = Text.vramProfilesFor(model).find(x => x.id === e.currentTarget.value)
-                if (p) { settings.cpuMoe = p.cpuMoe; settings.movaCpu = p.movaCpu }
+                if (!p) return
+                settings.cpuMoe = p.cpuMoe
+                settings.movaCpu = p.movaCpu
+                if (p.kv) settings.kv = p.kv
+                if (p.context) settings.context = p.context
               }}
-              title="Imposta insieme gli esperti MoE su CPU e il banco MoVA dell'attenzione">
+              title="Imposta insieme contesto, KV cache e dove stanno gli esperti MoE (e il banco MoVA dell'attenzione)">
               <option value="custom">personalizzato</option>
               {#each Text.vramProfilesFor(model) as p (p.id)}
                 <option value={p.id}>{p.label} · {p.hint}</option>
@@ -519,10 +518,10 @@
         {/if}
         {#if Text.isMoe(model)}
           <Field label="Layer MoE su CPU" for="cmoe">
-            <input id="cmoe" type="number" min={0} max={64}
+            <input id="cmoe" type="number" min={-1} max={64}
               value={settings.cpuMoe}
-              oninput={(e) => settings.cpuMoe = Math.max(0, Number(e.currentTarget.value) || 0)}
-              title="Sposta i pesi degli esperti MoE dei primi N layer sulla CPU (libera VRAM)" />
+              oninput={(e) => settings.cpuMoe = Math.max(-1, Number(e.currentTarget.value) || 0)}
+              title="Sposta i pesi degli esperti MoE dei primi N layer sulla CPU (libera VRAM). -1 = tutti gli esperti su CPU" />
           </Field>
         {/if}
         {#if Text.supportsMova(model)}
@@ -540,6 +539,12 @@
           <span>Thinking (ragionamento interno)</span>
         </Field>
       </div>
+      <div class="kv-slot">
+        <KvSquare value={settings.kv} context={settings.context} onselect={(v) => (settings.kv = v)} />
+      </div>
+      {#if settings.context > 65536}
+        <p class="chat-note">Contesto oltre 64k: la KV cache cresce in modo lineare e va in RAM (su 16 GB di VRAM ~4,4 GB a 64k, ~35 GB a 512k). Con un modello immagine caricato il load può fallire: scaricalo prima.</p>
+      {/if}
       {#if Text.isMoe(model) && settings.cpuMoe > 0}
         <p class="chat-note">I pesi degli esperti dei primi {settings.cpuMoe} layer andranno su CPU: meno VRAM, più lento.</p>
       {/if}

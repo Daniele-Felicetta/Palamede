@@ -12,11 +12,12 @@
 
 <!-- GEN:ALBERO -->
 ```text
-Palamede/                       (repo git · aggiornata: 2026-09-25 19:55)
+Palamede/                       (repo git · aggiornata: 2026-10-01 13:08)
 ├── backends/
 ├── experimental/
 ├── frontend/
 ├── hub/
+├── jarvis-livekit/
 ├── knowledge/   (gitignored)
 ├── legacy/
 ├── models/   (gitignored)
@@ -56,7 +57,7 @@ Palamede/                       (repo git · aggiornata: 2026-09-25 19:55)
 - `src/main.ts` — entry Svelte 5, monta `App.svelte` (auto-routing da `pages/*.svelte`).
 - `src/App.svelte` — auto-routing **lazy** (ogni `pages/*.svelte` è un chunk separato; 404 vera per rotte ignote, `document.title` per rotta, scroll-top, retry su chunk fallito, prefetch idle di Images/Chat).
 - `src/api/` — client per domini (`http`, `image`, `chat`, `chats`, `history`, `story`, `kb`, `trellis`, `doc`, `bench`, `downloader`, `jev`; `index.ts` riesporta tutto, gli import `from '../api'` restano validi).
-- `src/lib/` — logica riusabile: `images` (formati, lettura file, downscale per VLM), `text` (registri modelli, parser SSE), `download` (saveBlob/downloadUrl/dataUrlToBytes), `viewer3d` (viewer orbitale three.js), `rag` (prompt grounded, parsing citazioni, evidenziazione chunk), `chat-view` (tipo Msg + `msgText` per Chat/MessageList), `prefetch` (prefetch chunk via glob, usato dal menu), `ui-actions` (focus modale/input, textarea auto-grow).
+- `src/lib/` — logica riusabile: `images` (formati, lettura file, downscale per VLM), `text` (registri modelli, parser SSE), `download` (saveBlob/downloadUrl/dataUrlToBytes), `viewer3d` (viewer orbitale three.js), `observatory` (tipi del protocollo, client REST+SSE, formattazione dei numeri, store runes, scena three.js del cervello + i suoi pannelli), `rag` (prompt grounded, parsing citazioni, evidenziazione chunk), `chat-view` (tipo Msg + `msgText` per Chat/MessageList), `prefetch` (prefetch chunk via glob, usato dal menu), `ui-actions` (focus modale/input, textarea auto-grow).
 - `src/styles/` — CSS a sezioni (`tokens`, `base`, `layout`, `home`, `images`, `chat`, `wiki`, `shell`, `rag`, `bench`, `downloader`, `misc`) importate in ordine da `styles.css` (stessa cascata di prima, file navigabili).
 - `src/styles/tokens.css` — design tokens (variabili dark/light + `color-scheme`). Niente font da CDN: l'officina è offline, i token ripiegano sui font di sistema.
 - `src/styles/base.css` — reset + `:focus-visible` globale, skip-link, `prefers-reduced-motion` (niente animazioni se il sistema le riduce).
@@ -69,7 +70,7 @@ Palamede/                       (repo git · aggiornata: 2026-09-25 19:55)
 - `src/data/experiments.ts` — registro Experimental (TRIED/WIP) della pagina Extra.
 - `src/games/bandersketch/` — Bandersketch (visual novel): `src/Setup.svelte` (/bandersketch), `src/Bandersketch.svelte` (/bandersketch/:genere), `src/data.ts` (generi/stili/narratori), `session.svelte.ts`, `game.css`.
 - `src/components/` — Layout (shell+metriche, skip-link, sidebar persistita, prefetch al hover, tema di sistema), Markdown (renderer zero-dep con escaping + allowlist http/https + citazioni `[n]` cliccabili), WikiEntry, Shot, HistoryGallery (cronologia immagini + lightbox), ReasonBlock, Draft, SourceView (fonte con chunk evidenziato), SourceCards (card delle fonti citate) + `ui/` (design system) + `chat/` (MessageList: registro conversazione).
-- `src/pages/` — Home, Images (4 modelli+img2img+gallery via HistoryGallery, preview senza frame duplicati), Chat (streaming SSE, 9 modelli locali + knowledge grounded con citazioni, registro via MessageList), Downloader (catalogo + download modelli), Bench (benchmark modelli testuali e immagine: qualità + velocità + galleria), Rag (RAG stile NotebookLM: fonti, chat con le fonti, evidenziazione chunk), 3d (viewer three.js + GLB/STL), Extra (Progetto + **Banco** + Experimental + Giochi impilati in **blocchi lazy** — si montano vicino al viewport; le vecchie rotte `/progetto`, `/bench`, `/experimental`, `/games` restano auto-routate ma fuori dalla nav).
+- `src/pages/` — Home, Images (4 modelli+img2img+gallery via HistoryGallery, preview senza frame duplicati), Chat (streaming SSE, 9 modelli locali + knowledge grounded con citazioni, registro via MessageList), Downloader (catalogo + download modelli), Bench (benchmark modelli testuali e immagine: qualità + velocità + galleria), Rag (RAG stile NotebookLM: fonti, chat con le fonti, evidenziazione chunk), 3d (viewer three.js + GLB/STL), Observatory (Osservatorio neurale: scena three.js del modello + inspector + token view + time travel, lazy) · Extra (Progetto + **Banco** + Experimental + Giochi impilati in **blocchi lazy** — si montano vicino al viewport; le vecchie rotte `/progetto`, `/bench`, `/experimental`, `/games` restano auto-routate ma fuori dalla nav).
 - `public/` — palamede_icon.png, examples/ (8 immagini committate).
 - Config: `package.json` (svelte 5 + three), `vite.config.ts` (proxy /api→:4600, three in chunk a parte), `tsconfig.json` (build ristretta a `src/`, `noUnusedLocals`: niente import morti), `svelte.config.js`, `index.html` (meta color-scheme + theme-color per tema).
 
@@ -99,6 +100,7 @@ Palamede/                       (repo git · aggiornata: 2026-09-25 19:55)
 - `install-models.ps1` + `models.catalog.json` — **installer interattivo**: catalogo dei modelli (testuali + immagine) ordinato dal migliore al peggiore con giudizi (consigliato/alternativa/sconsigliato) e misure del Banco; scarica i pesi scelti in `models/` da fonti ufficiali (o copia da `reference/`). È il passo 4 di `install-all.ps1`, ma va anche da solo.
 - `convert-nvfp4-bf16.py` — dequantizza FLUX.2-klein 9B NVFP4→BF16 (in bozza con klein-9b).
 - `setup-trellis.ps1` — one-time TRELLIS: deps pip + native da sorgente (flex_gemm, cumesh, o_voxel, nvdiffrast) + decoder Stage1 (`ss_dec_conv3d_16l8_fp16`). Popola `reference/trellis-venv` (Py3.13 + torch cu130); se manca lo crea.
+- `setup-observatory.ps1` / `start-observatory.ps1` - verifica dei prerequisiti e avvio del backend Osservatorio neurale (`:8131`, `reference/trellis-venv`: torch CUDA + transformers 5.x per i layer ibridi di LFM2.5). I pesi devono essere un checkpoint Hugging Face in `models/lfm/lfm2.5-230m/`, non un GGUF.
 - `start-trellis.ps1` — avvia il server 3D TRELLIS (:8124, venv separato); gestito anche dal hub (`/api/3d/start`).
 - `bench-text.mjs` (+ `bench-text.evalset.json`) / `bench-images.mjs` — banco di prova dei modelli testuali (llama-server :8127 via `BENCH_PORT`) e immagine (giudice :8122 via `BENCH_JUDGE_PORT`); scrivono `outputs/benchmark*/summary.json`.
 - `check-offsets.mjs` — verifica eseguibile degli offset di `chunkText` (RAG) su LF/CRLF/CR/misti: `node scripts/check-offsets.mjs`.
@@ -115,9 +117,11 @@ Palamede/                       (repo git · aggiornata: 2026-09-25 19:55)
 
 ## Experimental — experimental/
 
+- `neural-observatory/` — **Osservatorio neurale**: laboratorio per addestrare LFM2.5 230M un esempio alla volta e vedere, in 3D e in tempo reale, gradienti, delta dei pesi e attivazioni. Backend FastAPI su **:8131** (`backend/`: config, graph, model, lora, trainer, analyzer, metrics, server) in `reference/trellis-venv` (torch 2.9.1+cu130 + transformers 5.16.1: serve transformers 5.x per i layer ibridi short-conv/attention di LFM2.5, che il 4.57.6 del python di sistema non ha). Checkpoint HF in `models/lfm/lfm2.5-230m` (229.693.184 param, bf16). **Eventi su SSE (`/api/stream`), non WebSocket**: uvicorn in quel venv non ha implementazione WebSocket e la rete non permette di installarla. Verifica: `scripts/setup-observatory.ps1`, avvio: `scripts/start-observatory.ps1 -Load`. Test: `tests/test_observatory.py` (20), `tests/test_server.py` (39), `tests/test_e2e.py` (16, via hub).
 - `jev-experiment/` — copia del progetto sperimentale jev (senza `.venv`/`node_modules`/`.git`/cache/gguf): `agent-encounter/`, `jev-agent/`, `my-jev/`, `rizzo-flow/`, `Modern tiles_Free/`.
 - `jev-hub/server.mjs` — **servizio Node dedicato** (porta `4610`, env `JEV_HUB_PORT`/`JEV_ROOT`) che elenca e avvia i progetti jev dal loro percorso originale (`Desktop/jev-experiment`, dove stanno i `.venv` e i pesi Spark): rizzo-flow (:8017), jev-agent (:8018), agent-encounter (:8019), my-jev (:5173). Espone `GET /api/projects` e `POST /api/projects/<id>/start|stop`. Lo stato riporta `started` (processo vivo), `running` (porta aperta) ed `error` (ultimo errore di avvio, mai silenzioso); i comandi da PATH (pnpm) girano con shell su Windows. MiniCPM (usato da my-jev) vive in `models/minicpm5-2b/`.
 - Integrazione: `hub/lib/jev.mjs` avvia il servizio jev-hub come subprocess e inoltra `/api/jev/*`; la pagina Experimental mostra il pannello **JEV Hub** (stato + avvia/ferma + apri UI). MiniCPM (usato da my-jev) vive in `models/minicpm5-2b/`.
+- Integrazione osservatorio: `hub/lib/observatory.mjs` inoltra `/api/observatory/*` al backend Python `:8131` (REST + stream SSE, che `proxyStream` sa già inoltrare) e lo avvia/ferma con `/api/observatory/start|stop` usando lo stesso venv di `scripts/start-observatory.ps1`.
 - `model-antivirus/` — scan d'integrità dei pesi: `models.manifest.json` (path/dimensione/magic/enforce), `scan-models.py` (deterministico, `--quick` all'avvio) e `audit-model.py` (audit LLM al download). Integrato in `src-tauri/src/main.rs` e `scripts/copy-models.ps1`.
 
 ## Cartelle dati (gitignored)

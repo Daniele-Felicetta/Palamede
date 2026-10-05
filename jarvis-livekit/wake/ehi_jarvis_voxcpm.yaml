@@ -1,0 +1,72 @@
+# Production wake-word config - EHI JARVIS (italiano, VoxCPM2 TTS).
+# Backend voxcpm obbligatorio: Piper e' EN-US only (vedi prod.yaml).
+# Pipeline: livekit-wakeword setup|generate|augment|train|export con questo file.
+# Output atteso: output/ehi_jarvis/ehi_jarvis.onnx (JARVIS_PORTS.wake :8104).
+
+model_name: ehi_jarvis
+
+target_phrases:
+  - "ehi jarvis"
+  - "hey jarvis"
+  - "ehi giarvis"
+
+tts_backend: voxcpm
+
+n_samples: 25000
+n_samples_val: 5000
+n_background_samples: 2000
+n_background_samples_val: 500
+tts_batch_size: 50
+
+custom_negative_phrases:
+  - "jarvis"
+  - "giarvis"
+  - "ehi gianni"
+  - "ehi luigi"
+  - "ehi marco"
+  - "hey libby"
+  - "hey liquid"
+  - "ehi servizio"
+  - "dei jarvis"
+
+voxcpm_tts:
+  model_id: openbmb/VoxCPM2
+  model_cache_relpath: voxcpm/VoxCPM2
+  local_model_path: C:\Users\danie\Desktop\Palamede\models\Jarvis\voxcpm2
+  load_denoiser: false
+  cfg_values: [1.5, 2.0, 2.5, 3.0]
+  inference_timesteps_list: [8, 10, 12]
+  voice_design_prompts:
+    - "A young adult woman, Italian accent, clear mid-pitch voice, calm and professional"
+    - "A young adult man, Italian accent, warm baritone, friendly and articulate"
+    - "A middle-aged woman, Italian accent, measured pace, confident tone"
+    - "A middle-aged man, Italian accent, deep resonant voice, slow deliberate pace"
+    - "A young woman, Italian accent, bright energetic tone, slightly faster pace"
+    - "A young man, Italian accent, light tenor, quick conversational pace"
+
+data_dir: ./data
+output_dir: ./output
+
+augmentation:
+  clip_duration: 2.0
+  batch_size: 16
+  rounds: 3
+  background_paths: [./data/backgrounds]
+  rir_paths: [./data/rirs]
+
+model:
+  model_type: conv_attention
+  model_size: medium
+
+steps: 100000
+learning_rate: 0.0001
+weight_decay: 0.01
+label_smoothing: 0.05
+max_negative_weight: 3000
+target_fp_per_hour: 0.1
+
+batch_n_per_class:
+  positive: 50
+  adversarial_negative: 50
+  ACAV100M_sample: 1024
+  background_noise: 50

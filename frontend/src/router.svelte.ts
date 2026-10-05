@@ -42,12 +42,15 @@ const TITLES: Record<string, string> = {
   '/chat': 'Chat',
   '/downloader': 'Scarica',
   '/3d': '3D',
+  '/server': 'Server',
   '/rag': 'RAG',
   '/extra': 'Extra',
   '/progetto': 'Progetto',
   '/bench': 'Banco',
   '/experimental': 'Experimental',
+  '/observatory': 'Osservatorio',
   '/games': 'Giochi',
+  '/swarm': 'Stormo di agenti',
   '/bandersketch': 'Bandersketch',
 }
 

@@ -33,8 +33,12 @@ const MODELS = [
   { id: 'ornith-35b', name: 'Ornith 1.5 35B-A3B · Q4_K_M', file: 'models/ornith-1.5-35b/Ornith-1.5-35B-Q4_K_M.gguf', ngl: 99, ncmoe: 30, moe: true, fallback: { ncmoe: -1 } },
   { id: 'k2-7b', name: 'K2 Horizon 7B · Q4_K_M', file: 'models/k2-7b/K2-Horizon-7B-Q4_K_M.gguf', ngl: 99 },
   { id: 'k2-36b', name: 'K2 Horizon 36B-A4B MoVA · Q4_K_M', file: 'models/k2-36b/K2-Horizon-MoVA-36B-A4B-Q4_K_M.gguf', ngl: 99, ncmoe: 45, moe: true, mova: true, fallback: { ncmoe: -1 } },
+  // POCKET-Darwin 180B: 111 GB in 4 shard (solo il primo passa a -m, llama-server
+  // apre gli altri). MoE 512 esperti, 10 attivi/token. ncmoe 44 = esperti dei
+  // primi 44 layer su RAM/NVMe, ultimi 4 in VRAM (misura: 14,5 GB VRAM).
+  { id: 'pocket-darwin-180b', name: 'POCKET-Darwin 180B · UD-Q4_K_XL', file: 'models/Pocket-Darwin-180B/POCKET-Darwin-180B-UD-Q4_K_XL-00001-of-00004.gguf', ngl: 99, ncmoe: 44, moe: true, asyncOffload: true, fallback: { ncmoe: -1 } },
   { id: 'bonsai-27b', name: 'Bonsai 27B · Q1_0', file: 'models/bonsai-27b/Bonsai-27B-Q1_0.gguf', ngl: 99 },
-  { id: 'lfm-vl-3b', name: 'LFM2.5 VL 3B · Q5_K_XL', file: 'models/lfm-vl-3b/LFM2.5-VL-3B-Q5_K_XL.gguf', ngl: 99 },
+  { id: 'lfm-vl-3b', name: 'LFM2.5 VL 3B · Q5_K_XL', file: 'models/lfm/lfm-vl-3b/LFM2.5-VL-3B-Q5_K_XL.gguf', ngl: 99 },
   { id: 'gemma-4-26b', name: 'Gemma 4 26B-A3.8B · IQ3_S', file: 'models/gemma-4-26b/gemma-4-26B-A4B-it-UD-IQ3_S.gguf', ngl: 99, moe: true, fallback: { cpuMoe: true } },
   { id: 'minicpm5-2b', name: 'MiniCPM5 2B · Q4_K_M', file: 'models/minicpm5-2b/MiniCPM5-2B-Q4_K_M.gguf', ngl: 99 },
 ]
@@ -47,6 +51,10 @@ function offloadArgs(cfg) {
   else if (cfg.ncmoe === -1) a.push('--cpu-moe')
   else if (cfg.ncmoe > 0) a.push('--n-cpu-moe', String(cfg.ncmoe))
   if (cfg.mova && cfg.movaCpu) a.push('-ot', 'attn_v_exps=CPU')
+  // stessa logica del launcher (hub/lib/chat.mjs): solo per i modelli che
+  // streamano i pesi dall'SSD, dove nascondere la latenza I/O raddoppia il
+  // prefill. Sugli altri e' un danno, quindi mai globale.
+  if (cfg.asyncOffload) a.push('--no-op-offload')
   return a
 }
 
@@ -56,6 +64,7 @@ function benchArgs(cfg) {
   if (cfg.cpuMoe || cfg.ncmoe === -1) a.push('-ncmoe', '999')
   else if (cfg.ncmoe > 0) a.push('-ncmoe', String(cfg.ncmoe))
   if (cfg.mova && cfg.movaCpu) a.push('-ot', 'attn_v_exps=CPU')
+  if (cfg.asyncOffload) a.push('-nopo', '1')
   return a
 }
 

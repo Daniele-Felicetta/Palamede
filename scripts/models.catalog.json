@@ -195,7 +195,7 @@
           "sizeBytes": 3646354400,
           "files": [
             {
-              "dest": "models/lfm-vl-3b/LFM2.5-VL-3B-Q5_K_XL.gguf",
+              "dest": "models/lfm/lfm-vl-3b/LFM2.5-VL-3B-Q5_K_XL.gguf",
               "url": "https://huggingface.co/unsloth/LFM2.5-VL-3B-GGUF/resolve/main/LFM2.5-VL-3B-UD-Q5_K_XL.gguf",
               "sizeBytes": 1941186944,
               "sha256": "4e3146ec361f6bef65b1abd3c56d246ef5a44c336486c6a4a2ce3330024cde98",
@@ -203,7 +203,7 @@
               "note": "su HF si chiama LFM2.5-VL-3B-UD-Q5_K_XL.gguf"
             },
             {
-              "dest": "models/lfm-vl-3b/mmproj-LFM2.5-VL-3B-F32.gguf",
+              "dest": "models/lfm/lfm-vl-3b/mmproj-LFM2.5-VL-3B-F32.gguf",
               "url": "https://huggingface.co/unsloth/LFM2.5-VL-3B-GGUF/resolve/main/mmproj-F32.gguf",
               "sizeBytes": 1705167456,
               "sha256": "38cd487b98272ba1ba268a8aad08c1c0e0f918c468e7952671cefd38bf3d8246",
@@ -212,6 +212,47 @@
             }
           ],
           "requires": "GPU ≥ 4 GB VRAM"
+        },
+        {
+          "id": "pocket-darwin-180b",
+          "name": "POCKET-Darwin 180B · UD-Q4_K_XL",
+          "label": "alternativa",
+          "role": "Il più forte in assoluto: 96,7% al Banco di prova, pari a Gemma 4 26B. MoE 512 esperti, ragiona a lungo. Ma è 111 GB in 4 shard e il più lento in generazione (18 t/s): sotto i ~64 GB di RAM gli esperti MoE vengono riletti dall'SSD a ogni token. Sul prefill l'offload asincrono (--no-op-offload, attivo solo qui) recupera 82 t/s contro 40 senza. Da usare quando serve la qualità, non in fretta.",
+          "quality": "96.7%",
+          "speed": "18.2 t/s",
+          "vram": "~15 GB",
+          "sizeBytes": 111334654769,
+          "files": [
+            {
+              "dest": "models/Pocket-Darwin-180B/POCKET-Darwin-180B-UD-Q4_K_XL-00001-of-00004.gguf",
+              "url": "https://huggingface.co/FINAL-Bench/POCKET-Darwin-180B-GGUF/resolve/main/POCKET-Darwin-180B-UD-Q4_K_XL-00001-of-00004.gguf",
+              "sizeBytes": 10946609,
+              "sha256": "8dd7789f02ff62e07f3a4dbd546d21fa6dc45cdbaac367631571d80cac8206a5",
+              "note": "shard 1/4: solo header+metadati (10 MB). L'app passa questo path a llama-server, che apre gli altri 3 da solo."
+            },
+            {
+              "dest": "models/Pocket-Darwin-180B/POCKET-Darwin-180B-UD-Q4_K_XL-00002-of-00004.gguf",
+              "url": "https://huggingface.co/FINAL-Bench/POCKET-Darwin-180B-GGUF/resolve/main/POCKET-Darwin-180B-UD-Q4_K_XL-00002-of-00004.gguf",
+              "sizeBytes": 49859583136,
+              "sha256": "8d2a48cace8791b2655173f8b507eb985471834511908006da6b4166b2155794",
+              "note": "shard 2/4. Senza `audit`: l'audit LLM su 4x50 GB richiederebbe ore."
+            },
+            {
+              "dest": "models/Pocket-Darwin-180B/POCKET-Darwin-180B-UD-Q4_K_XL-00003-of-00004.gguf",
+              "url": "https://huggingface.co/FINAL-Bench/POCKET-Darwin-180B-GGUF/resolve/main/POCKET-Darwin-180B-UD-Q4_K_XL-00003-of-00004.gguf",
+              "sizeBytes": 49376141504,
+              "sha256": "0adc56c67b89cbfcaa67780e78fc0a15666ef2a1ebf5cdc51611fc1198ae256f",
+              "note": "shard 3/4"
+            },
+            {
+              "dest": "models/Pocket-Darwin-180B/POCKET-Darwin-180B-UD-Q4_K_XL-00004-of-00004.gguf",
+              "url": "https://huggingface.co/FINAL-Bench/POCKET-Darwin-180B-GGUF/resolve/main/POCKET-Darwin-180B-UD-Q4_K_XL-00004-of-00004.gguf",
+              "sizeBytes": 12087983520,
+              "sha256": "0f45b1445b2a4d032d44766936107031d2f503b6bc7eb7fcf80f35232477ab5b",
+              "note": "shard 4/4"
+            }
+          ],
+          "requires": "GPU ≥ 8 GB VRAM · 64 GB RAM (esperti su NVMe) · 111 GB liberi su disco"
         }
       ]
     },

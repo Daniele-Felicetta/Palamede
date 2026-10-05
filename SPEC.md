@@ -91,6 +91,7 @@ Browser ── http://127.0.0.1:4600 ── hub/server.mjs (Node, zero deps)
                                      ├─ narratore cloud opzionale (Gemini, solo con chiave in env)
                                      ├─ LM Studio :1234 (vision-language, se attivo)
                                      ├─ JEV Hub :4610 (progetti experimental, subprocess)
+                                      ├─ Osservatorio neurale :8131 (backend PyTorch, eventi in SSE)
                                      │
                                      └─ dati (gitignored): knowledge/ · outputs/{history,stories,chats}
 ```
@@ -147,9 +148,10 @@ senza toccare `reference/`.
 | Bonsai 27B | `bonsai-27b/Bonsai-27B-Q1_0.gguf` | 3.5 GB | dense, chat (thinking opzionale) |
 | K2 Horizon 7B | `k2-7b/K2-Horizon-7B-Q4_K_M.gguf` | 5.2 GB | dense, chat (reasoning) |
 | K2 Horizon 36B-A4B MoVA | `k2-36b/K2-Horizon-MoVA-36B-A4B-Q4_K_M.gguf` | 20.8 GB | MoE 4B attivi + MoVA, chat |
-| LFM2.5 VL 3B | `lfm-vl-3b/LFM2.5-VL-3B-Q5_K_XL.gguf` | 1.8 GB | vision-language, chat |
+| LFM2.5 VL 3B | `lfm/lfm-vl-3b/LFM2.5-VL-3B-Q5_K_XL.gguf` | 1.8 GB | vision-language, chat |
 | Gemma 4 26B-A3.8B | `gemma-4-26b/gemma-4-26B-A4B-it-UD-IQ3_S.gguf` | 10.5 GB | MoE 3.8B attivi, chat |
 | MiniCPM5 2B | `minicpm5-2b/MiniCPM5-2B-Q4_K_M.gguf` | 1.5 GB | dense, chat (+ reranker RAG) |
+| POCKET-Darwin 180B | `Pocket-Darwin-180B/POCKET-Darwin-180B-UD-Q4_K_XL-0000{1..4}-of-00004.gguf` | 103.7 GB | MoE 512 esperti (3B attivi, arch. `qwen4exp`), solo testo, chat (reasoning), `--no-op-offload` (prefill 22s → 5s) |
 
 > **In bozza (`models/_inutilizzati/`)**: Wan 2.1 T2V 1.3B (+ VAE, UMT5-XXL) e Klein 9B BF16 sono sospesi. Wan ha un backend proprio (`backends/wan_server.py`, `:8126`) ma **non e' cablato al hub**: nessun endpoint lo espone.
 
@@ -218,6 +220,39 @@ vertici. A 1024² tempi e ingombri crescono con la risoluzione del voxel.
 
 > **Kaspersky**: può bloccare lo spawn del server (falso positivo); se il
 > `/api/3d/start` fallisce, aggiungi un'esclusione per la root del progetto.
+
+### Osservatorio neurale (LFM2.5 230M)
+
+Laboratorio sperimentale: un esempio alla volta, 1-10 optimizer step, e la
+scena 3D mostra gradienti, delta dei pesi e attivazioni **realmente misurati**.
+Dettaglio e principi in `experimental/neural-observatory/README.md`.
+
+| Campo | Valore |
+|---|---|
+| Backend | `experimental/neural-observatory/backend/server.py` - FastAPI su **:8131**. Carica il checkpoint, esegue il ciclo BEFORE -> step -> AFTER e misura gradienti, delta e attivazioni. |
+| Venv | `reference/trellis-venv/` (Python 3.13, torch 2.9.1+cu130, transformers 5.16.1). Serve transformers **5.x**: il 4.57.6 del python di sistema non ha `layer_types` e non sa caricare LFM2.5. |
+| Checkpoint | `models/lfm/lfm2.5-230m/` - **formato Hugging Face** (`config.json` + `model.safetensors` bf16, 229.693.184 param), NON un GGUF: i pesi devono essere addestrabili. |
+| Architettura | 14 blocchi **ibridi**: 8 short-conv (parity) + 6 full-attention, MLP SwiGLU in tutti, `lm_head` **tied** a `embed_tokens`. Letta da `config.layer_types`, non da un template Llama. |
+| Precisione | default `mixed` = pesi master fp32 + `autocast(bf16)`. In bf16 puro 32/132 tensori (tutti RMSNorm) ricevono gradiente ma il delta si azzera per arrotondamento: viene dichiarato nel payload, non nascosto. |
+| LoRa | scritto a mano in `backend/lora.py` (il venv non ha `peft` e non si puo' installare). `A` Kaiming, `B` a zero, base congelata; `rank`/`alpha`/`dropout`/`target_modules` configurabili. |
+| Trasporto | REST per i comandi, **SSE** (`GET /api/stream`) per gli eventi. Non WebSocket: uvicorn in quel venv non ha implementazione WS (`websockets`/`wsproto` assenti, installazione impossibile per TLS intercettato). |
+| Hub | `hub/lib/observatory.mjs` inoltra `/api/observatory/*` e avvia/ferma il backend. |
+| Frontend | `frontend/src/pages/Observatory.svelte` + `frontend/src/lib/observatory/` - scena three.js (16 strati, 130 moduli), inspector, token view, time travel. Chunk lazy, 26 kB gzip. |
+| Setup | `scripts/setup-observatory.ps1` (verifica) e `scripts/start-observatory.ps1 -Load` (avvio + caricamento). |
+| Test | `tests/test_observatory.py` (20 verifiche sui pesi reali), `tests/test_server.py` (39, REST+SSE), `tests/test_e2e.py` (16, via hub). |
+
+**Endpoint** (via hub :4600, prefisso `/api/observatory`):
+
+| Endpoint | Cosa fa |
+|---|---|
+| `GET /api/observatory/status|start|stop` | stato del backend, avvio, arresto |
+| `GET /api/observatory/api/stream` | stream SSE: `hello`, `status`, `update_start`, `step`, `paused`, `update_end`, `graph`, `model_state`, `history`, `error`. Ogni evento ha `id:` monotono; reconnect con `Last-Event-ID` |
+| `GET/POST /api/observatory/api/config` | iperparametri dell'esperimento (validati lato Python) |
+| `POST /api/observatory/api/load`, `/unload`, `/reset-model` | carica i pesi in GPU, scarica, torna al checkpoint su disco |
+| `POST /api/observatory/api/train` | un update: `{prompt, target, steps?}` -> BEFORE, step, AFTER |
+| `POST /api/observatory/api/generate` | inferenza pura, senza allenare |
+| `POST /api/observatory/api/compare` | confronto fra due update della cronologia |
+| `POST /api/observatory/api/clear-history`, `/step-advance` | svuota la cronologia; autorizza lo step successivo in modalita' step-by-step |
 
 ### Chat locale (llama.cpp)
 
@@ -409,6 +444,7 @@ MiniCPM si spegne da solo dopo ~60s di inattività per liberare la VRAM.
 | `GET /api/narrators` · `POST /api/narrate` | narratore cloud opzionale (Gemini; richiede `PALAMEDE_GEMINI_API_KEY`) |
 | `GET/POST /api/lmstudio/*` | proxy a LM Studio locale (`:1234`) |
 | `GET/POST /api/jev/*` | JEV Hub (`:4610`): elenco/avvio progetti experimental |
+| `GET/POST /api/observatory/*` | Osservatorio neurale (`:8131`): config, load/unload, train, generate, compare + stream SSE su `/api/observatory/api/stream` |
 
 ### Parametri nativi per modello (immagini)
 
@@ -464,7 +500,7 @@ Pagine:
 |---|---|
 | `/` | Home hub: eroe compatto (headline + **registro di bordo live**: backend, modello in VRAM, barra GPU) · **card Applicazioni subito visibili** · sotto, **Le applicazioni nel dettaglio** con le descrizioni · in coda **Misure sul banco** |
 | `/images` | Generatore funzionante (quattro modelli: Bonsai, Z-Image, Klein img2img, Qwen-Image) + gallery locale + wiki dei modelli con esempi reali |
-| `/chat` | **Chat funzionante**: 9 modelli locali (Ornith 35B-A3B / 9B / 9B-Q5, K2 Horizon 7B / 36B-A4B, Bonsai 27B, LFM2.5 VL 3B, Gemma 4 26B, MiniCPM5 2B), streaming con ragionamento mostrato, impostazioni (contesto, KV quant, MTP, layer MoE su CPU, layer GPU, temperatura, toggle thinking (default off)), avvio/stop server, **toggle knowledge on** per rispondere dalle tue fonti con citazioni `[n]` cliccabili. **Solo i modelli installati** compaiono nel selettore. |
+| `/chat` | **Chat funzionante**: 11 modelli locali (Ornith 35B-A3B / 9B / 9B-Q5, K2 Horizon 7B / 36B-A4B, Bonsai 27B, LFM2.5 VL 3B, Gemma 4 26B, MiniCPM5 2B, POCKET-Darwin 180B), streaming con ragionamento mostrato, impostazioni (contesto, KV quant, MTP, layer MoE su CPU, layer GPU, temperatura, toggle thinking (default off)), avvio/stop server, **toggle knowledge on** per rispondere dalle tue fonti con citazioni `[n]` cliccabili. **Solo i modelli installati** compaiono nel selettore; per i GGUF spezzati tutti gli shard devono essere presenti, altrimenti il modello non viene offerto. |
 | `/downloader` | **Downloader**: catalogo dei modelli (dal migliore al peggiore) con nome, peso, requisiti di sistema e sorgente ufficiale; scarica i pesi in `models/` con progresso e verifica SHA-256. Catalogo condiviso con l'installer CLI (`scripts/models.catalog.json`). |
 | `/bench` | **Banco di prova** (rotta propria, montata anche dentro `/extra`): benchmark dei modelli testuali (qualità su eval set oggettivo + velocità llama-bench) e dei generatori di immagini (tempi cold/warm a 512²/1024² + qualità da VLM judge), con tabelle, classifiche per qualità/velocità/combinata, dettaglio per categoria e galleria. Dati da `outputs/benchmark/` e `outputs/benchmark-images/` via `/api/bench` e `/api/bench-images`. |
 | `/rag` | **Knowledge base RAG funzionante** (stile NotebookLM): aggiungi fonti (paste o drag&drop `.md/.txt`), indicizzazione chunk+embedding, chat grounded con citazioni, fonte aperta con il chunk citato evidenziato |
@@ -528,3 +564,6 @@ ripristina le console per il debug.
   precedente da sé (nessun tasto "eject").
 - I dati della wiki sono **misurati su questa macchina**, non copiati dai
   model card (le cifre ufficiali "sub-second" si intendono su H800).
+
+
+

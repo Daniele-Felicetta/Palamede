@@ -16,6 +16,7 @@
 //   - POST /api/chat/start      avvia llama-server con i parametri scelti
 //   - POST /api/chat/stop       ferma llama-server
 //   - POST /api/chat            chat streaming (SSE pass-through)
+//   - GET  /api/server/metrics  telemetria llama-server (prefill/decode, slot)
 //   - GET/POST /api/kb/*        knowledge base RAG (chunk/embed/retrieve/rerank)
 //   - GET/POST /api/3d/*        server TRELLIS image-to-3D (:8124) + file generati
 //   - GET/POST /api/history*    cronologia immagini persistente
@@ -25,6 +26,7 @@
 //   - POST /api/narrate        narratore cloud opzionale (Gemini)
 //   - GET/POST /api/lmstudio/*  proxy a LM Studio locale (:1234)
 //   - GET/POST /api/jev/*       JEV Hub (:4610): progetti experimental
+//   - /api/observatory/*        Osservatorio neurale (:8131) + stream SSE
 //
 // Avvio: node hub/server.mjs   (porta: env PALAMEDE_PORT, default 4600)
 
@@ -37,6 +39,7 @@ import { allowedHost, allowedOrigin } from './lib/guards.mjs'
 import { createQueue } from './lib/queue.mjs'
 import { currentMetrics, startMetrics } from './lib/metrics.mjs'
 import { textStatus, startText, stopText, proxyChat } from './lib/chat.mjs'
+import { serverMetrics } from './lib/server.mjs'
 import { geminiStatus, narrateGemini } from './lib/gemini.mjs'
 import { trellisStatus, startTrellis, stopTrellis } from './lib/trellis.mjs'
 import { proxyLmStudio } from './lib/lmstudio.mjs'
@@ -49,6 +52,8 @@ import { handleBench, handleBenchImages, handleBenchImageFile } from './lib/benc
 import { downloaderList, availability } from './lib/catalog.mjs'
 import { startDownload, downloadStatus, cancelDownload } from './lib/downloader.mjs'
 import { handleJev } from './lib/jev.mjs'
+import { handleObservatory } from './lib/observatory.mjs'
+import { jarvisStatus } from './lib/jarvis.mjs'
 import { serveStatic } from './lib/static.mjs'
 import { killAllChildren } from './lib/proc.mjs'
 
@@ -193,6 +198,11 @@ async function handleApi(req, res, path) {
     return proxyChat(req, res)
   }
 
+  // ── zona Server: telemetria del llama-server (prefill/decode, slot) ────
+  if (path === '/api/server/metrics' && req.method === 'GET') {
+    return json(res, 200, await serverMetrics())
+  }
+
   // ── conversazioni chat persistite (outputs/chats) ─────────────────────
   if (path.startsWith('/api/chats')) {
     return handleChats(req, res, path)
@@ -250,8 +260,18 @@ async function handleApi(req, res, path) {
   }
 
   // ── JEV Hub: servizio dedicato che elenca/avvia i progetti jev (:4610) ──
+  // ── Jarvis voice assistant (pesi in models/Jarvis, 100% locale) ──────
+  if (path === '/api/jarvis/status' && req.method === 'GET') {
+    return json(res, 200, await jarvisStatus())
+  }
+
   if (path.startsWith('/api/jev')) {
     return handleJev(req, res, path)
+  }
+
+  // ── Osservatorio neurale: backend Python (:8131), eventi in SSE ──────
+  if (path.startsWith('/api/observatory')) {
+    return handleObservatory(req, res, path)
   }
 
   if (path.startsWith('/api/history')) {
@@ -277,6 +297,7 @@ createServer(async (req, res) => {
   const QUIET = new Set([
     '/api/health', '/api/models', '/api/metrics',
     '/api/chat/status', '/api/3d/status', '/api/preview',
+    '/api/server/metrics',
   ])
   const qpath = new URL(req.url, 'http://localhost').pathname
   res.on('finish', () => {

@@ -323,6 +323,12 @@ export namespace Text {
       hint: '262k contesto · ~7 GB VRAM · KV q4_0',
       cpuMoe: -1, movaCpu: false, kv: 'q4_0', context: 262144,
     },
+    {
+      id: 'gaming-131k',
+      label: 'Gaming 131k',
+      hint: '131k contesto · ~7 GB VRAM · KV q4_0',
+      cpuMoe: -1, movaCpu: false, kv: 'q4_0', context: 131072,
+    },
   ]
 
   /** Profili VRAM disponibili per un modello. */

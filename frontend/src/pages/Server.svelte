@@ -13,6 +13,10 @@
   let sys = $state<Metrics | null>(null)
   let err = $state('')
   let off = $state(false)
+  // orologio locale per l'età "Xs fa": si aggiorna a ogni poll
+  let nowTs = $state(Date.now())
+
+  const STALE_MS = 15000
 
   // nomi leggibili dal path del modello
   let modelLabel = $derived.by(() => {
@@ -31,11 +35,29 @@
     return total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0
   }
 
+  /** "adesso" / "Xs fa" / "Xm fa" da un epoch-ms */
+  function age(at: number | null | undefined): string {
+    if (!at) return 'mai'
+    const s = Math.max(0, Math.round((nowTs - at) / 1000))
+    if (s < 2) return 'adesso'
+    if (s < 60) return `${s}s fa`
+    return `${Math.floor(s / 60)}m ${s % 60}s fa`
+  }
+
+  function isStale(at: number | null | undefined, ms = STALE_MS): boolean {
+    if (!at) return true
+    return nowTs - at > ms
+  }
+
+  let prefillStale = $derived(isStale(m?.prefill?.at))
+  let decodeStale = $derived(isStale(m?.decode?.at))
+
   async function tick() {
     try {
       const [a, b] = await Promise.all([getServerMetrics(), getMetrics()])
       m = a
       sys = b
+      nowTs = Date.now()
       err = ''
       off = false
     } catch (e) {
@@ -61,6 +83,9 @@
     prompt (prefill) e nella risposta (decode), quanti slot sono al lavoro e
     quanto costa in VRAM.
   </p>
+  {#if m?.at}
+    <p class="srv-age" role="status">dati di {age(m.at)} · prefill {age(m.prefill?.at)} · decode {age(m.decode?.at)}</p>
+  {/if}
 
   {#if off}
     <p class="srv-off" role="status">
@@ -88,21 +113,25 @@
 
     <!-- numeri grandi: prefill e decode, la coppia che spiega la velocita' -->
     <div class="bignums">
-      <article class="big" class:live={!!m.live}>
+      <article class="big" class:live={!!m.live} class:stale={prefillStale && !m.live}>
         <span class="big-num">{fmt(m.prefill?.tps, 0)}</span>
         <span class="big-unit">tok/s</span>
-        <span class="big-lab">prefill</span>
+        <span class="big-lab">prefill {#if m.live}(live){:else if prefillStale}(ultimo){/if}</span>
         <span class="big-sub">
-          {#if m.prefill}{fmt(m.prefill.tokens)} token in {fmt(m.prefill.ms)} ms{:else}in attesa{/if}
+          {#if m.prefill}
+            {fmt(m.prefill.tokens)} token in {fmt(m.prefill.ms)} ms · {fmt(m.prefill.msPerToken, 2)} ms/token · {age(m.prefill.at)}{#if m.prefill.slot != null} · slot {m.prefill.slot}{/if}
+          {:else}in attesa{/if}
         </span>
       </article>
-      <article class="big">
-        <span class="big-num">{fmt(m.decode?.tps, 1)}</span>
+      <article class="big" class:live={!!m.liveDecode} class:stale={decodeStale && !m.liveDecode}>
+        <span class="big-num">{fmt(m.liveDecode?.tps ?? m.decode?.tps, 1)}</span>
         <span class="big-unit">tok/s</span>
-        <span class="big-lab">decode</span>
+        <span class="big-lab">decode {#if m.liveDecode}(live){:else if decodeStale && m.decode}(ultimo){/if}</span>
         <span class="big-sub">
-          {#if m.decode}
-            {fmt(m.decode.tokens)} token · {fmt(m.decode.msPerToken, 2)} ms/token
+          {#if m.liveDecode}
+            {fmt(m.liveDecode.tokens)} token · istantaneo su 3 s · media {fmt(m.liveDecode.avgTps, 1)}
+          {:else if m.decode}
+            {fmt(m.decode.tokens)} token · {fmt(m.decode.msPerToken, 2)} ms/token · {age(m.decode.at)}
           {:else}in attesa{/if}
         </span>
       </article>
@@ -126,10 +155,10 @@
 
     {#if m.live}
       <div class="prog" role="status">
-        <span class="prog-lab">prefill in corso</span>
+        <span class="prog-lab">prefill in corso · {Math.round(m.live.fraction * 100)}%</span>
         <div class="prog-bar"><span style={`width:${Math.round(m.live.fraction * 100)}%`}></span></div>
         <span class="prog-num">
-          {fmt(m.live.done)} token · {fmt(m.live.tps, 0)} tok/s · {fmt(m.live.seconds, 0)} s
+          {fmt(m.live.done)} token · {fmt(m.live.tps, 0)} tok/s · {fmt(m.live.seconds, 0)} s{#if m.live.etaSec > 1} · resta ~{fmt(m.live.etaSec, 0)} s{/if}
         </span>
       </div>
     {/if}
@@ -178,12 +207,10 @@
       <div><dt>build llama.cpp</dt><dd>{m.props?.buildInfo ?? '—'}</dd></div>
       <div><dt>porta</dt><dd>:{m.port}</dd></div>
       {#if m.pid}<div><dt>pid</dt><dd>{m.pid}</dd></div>{/if}
-      {#if m.params}
-        <div><dt>contesto avviato</dt><dd>{fmt(m.params.context)}</dd></div>
-        <div><dt>layer GPU</dt><dd>{m.params.gpuLayers}</dd></div>
-        {#if m.params.cpuMoe}<div><dt>MoE su CPU</dt><dd>{m.params.cpuMoe} layer</dd></div>{/if}
-        <div><dt>thinking</dt><dd>{m.params.thinking ? 'on' : 'off'}</dd></div>
-      {/if}
+      <div><dt>contesto avviato</dt><dd>{fmt(m.params?.context ?? m.props?.nCtx)}</dd></div>
+      <div><dt>layer GPU</dt><dd>{m.params ? m.params.gpuLayers : '— (non tracciato)'}</dd></div>
+      {#if m.params?.cpuMoe}<div><dt>MoE su CPU</dt><dd>{m.params.cpuMoe} layer</dd></div>{/if}
+      <div><dt>thinking</dt><dd>{m.params ? (m.params.thinking ? 'on' : 'off') : '— (non tracciato)'}</dd></div>
     </dl>
 
     {#if m.params}
@@ -221,6 +248,8 @@
     display: flex; flex-direction: column; gap: 2px;
   }
   .big.live { border-color: var(--accent); }
+  .big.stale .big-num { opacity: .45; }
+  .srv-age { font-family: var(--mono); font-size: 11px; color: var(--paper-faint); margin: 6px 0 0; }
   .big-num { font-family: var(--display); font-size: 34px; font-weight: 600; line-height: 1; color: var(--paper); }
   .big.live .big-num { color: var(--accent); }
   .big-unit { font-family: var(--mono); font-size: 11px; color: var(--paper-faint); }

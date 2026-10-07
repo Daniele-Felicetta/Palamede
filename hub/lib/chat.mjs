@@ -10,7 +10,18 @@ import { spawnLogged, killChild } from './proc.mjs'
 import { proxyStream } from './proxy.mjs'
 
 export const TEXT_PORT = Number(process.env.PALAMEDE_TEXT_PORT || 8121)
-const LLAMA = join(ROOT, 'tools', 'llama-cpp', 'llama-server.exe')
+// Build di llama.cpp. Si preferisce la piu' recente se presente: lo
+// spec-decode MTP per Darwin richiede >= b11048 (il tensor 'output_hc_norm'
+// mancante nel draft faceva fallire il load), e su b10648 non esiste. La
+// cartella nuova e' un'estrazione a fianco, quindi tornare indietro basta
+// rimuoverla. L'override esplicito resta per il bench e i test.
+const LLAMA_DIRS = [
+  process.env.PALAMEDE_LLAMA_DIR,
+  join(ROOT, 'tools', 'llama-cpp-b11457'),
+  join(ROOT, 'tools', 'llama-cpp'),
+].filter(Boolean)
+const LLAMA_DIR = LLAMA_DIRS.find((d) => existsSync(join(d, 'llama-server.exe'))) || LLAMA_DIRS.at(-1)
+const LLAMA = join(LLAMA_DIR, 'llama-server.exe')
 const TEXT_LOG = join(ROOT, 'outputs', 'text-server.log')
 // Modalita' solo CPU: marcatore scritto da scripts/setup.ps1 -CpuOnly.
 // Forza tutto su CPU (-ngl 0, niente flash-attn) qualunque cosa chieda la UI.
@@ -60,7 +71,14 @@ const TEXT_MODEL_DEFS = [
   // memory-map, i layer 45-48 finiscono in VRAM (--n-cpu-moe 44, vedi cpuMoe in
   // frontend/src/lib/text.ts). Punto -m sul PRIMO shard: llama-server segue i
   // metadati split.* e apre gli altri da solo.
+  //
+  // mtpHead: il GGUF non contiene i tensori nextn.* (verificato leggendo la
+  // directory dei tensori), quindi lo spec-decode MTP serve l'head come file
+  // separato. Quella di Unsloth e' del parent, ma R3 ha lasciato intatte le
+  // head MTP: l'accettanza misurata e' del 69,9% con 2,40 token accettati per
+  // passaggio, quindi l'head combacia col target.
   { id: 'pocket-darwin-180b', name: 'POCKET-Darwin 180B · UD-Q4_K_XL', moe: true, asyncOffload: true, maxContext: 262144,
+    mtpHead: join(ROOT, 'models', 'mtp-Qwen3.8-Flash-Next-Q4_K_M.gguf'),
     file: join(ROOT, 'models', 'Pocket-Darwin-180B', 'POCKET-Darwin-180B-UD-Q4_K_XL-00001-of-00004.gguf') },
 ]
 
@@ -130,7 +148,11 @@ async function killPortHolder() {
         `(Get-CimInstance Win32_Process -Filter "ProcessId=${pid}" -ErrorAction SilentlyContinue).ExecutablePath`,
       ], { windowsHide: true }, (err, stdout) => done(String(stdout || '').trim()))
     })
-    if (!info || info.toLowerCase() !== LLAMA.toLowerCase()) {
+    // La porta puo' essere tenuta da una build diversa di llama.cpp (l'ho
+    // appena cambiata): se il percorso e' sotto tools/llama-cpp* e' comunque
+    // nostro e lo chiudiamo, altrimenti non lo tocchiamo.
+    const ours = /[\\/]tools[\\/]llama-cpp[^\\/]*[\\/]llama-server\.exe$/i.test(info)
+    if (!info || !ours) {
       throw new Error(`:${TEXT_PORT} è occupata da ${info || `pid ${pid}`} (non è llama-server di Palamede): libera la porta e riprova`)
     }
     // taskkill /T: llama-server non ha figli, ma /T è harmless e copre i
@@ -253,7 +275,22 @@ async function bootText(cfg) {
   // Sui modelli residenti in RAM e' un danno (K2 36B -48%, Gemma 26B -78%):
   // per questo e' opt-in per modello, mai globale.
   if (model.asyncOffload) args.push('--no-op-offload')
-  if (mtp) args.push('--spec-type', 'draft-mtp')
+  // Spec-decode MTP: l'head e' un file separato (il GGUF non ha nextn.*) e va
+  // in VRAM, altrimenti il suo forward attraversa il PCIe a ogni token e il
+  // draft costa piu' di quanto faccia risparmiare. Con -ngl 99 --n-cpu-moe 44
+  // il modello tiene ~14,5 dei 16,3 GB di VRAM e il draft da 2,6 non entra:
+  // misurato -5%. Con --cpu-moe gli esperti vanno a RAM, la VRAM si libera e il
+  // draft gira a velocita' piena: misurato +33% a 32k e +31% a 131k.
+  let mtpActive = false
+  if (mtp && model.mtpHead) {
+    if (!existsSync(model.mtpHead)) {
+      eprintln(`[chat] mtp: manca ${model.mtpHead} — spec-decode disattivato`)
+    } else {
+      args.push('--spec-type', 'draft-mtp', '-md', model.mtpHead,
+        '--spec-draft-n-max', '2', '-ngld', 'all')
+      mtpActive = true
+    }
+  }
   args.push('--reasoning', thinking ? 'on' : 'off')
 
   if (!existsSync(LLAMA)) throw new Error(`manca ${LLAMA} — esegui scripts/setup.ps1`)
@@ -270,14 +307,20 @@ async function bootText(cfg) {
   }
 
   textServer.model = model.id
-  textServer.params = { context, kv: kv || 'f16', mtp, cpuMoe, movaCpu, gpuLayers, thinking }
+  textServer.params = { context, kv: kv || 'f16', mtp: mtpActive, cpuMoe, movaCpu, gpuLayers, thinking }
   textServer.ready = false
   const { proc } = spawnLogged({
     exe: LLAMA, args, cwd: ROOT, logFile: TEXT_LOG,
-    header: `\n--- avvio ${model.id} ctx=${context} kv=${kv || 'f16'} mtp=${mtp} cpuMoe=${cpuMoe} movaCpu=${movaCpu ? 'on' : 'off'} ngl=${gpuLayers} think=${thinking ? 'on' : 'off'} asyncOffload=${model.asyncOffload ? 'on' : 'off'} ---\n`,
+    header: `\n--- avvio ${model.id} ctx=${context} kv=${kv || 'f16'} mtp=${mtpActive ? 'on' : mtp ? 'on(head-mancante)' : 'off'} cpuMoe=${cpuMoe} movaCpu=${movaCpu ? 'on' : 'off'} ngl=${gpuLayers} think=${thinking ? 'on' : 'off'} asyncOffload=${model.asyncOffload ? 'on' : 'off'} ---\n`,
   })
   textServer.proc = proc
-  textServer.proc.on('exit', () => {
+  // L'handler deve azzerare il riferimento SOLO se è ancora questo proc: su un
+  // riavvio il processo precedente può morire dopo che il nuovo è già stato
+  // assegnato, e senza questo confronto il suo 'exit' azzerava il nuovo
+  // riferimento: startText leggeva proc = null e dichiarava il server uscito
+  // mentre era in ascolto e funzionante.
+  proc.on('exit', () => {
+    if (textServer.proc !== proc) return
     textServer.proc = null
     textServer.ready = false
   })

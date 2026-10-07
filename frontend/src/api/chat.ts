@@ -63,9 +63,17 @@ export interface ServerTiming {
   tokens: number
   tps: number
   slot: number | null
+  /** ms/token (solo prefill calcolato, decode dal log) */
+  msPerToken?: number
+  /** quando è stato visto nel log (epoch ms) */
+  at?: number
 }
 
 export interface ServerMetrics {
+  /** quando è stato costruito il pacchetto (epoch ms) */
+  at: number
+  /** mtime del text-server.log (epoch ms, 0 se non leggibile) */
+  logMtime: number
   running: boolean
   ready: boolean
   /** il server è tracciato da questo hub (false se partito a mano) */
@@ -78,7 +86,11 @@ export interface ServerMetrics {
   busySlot: ServerSlot | null
   prefill: ServerTiming | null
   decode: (ServerTiming & { msPerToken: number }) | null
-  live: { done: number; fraction: number; seconds: number; tps: number } | null
+  live: { done: number; fraction: number; seconds: number; tps: number; etaSec: number; at: number } | null
+    /** Generazione in corso: tasso istantaneo sugli ultimi 3 s (tg_3s) e media
+     *  della richiesta (tg). tg_3s e' quello che serve a schermo: la media
+     *  include i primi token a page cache fredda e risulta piu' bassa. */
+    liveDecode: { tokens: number; avgTps: number; tps: number; slot: number | null; at: number } | null
   props: {
     nCtx: number
     nPredict: number | null

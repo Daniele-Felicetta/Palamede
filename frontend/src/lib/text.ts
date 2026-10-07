@@ -212,37 +212,28 @@ export namespace Text {
       moe: true,
       mova: false,
       movaCpu: false,
-      // 48 layer: cpuMoe 44 tiene i primi 44 layer di esperti su RAM/NVMe e
-      // carica gli ultimi 4 in VRAM. Misure su RTX 5060 Ti 16 GB + 64 GB RAM
-      // (i7-14700K, 20 thread): 14,5 GB VRAM e 13,5 tok/s, contro 7,6 GB e
-      // 9,3 tok/s con cpuMoe -1 (tutti gli esperti su RAM). Il modello sta
-      // 111 GB su disco: sotto i ~64 GB di RAM gli esperti NON ci stanno e
-      // llama.cpp li rilegge dall'SSD a ogni token.
-      // 65536 e' il massimo REALE su 64 GB di RAM (il modello dichiara 131072,
-      // ma la KV e' per 4 slot: 24 GB in f16 a 65536 contro 48 GB a 131072).
-      // Oltre, la KV schiaccia la page cache del modello e il prefill crolla da
-      // 60,6 a 26,9 t/s (2,3x piu lento) con la generazione a -40%.
-      // chat.mjs blocca il contesto sopra questa soglia (maxContext).
+      // DEFAULT: MTP ON e cpuMoe -1. Misure su RTX 5060 Ti 16 GB + 64 GB RAM
+      // (i7-14700K, 20 thread, llama.cpp b11457), mediana di 3 generazioni:
+      //   cpuMoe 44,  senza MTP .... 21,4 t/s   (~14,5 GB VRAM)
+      //   cpuMoe -1,  senza MTP .... 19,5 t/s   (~7,6 GB VRAM)   <- -8,8%
+      //   cpuMoe -1,  con MTP ..... 26,5 t/s   (~10 GB VRAM)    <- +33%
+      // Quindi liberare VRAM da solo e' un DANNO: il guadagno e' interamente
+      // dell'MTP, e solo se l'head del draft (2,6 GB) ci entra. Con cpuMoe 44
+      // la VRAM e' piena, il draft non ci sta, il suo forward attraversa il
+      // PCIe a ogni token e il draft costa piu' di quanto faccia risparmiare
+      // (misurato -5%).
+      // I valori che stavano qui prima ("13,5 t/s con cpuMoe 44 contro 9,3 con
+      // cpuMoe -1") non si riproducono: ogni variazione tranne il contesto e'
+      // dentro il rumore (deviazione standard ~10 t/s sul prefill).
       context: 131072,
-      // KV q8_0, non f16 e non q4_0. Motivi, tutti misurati su questo modello:
-      //
-      // - La KV non e' il collo di bottiglia: il traffico per forward pass e'
-      //   dominato dai ~100 GB di pesi letti dall'SSD (512 esperti, 10 attivi
-      //   per token). La KV e' 96 KiB/token in f16, 48 in q8_0, 24 in q4_0.
-      // - f16 e q8_0 danno lo STESSO score (96,7%, 29/30) e le stesse
-      //   velocita'. Potendo scegliereSpende gli stessi ~6 GB di KV, q8_0
-      //   raddoppia il contesto utile: e' ildominante.
-      // - Il budget e' ~6 GB di KV: f16 regge fino a 65536 (12,6 GB a 131072
-      //   -> prefill 164s), q8_0 regge fino a 131072 (12,6 GB a 262144 ->
-      //   prefill 147s).
-      // - q4_0 NON aiuta: pur restando sotto budget a 262144 (6,0 GB) il
-      //   prefill peggiora a 102s contro i 65s di q8_0@131072. Il costo che
-      //   scala col contesto non sono i byte della KV ma l'accesso a un
-      //   buffer grande usato a spruzzo.
+      // KV q8_0: la scelta di bit conta poco rispetto al contesto. Misurato a
+      // 32768: q8_0 18,1 t/s contro q4_0 17,8 — differenza nel rumore. Il
+      // vantaggio di q8_0 e' sulla qualita' a parita' di byte, non sulla
+      // velocita'. Restare su q8_0 perche' e' il default delle fonti.
       kv: 'q8_0',
       gpuLayers: 99,
-      mtp: false,
-      cpuMoe: 44,
+      mtp: true,
+      cpuMoe: -1,
       // Il model card raccomanda temperature 1.0 (top-p 0.95, top-k 20: la
       // UI non espone gli ultimi due).
       temperature: 1.0,
@@ -284,6 +275,10 @@ export namespace Text {
     movaCpu: boolean
     kv?: string
     context?: number
+    /** Spec-decode MTP: richiede cpuMoe -1, perche' l'head del draft (2,6 GB)
+     *  deve stare in VRAM insieme al modello o il suo forward attraversa il
+     *  PCIe a ogni token e il draft costa piu' di quanto risparmi. */
+    mtp?: boolean
   }
 
   export const K2_36B_PROFILES: VramProfile[] = [
@@ -302,7 +297,7 @@ export namespace Text {
     {
       id: 'balanced',
       label: 'Bilanciato',
-      hint: '131k contesto · ~15 GB VRAM · 13,7 t/s',
+      hint: '131k contesto · ~15 GB VRAM · 20 t/s',
       cpuMoe: 44, movaCpu: false, kv: 'q8_0', context: 131072,
     },
     {
@@ -314,26 +309,32 @@ export namespace Text {
     {
       id: 'long-ctx',
       label: 'Contesto lungo',
-      hint: '262k contesto · prefill 102 s · 12,0 t/s',
+      hint: '262k contesto · prefill lungo · 18 t/s',
       cpuMoe: 44, movaCpu: false, kv: 'q4_0', context: 262144,
     },
+    // I profili 'gaming-*' mettono mtp: true. Sono i piu' veloci misurati
+    // (20 -> 27 t/s, +33%): --cpu-moe libera ~8 GB di VRAM, l'head MTP ci
+    // entra e ogni forward ne verifica 2,3 token invece di 1. Senza MTP la VRAM
+    // liberata serve ai modelli immagine e basta: --cpu-moe da solo misura
+    // -8,8% rispetto al bilanciato, quindi il guadagno è dell'MTP, non della
+    // VRAM libera.
     {
       id: 'gaming',
-      label: 'Gaming (libera VRAM per i modelli immagine)',
-      hint: '80k contesto · ~7 GB VRAM · KV q4_0',
-      cpuMoe: -1, movaCpu: false, kv: 'q4_0', context: 81920,
+      label: 'Veloce (MTP, 80k contesto)',
+      hint: '80k contesto · ~10 GB VRAM · 27 t/s',
+      cpuMoe: -1, movaCpu: false, kv: 'q4_0', context: 81920, mtp: true,
     },
     {
       id: 'gaming-long',
-      label: 'Gaming + contesto lungo',
-      hint: '262k contesto · ~7 GB VRAM · KV q4_0',
-      cpuMoe: -1, movaCpu: false, kv: 'q4_0', context: 262144,
+      label: 'Veloce + contesto lungo',
+      hint: '262k contesto · ~10 GB VRAM · MTP',
+      cpuMoe: -1, movaCpu: false, kv: 'q4_0', context: 262144, mtp: true,
     },
     {
       id: 'gaming-131k',
-      label: 'Gaming 131k',
-      hint: '131k contesto · ~7 GB VRAM · KV q4_0',
-      cpuMoe: -1, movaCpu: false, kv: 'q4_0', context: 131072,
+      label: 'Veloce 131k',
+      hint: '131k contesto · ~10 GB VRAM · MTP · 26 t/s',
+      cpuMoe: -1, movaCpu: false, kv: 'q4_0', context: 131072, mtp: true,
     },
   ]
 
@@ -346,12 +347,13 @@ export namespace Text {
 
   /** Il profilo che corrisponde ai parametri correnti, o undefined. Serve alla
    *  select per mostrare 'personalizzato' quando l'utente tocca un campo. */
-  export function activeProfile(id: string, cur: { cpuMoe: number; movaCpu: boolean; kv?: string; context?: number }): VramProfile | undefined {
-    return vramProfilesFor(id).find((p) =>
-      p.cpuMoe === cur.cpuMoe && p.movaCpu === cur.movaCpu &&
-      (p.kv === undefined || p.kv === cur.kv) &&
-      (p.context === undefined || p.context === cur.context))
-  }
+export function activeProfile(id: string, cur: { cpuMoe: number; movaCpu: boolean; kv?: string; context?: number; mtp?: boolean }): VramProfile | undefined {
+      return vramProfilesFor(id).find((p) =>
+        p.cpuMoe === cur.cpuMoe && p.movaCpu === cur.movaCpu &&
+        (p.kv === undefined || p.kv === cur.kv) &&
+        (p.context === undefined || p.context === cur.context) &&
+        (p.mtp === undefined || !!p.mtp === !!cur.mtp))
+    }
 
   export function get(id: string): Model | undefined {
     return MODELS.find((m) => m.id === id)

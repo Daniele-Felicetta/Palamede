@@ -477,8 +477,11 @@
                 session.settings.movaCpu = p.movaCpu
                 if (p.kv) session.settings.kv = p.kv
                 if (p.context) session.settings.context = p.context
+                // mtp va insieme a cpuMoe -1: senza VRAM libera per l'head il
+                // draft attraversa il PCIe e il profilo risulti piu' lento.
+                if (p.mtp !== undefined) session.settings.mtp = p.mtp
               }}
-              title="Imposta insieme contesto, KV cache e dove stanno gli esperti MoE (e il banco MoVA dell'attenzione)">
+              title="Imposta insieme contesto, KV cache, dove stanno gli esperti MoE (e il banco MoVA dell'attenzione) e se attivare lo spec-decode MTP">
               <option value="custom">personalizzato</option>
               {#each Text.vramProfilesFor(session.model) as p (p.id)}
                 <option value={p.id}>{p.label} · {p.hint}</option>

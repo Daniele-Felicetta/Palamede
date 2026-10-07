@@ -213,13 +213,18 @@
           <span>
             {#if store.server.prefill != null}{Math.round(store.server.prefill.tps)}↑{:else}—{/if}
             {' · '}
-            {#if store.server.decode != null}{store.server.decode.tps.toLocaleString('it-IT', { maximumFractionDigits: 1 })}↓{:else}—{/if}
+            {#if store.server.liveDecode != null}{store.server.liveDecode.tps.toLocaleString('it-IT', { maximumFractionDigits: 1 })}↓{:else if store.server.decode != null}{store.server.decode.tps.toLocaleString('it-IT', { maximumFractionDigits: 1 })}↓{:else}—{/if}
           </span>
         </div>
         {#if store.server.live}
           <div class="side-mini">
             <span>slot {store.server.busySlot?.id ?? '?'} · prefill {Math.round(store.server.live.fraction * 100)}%</span>
             <span>{Math.round(store.server.live.tps)} tok/s</span>
+          </div>
+        {:else if store.server.liveDecode}
+          <div class="side-mini">
+            <span>slot {store.server.liveDecode.slot ?? store.server.busySlot?.id ?? '?'} · decode</span>
+            <span>{store.server.liveDecode.tps.toLocaleString('it-IT', { maximumFractionDigits: 1 })} tok/s</span>
           </div>
         {:else if store.server.busySlot}
           <div class="side-mini">

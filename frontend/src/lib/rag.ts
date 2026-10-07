@@ -6,21 +6,47 @@ import type { KbRetrieveResult } from '../api'
 
 const CHUNK_CTX = 700 // caratteri per frammento nel prompt di grounding
 
-/** System prompt che chiede all'LLM di rispondere SOLO dai frammenti, citando
- *  [n] per ogni affermazione presa da una fonte. I frammenti sono numerati
- *  1..n nell'ordine del retrieval (dopo il rerank). */
+/** Istruzioni di sistema STABILI: non cambiano mai fra un turno e l'altro,
+ *  quindi possono stare nel prefisso della conversazione e la cache di prompt
+ *  di llama.cpp le riusa. */
+const GROUNDING_REGOLE = [
+  'Hai una knowledge base locale. Rispondi SOLO usando i frammenti che trovi',
+  'nel messaggio di contesto subito prima della mia ultima domanda, attribuendo',
+  'ogni affermazione alla fonte con una citazione [n] (n = numero del frammento).',
+  'Se la risposta non è nei frammenti, scrivi esattamente "non è nei tuoi',
+  'documenti". Non inventare nulla che non sia nei frammenti.',
+].join('\n')
+
+/** System prompt completo (regole + frammenti), per i chiamanti che Mandano
+ *  tutto in un messaggio solo. Va bene quando non conta la cache: la cache
+ *  viene invalidata a ogni turno se i frammenti cambiano. */
 export function buildGroundingSystem(retr: KbRetrieveResult): string {
-  const parts = retr.chunks.map((c, i) => {
+  return [GROUNDING_REGOLE, '', ...groundingChunks(retr)].join('\n')
+}
+
+function groundingChunks(retr: KbRetrieveResult): string[] {
+  return retr.chunks.map((c, i) => {
     const where = c.section ? ` · sezione "${c.section}"` : ''
     return `[${i + 1}] (${c.source}${where}) ${c.text.slice(0, CHUNK_CTX)}`
   })
+}
+
+/** System prompt SOLO regole: stabile, quindi cacheabile. Va usato come
+ *  `system` quando i frammenti si passano separatamente. */
+export function groundingRules(): string {
+  return GROUNDING_REGOLE
+}
+
+/** I frammenti come messaggio a se', da mettere tra la cronologia e l'ultima
+ *  domanda. Stanno in coda perche' cambiano a ogni turno: se fossero nel
+ *  prefisso invaliderebbero la cache di tutta la conversazione, e si
+ *  ricalcolerebbero anche tutti i turni precedenti a ogni messaggio.
+ *  Il contenuto e' identico a quello di buildGroundingSystem, quindi le
+ *  citazioni [n] non cambiano significato. */
+export function buildGroundingContext(retr: KbRetrieveResult): string {
   return [
-    'Hai una knowledge base locale. Rispondi SOLO usando i frammenti seguenti,',
-    'attribuendo ogni affermazione alla fonte con una citazione [n] (n = numero',
-    'del frammento). Se la risposta non è nei frammenti, scrivi esattamente',
-    '"non è nei tuoi documenti". Non inventare nulla che non sia nei frammenti.',
-    '',
-    ...parts,
+    'Frammenti dalla knowledge base per la domanda che segue:',
+    ...groundingChunks(retr),
   ].join('\n')
 }
 

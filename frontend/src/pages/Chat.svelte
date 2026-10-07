@@ -5,7 +5,7 @@
   import { store } from '../store.svelte'
   import { session } from '../lib/chat-session.svelte'
   import { Text } from '../lib/text'
-  import { buildGroundingSystem, extractCites } from '../lib/rag'
+  import { groundingRules, buildGroundingContext, extractCites } from '../lib/rag'
   import { msgText, type ViewMsg as Msg } from '../lib/chat-view'
   import { fitTextarea, flatTextarea, focusInput, focusModal } from '../lib/ui-actions'
   import MessageList from '../components/chat/MessageList.svelte'
@@ -203,9 +203,15 @@
     flatTextarea(taEl)
     session.err = ''
     const retr = await kbRetrieval(text)
-    const system = retr ? buildGroundingSystem(retr) : undefined
+    // Il system prompt porta solo le REGOLE (stabili, quindi la cache di prompt
+    // le riusa a ogni turno). I frammenti cambiano a ogni messaggio: se stanno
+    // nel system invalidano la cache di tutta la conversazione e si ricalcola
+    // anche ogni turno precedente. Vengono quindi passati come messaggio a se'
+    // fra la cronologia e l'ultima domanda.
+    const system = retr ? groundingRules() : undefined
     const history: ChatMessage[] = [
       ...session.messages.filter((m) => !m.pending).map((m) => ({ role: m.role, content: m.content })),
+      ...(retr && retr.chunks.length ? [{ role: 'user' as const, content: buildGroundingContext(retr) }] : []),
       { role: 'user', content: text },
     ]
     session.messages = [...session.messages, { role: 'user', content: text }, { role: 'assistant', content: '', pending: true, retr }]

@@ -20,14 +20,18 @@ use std::time::{Duration, Instant};
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 #[cfg(windows)]
-use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
+use windows_sys::Win32::Foundation::{CloseHandle, GetLastError, HANDLE, ERROR_ALREADY_EXISTS};
 #[cfg(windows)]
 use windows_sys::Win32::System::JobObjects::{
     AssignProcessToJobObject, CreateJobObjectW, SetInformationJobObject,
     JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
 };
 #[cfg(windows)]
-use windows_sys::Win32::System::Threading::{OpenProcess, PROCESS_SET_QUOTA, PROCESS_TERMINATE};
+use windows_sys::Win32::System::Threading::{
+    CreateMutexW, OpenProcess, PROCESS_SET_QUOTA, PROCESS_TERMINATE,
+};
+#[cfg(windows)]
+use windows_sys::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONINFORMATION, MB_OK};
 
 use tauri::{
     menu::{Menu, MenuItem},
@@ -84,6 +88,70 @@ struct KillJob;
 impl KillJob {
     fn new() -> Option<KillJob> { None }
     fn adopt(&self, _pid: u32) {}
+}
+
+// ── una sola Palamede per volta ──────────────────────────────────────────
+// Un mutex con nome Windows, tenuto aperto per tutta la vita del processo:
+// il secondo avvio lo trova gia' posseduto e termina SUBITO, prima di
+// installare, avviare servizi o lanciare lo scanner dei modelli. Il kernel
+// rilascia il mutex da solo quando il primo processo muore: nessun lock
+// "sporco" dopo un crash, nessun file da pulire a mano.
+#[cfg(windows)]
+const MUTEX_NOME: &str = "Local\\Palamede.Officina\0";
+
+/// Esito del tentativo di diventare l'unica istanza attiva.
+#[cfg(windows)]
+enum Gate {
+    /// Siamo noi: il mutex resta aperte finche' il valore sopravvive.
+    Unici(SingleInstance),
+    /// Il mutex non e' stato creato: non blocchiamo l'app per meta' della
+    /// sicurezza (meglio due copie che un'officina che non parte).
+    NessunControllo,
+    /// Un'altra Palamede e' gia' accesa: questa copia deve uscire.
+    Occupato,
+}
+
+#[cfg(windows)]
+fn gate_istanza_unica() -> Gate {
+    let nome: Vec<u16> = MUTEX_NOME.encode_utf16().collect();
+    unsafe {
+        // subito dopo: GetLastError va letto prima di qualunque altra chiamata
+        let handle = CreateMutexW(std::ptr::null(), 1, nome.as_ptr());
+        if handle.is_null() {
+            eprintln!("[palamede] mutex non creato (errore {}): niente istanza singola", GetLastError());
+            return Gate::NessunControllo;
+        }
+        if GetLastError() == ERROR_ALREADY_EXISTS {
+            CloseHandle(handle);
+            return Gate::Occupato;
+        }
+        Gate::Unici(SingleInstance(handle))
+    }
+}
+
+#[cfg(windows)]
+struct SingleInstance(HANDLE);
+
+#[cfg(windows)]
+impl Drop for SingleInstance {
+    fn drop(&mut self) {
+        unsafe { CloseHandle(self.0) };
+    }
+}
+
+// Il rilascio del mutex avviene chiudendo l'hANDLE. Finche' la finestra
+// resta nel tray il processo resta vivo e la seconda copia resta fuori.
+#[cfg(not(windows))]
+fn gate_istanza_unica() -> bool { true }
+
+#[cfg(windows)]
+fn avvisa_istanza_gia_accesa() {
+    let testo: Vec<u16> = "Palamede è già in esecuzione.\n\nLa finestra può essere nel tray: apri Palamede dall'icona in basso a destra."
+        .encode_utf16().chain(std::iter::once(0)).collect();
+    let titolo: Vec<u16> = "Palamede\0".encode_utf16().collect();
+    unsafe {
+        MessageBoxW(std::ptr::null_mut(), testo.as_ptr(), titolo.as_ptr(), MB_OK | MB_ICONINFORMATION);
+    }
 }
 
 struct Services {
@@ -405,6 +473,22 @@ fn notify(app: tauri::AppHandle, title: String, body: String) {
 }
 
 fn main() {
+    // ── una sola istanza: se c'e' gia' una Palamede accesa, questa esce ──
+    // Il gate va messo PRIMA di tutto il resto (installer, scanner, servizi):
+    // due copie porterebbero a due hub in ascolto sulla stessa porta 4600.
+    #[cfg(windows)]
+    let _unica = match gate_istanza_unica() {
+        Gate::Unici(lock) => Some(lock), // vive fino alla fine di main()
+        Gate::NessunControllo => None,
+        Gate::Occupato => {
+            eprintln!("[palamede] gia' in esecuzione: esco.");
+            avvisa_istanza_gia_accesa();
+            return;
+        }
+    };
+    #[cfg(not(windows))]
+    if !gate_istanza_unica() { return; }
+
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
         .invoke_handler(tauri::generate_handler![notify])
@@ -655,5 +739,16 @@ mod tests {
         assert!(msg.contains("UI compilata"), "atteso il pezzo mancante, ottenuto: {msg}");
 
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    // Una sola Palamede per volta: la seconda richiesta del mutex su uno
+    // gia' concesso viene respinta. Stesso processo, quindi deterministico.
+    #[cfg(windows)]
+    #[test]
+    fn istanza_unica_bloccata() {
+        let prima = gate_istanza_unica();
+        assert!(matches!(prima, Gate::Unici(_)), "la prima istanza deve poter partire");
+        assert!(matches!(gate_istanza_unica(), Gate::Occupato), "la seconda deve essere bloccata");
+        drop(prima);
     }
 }

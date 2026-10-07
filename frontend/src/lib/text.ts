@@ -225,11 +225,14 @@ export namespace Text {
       // I valori che stavano qui prima ("13,5 t/s con cpuMoe 44 contro 9,3 con
       // cpuMoe -1") non si riproducono: ogni variazione tranne il contesto e'
       // dentro il rumore (deviazione standard ~10 t/s sul prefill).
-      context: 131072,
-      // KV q8_0: la scelta di bit conta poco rispetto al contesto. Misurato a
-      // 32768: q8_0 18,1 t/s contro q4_0 17,8 — differenza nel rumore. Il
-      // vantaggio di q8_0 e' sulla qualita' a parita' di byte, non sulla
-      // velocita'. Restare su q8_0 perche' e' il default delle fonti.
+      context: 32768,
+      // KV q8_0: senza MTP la scelta dei bit e' dentro il rumore (misurato a
+      // 32768 con llama-bench: q8_0 18,1 t/s contro q4_0 17,8). CON MTP invece
+      // costa ~30%: a ogni forward la verifica del draft rilegge la KV, e la
+      // dequantizzazione a 4 bit si paga su ogni token invece che una volta
+      // sola. Misurato end-to-end col profilo veloce: 32k+q8_0 22-25 t/s
+      // contro 32k+q4_0 15-20 t/s. Con MTP la KV si paga in velocita', non
+      // solo in byte.
       kv: 'q8_0',
       gpuLayers: 99,
       mtp: true,
@@ -312,29 +315,51 @@ export namespace Text {
       hint: '262k contesto · prefill lungo · 18 t/s',
       cpuMoe: 44, movaCpu: false, kv: 'q4_0', context: 262144,
     },
-    // I profili 'gaming-*' mettono mtp: true. Sono i piu' veloci misurati
-    // (20 -> 27 t/s, +33%): --cpu-moe libera ~8 GB di VRAM, l'head MTP ci
-    // entra e ogni forward ne verifica 2,3 token invece di 1. Senza MTP la VRAM
-    // liberata serve ai modelli immagine e basta: --cpu-moe da solo misura
-    // -8,8% rispetto al bilanciato, quindi il guadagno è dell'MTP, non della
-    // VRAM libera.
+    // I profili 'veloce*' mettono mtp: true e KV q8_0. La KV conta con l'MTP
+    // (senza era dentro il rumore): la verifica del draft rilegge la KV a ogni
+    // forward, quindi q4_0 si paga per token invece che una volta sola.
+    //
+    // Le cifre qui sotto sono le MISURE SUSTENUTE con risposte da 400 token
+    // (max_tokens 250 che generavano 70 token avevano dato 26-27 t/s: era un
+    // artefatto di risposte corte, non un regime). Il primo messaggio dopo
+    // l'avvio e' sempre piu' lento (7-12 t/s): i 104 GB di pesi devono entrare
+    // in page cache e su 64 GB di RAM non ci stanno.
+    //
+    //   32k + q8_0 ..... 22-25 t/s   <- scelta consigliata
+    //   131k + q8_0 .... 15-17 t/s
+    //   131k + q4_0 .... 13-15 t/s   <- il vecchio gaming-131k: il peggiore
+    //
+    // Il contesto costa perche' la KV grande ruba la page cache al modello:
+    // e' la finestra che allochi che ti toglie la cache che ti rende veloce.
     {
       id: 'gaming',
-      label: 'Veloce (MTP, 80k contesto)',
-      hint: '80k contesto · ~10 GB VRAM · 27 t/s',
-      cpuMoe: -1, movaCpu: false, kv: 'q4_0', context: 81920, mtp: true,
+      label: 'Veloce (MTP, 32k contesto)',
+      hint: '32k contesto · ~10 GB VRAM · 22-25 t/s',
+      cpuMoe: -1, movaCpu: false, kv: 'q8_0', context: 32768, mtp: true,
     },
     {
-      id: 'gaming-long',
-      label: 'Veloce + contesto lungo',
-      hint: '262k contesto · ~10 GB VRAM · MTP',
-      cpuMoe: -1, movaCpu: false, kv: 'q4_0', context: 262144, mtp: true,
+      id: 'gaming-60k',
+      label: 'Veloce 60k',
+      hint: '60k contesto · ~10 GB VRAM · ~20 t/s',
+      cpuMoe: -1, movaCpu: false, kv: 'q8_0', context: 61440, mtp: true,
+    },
+    {
+      id: 'gaming-80k',
+      label: 'Veloce 80k',
+      hint: '80k contesto · ~10 GB VRAM · ~19 t/s',
+      cpuMoe: -1, movaCpu: false, kv: 'q8_0', context: 81920, mtp: true,
     },
     {
       id: 'gaming-131k',
       label: 'Veloce 131k',
-      hint: '131k contesto · ~10 GB VRAM · MTP · 26 t/s',
-      cpuMoe: -1, movaCpu: false, kv: 'q4_0', context: 131072, mtp: true,
+      hint: '131k contesto · ~10 GB VRAM · 15-17 t/s',
+      cpuMoe: -1, movaCpu: false, kv: 'q8_0', context: 131072, mtp: true,
+    },
+    {
+      id: 'gaming-long',
+      label: 'Veloce + contesto lungo',
+      hint: '262k contesto · ~10 GB VRAM · ~13 t/s',
+      cpuMoe: -1, movaCpu: false, kv: 'q8_0', context: 262144, mtp: true,
     },
   ]
 

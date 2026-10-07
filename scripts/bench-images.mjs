@@ -15,7 +15,14 @@ const BACKEND = 'http://127.0.0.1:8000'
 // porta dedicata del giudice VLM (llama-server): diversa da chat (:8121),
 // sd-server (:8123) e banco testuale (:8127).
 const JUDGE_PORT = Number(process.env.BENCH_JUDGE_PORT || 8122)
-const LLAMA_SERVER = join(ROOT, 'tools', 'llama-cpp', 'llama-server.exe')
+// Stessa build che usa l'hub (LLAMA_DIR in hub/lib/root.mjs): il giudice VLM
+// deve girare sulla stessa build della chat o i tempi non sono confrontabili.
+const LLAMA_BUILD = (process.env.PALAMEDE_LLAMA_DIR
+  ? process.env.PALAMEDE_LLAMA_DIR
+  : ['llama-cpp-b11457', 'llama-cpp'].map((d) => join(ROOT, 'tools', d)))
+  .find((d) => existsSync(join(d, 'llama-server.exe')))
+  ?? join(ROOT, 'tools', 'llama-cpp')
+const LLAMA_SERVER = join(LLAMA_BUILD, 'llama-server.exe')
 const JUDGE_MODEL = join(ROOT, 'models', 'gemma-4-26b', 'gemma-4-26B-A4B-it-UD-IQ3_S.gguf')
 const JUDGE_MMPROJ = join(ROOT, 'models', 'gemma-4-26b', 'mmproj-F16.gguf')
 const OUT = join(ROOT, 'outputs', 'benchmark-images')

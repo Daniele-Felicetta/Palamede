@@ -151,7 +151,7 @@ senza toccare `reference/`.
 | LFM2.5 VL 3B | `lfm/lfm-vl-3b/LFM2.5-VL-3B-Q5_K_XL.gguf` | 1.8 GB | vision-language, chat |
 | Gemma 4 26B-A3.8B | `gemma-4-26b/gemma-4-26B-A4B-it-UD-IQ3_S.gguf` | 10.5 GB | MoE 3.8B attivi, chat |
 | MiniCPM5 2B | `minicpm5-2b/MiniCPM5-2B-Q4_K_M.gguf` | 1.5 GB | dense, chat (+ reranker RAG) |
-| POCKET-Darwin 180B | `Pocket-Darwin-180B/POCKET-Darwin-180B-UD-Q4_K_XL-0000{1..4}-of-00004.gguf` | 103.7 GB | MoE 512 esperti (3B attivi, arch. `qwen4exp`), solo testo, chat (reasoning), `--no-op-offload` (prefill 22s → 5s) |
+| POCKET-Darwin 180B | `Pocket-Darwin-180B/POCKET-Darwin-180B-UD-Q4_K_XL-0000{1..4}-of-00004.gguf` + `mtp-Qwen3.8-Flash-Next-Q4_K_M.gguf` | 106,5 GB | MoE 512 esperti (3B attivi, arch. `qwen4exp`), solo testo, chat (reasoning), `--no-op-offload` (prefill 22s → 5s), spec-decode MTP via `-md` (20 → 26,5 t/s) |
 
 > **In bozza (`models/_inutilizzati/`)**: Wan 2.1 T2V 1.3B (+ VAE, UMT5-XXL) e Klein 9B BF16 sono sospesi. Wan ha un backend proprio (`backends/wan_server.py`, `:8126`) ma **non e' cablato al hub**: nessun endpoint lo espone.
 
@@ -256,14 +256,24 @@ Dettaglio e principi in `experimental/neural-observatory/README.md`.
 
 ### Chat locale (llama.cpp)
 
-`tools/llama-cpp/llama-server.exe` (release b10679, CUDA 13.3) serve Ornith
+`tools/llama-cpp/llama-server.exe` (release **b11457**, CUDA 13.4) serve Ornith
 con parametri scelti dalla UI:
 
 - **contesto** (`-c`) 1024–65536, default 8192;
 - **KV cache quantizzata** (`--cache-type-k/v`): `q8_0` consigliato, `q4_0`
   aggressivo, `q5_0`/`iq4_nl` intermedi, `f16` off;
-- **MTP**: disattivato per default (`--spec-type` non impostato); l'opzione
-  richiederebbe pesi del predittore non presenti;
+- **MTP** (spec-decode, solo Darwin): attivo di default, passa `-md` con
+  l'head `Pocket-Darwin-180B/mtp-Qwen3.8-Flash-Next-Q4_K_M.gguf` (2,8 GB,
+  scaricato col modello). Il GGUF di Darwin non contiene i tensori `nextn.*`,
+  quindi l'head è un file separato. **Deve poter stare in VRAM**: con
+  `-ngl 99 --n-cpu-moe 44` il modello tiene ~14,5 dei 16,3 GB e il draft non
+  ci entra, il suo forward attraversa il PCIe a ogni token e si misura **−5%**;
+  con `--cpu-moe` la VRAM si libera e ogni forward verifica ~2,3 token:
+  **20 → 26,5 t/s (+33%)**, accettanza 67,8%. Per questo `chat.mjs` forza
+  `-ngld all` sul draft e i profili veloci di Darwin hanno `cpuMoe: -1`.
+  Se il file manca l'hub logga e prosegue senza MTP invece di morire in load;
+- llama.cpp b11457 è un requisito, non una scelta: sotto b11048 il draft non
+  carica (`tensor 'output_hc_norm.weight' not found`).
 - **layer MoE su CPU** (`--n-cpu-moe N`, solo per il 35B): sposta gli esperti
   dei primi N layer in RAM (64 GB) per liberare VRAM;
 - **layer GPU** (`-ngl`), default 99 (full offload);

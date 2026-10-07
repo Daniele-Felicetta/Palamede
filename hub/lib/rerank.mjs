@@ -11,12 +11,13 @@
 
 import { existsSync, closeSync } from 'node:fs'
 import { join } from 'node:path'
-import { ROOT } from './root.mjs'
+import { ROOT, llamaBin, LLAMA_DIR } from './root.mjs'
 import { spawnLogged, killChild } from './proc.mjs'
 
 export const RERANK_PORT = Number(process.env.PALAMEDE_RERANK_PORT || 8125)
 const RERANK_GGUF = join(ROOT, 'models', 'minicpm5-2b', 'MiniCPM5-2B-Q4_K_M.gguf')
-const LLAMA = join(ROOT, 'tools', 'llama-cpp', 'llama-server.exe')
+// Stessa build che usa la chat: vedi LLAMA_DIR in root.mjs
+const LLAMA = llamaBin('llama-server.exe')
 const RERANK_LOG = join(ROOT, 'outputs', 'rerank-server.log')
 
 const IDLE_MS = 60_000
@@ -81,8 +82,8 @@ async function bootRerank(timeoutMs) {
     srv.lastError = 'manca MiniCPM 2B (models/minicpm5-2b)'
     return false
   }
-  if (!existsSync(LLAMA)) {
-    srv.lastError = `manca ${LLAMA} — esegui scripts/setup.ps1`
+  if (!LLAMA) {
+    srv.lastError = `manca llama-server.exe in ${LLAMA_DIR} — esegui scripts/setup.ps1`
     return false
   }
 

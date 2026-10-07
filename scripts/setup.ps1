@@ -5,7 +5,11 @@ param(
     # il supporto Qwen-Image 2.1 (PR #1994, commit 137f740, dal 2026-09-20).
     [string]$SdTag = 'master-896-e112ab5',
     # release di llama.cpp (binari Windows CUDA)
-    [string]$LlamaTag = 'b10679',
+    [string]$LlamaTag = 'b11457',
+    # versione CUDA dei binari: accoppiata al tag, non indipendente. b11457
+    # pubblica cuda-12.4 e cuda-13.4 (non piu' la 13.3 delle build precedenti),
+    # quindi il parametro serve a non hardcodare una versione che non esiste.
+    [string]$LlamaCuda = '13.4',
     # solo CPU (niente CUDA): scarica le build CPU di sd-cpp e llama.cpp e
     # scrive il marcatore tools\.cpu (letto dall'hub: -ngl 0, niente flash-attn).
     [switch]$CpuOnly
@@ -46,7 +50,7 @@ $lexe   = Join-Path $ldst 'llama-server.exe'
 $lstamp = Join-Path $ldst '.llama-tag'
 # installazioni pre-stamp (solo esistenza exe): erano tutte CUDA.
 $lcurrent = if (Test-Path $lstamp) { (Get-Content -LiteralPath $lstamp -Raw).Trim() } else { 'cuda-legacy' }
-$lwant = if ($CpuOnly) { "$LlamaTag|cpu" } else { "$LlamaTag|cuda" }
+$lwant = if ($CpuOnly) { "$LlamaTag|cpu" } else { "$LlamaTag|cuda-$LlamaCuda" }
 $llamaOk = (Test-Path $lexe) -and ($lcurrent -eq $lwant -or (-not $CpuOnly -and $lcurrent -eq 'cuda-legacy'))
 if (-not $llamaOk) {
     New-Item -ItemType Directory -Force -Path (Join-Path $ldst 'download') | Out-Null
@@ -57,9 +61,9 @@ if (-not $llamaOk) {
         if ($LASTEXITCODE -ne 0) { throw "download llama.cpp fallito" }
         Expand-Archive -Path $lzip -DestinationPath $ldst -Force
     } else {
-        $url = "https://github.com/ggml-org/llama.cpp/releases/download/$LlamaTag/llama-$LlamaTag-bin-win-cuda-13.3-x64.zip"
-        $url2 = "https://github.com/ggml-org/llama.cpp/releases/download/$LlamaTag/cudart-llama-bin-win-cuda-13.3-x64.zip"
-        Write-Host "scarico llama.cpp (CUDA 13.3): $url" -ForegroundColor Cyan
+        $url = "https://github.com/ggml-org/llama.cpp/releases/download/$LlamaTag/llama-$LlamaTag-bin-win-cuda-$LlamaCuda-x64.zip"
+        $url2 = "https://github.com/ggml-org/llama.cpp/releases/download/$LlamaTag/cudart-llama-bin-win-cuda-$LlamaCuda-x64.zip"
+        Write-Host "scarico llama.cpp (CUDA $LlamaCuda): $url" -ForegroundColor Cyan
         curl.exe -L --fail --retry 3 -o $lzip $url
         if ($LASTEXITCODE -ne 0) { throw "download llama.cpp fallito" }
         curl.exe -L --fail --retry 3 -o $lzip2 $url2

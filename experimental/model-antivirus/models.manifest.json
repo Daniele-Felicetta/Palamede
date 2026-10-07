@@ -289,7 +289,15 @@
       "sha256": "0f45b1445b2a4d032d44766936107031d2f503b6bc7eb7fcf80f35232477ab5b",
       "format": "gguf",
       "enforce": false,
-      "source": "huggingface.co/FINAL-Bench/POCKET-Darwin-180B-GGUF (shard 4/4, hash LFS upstream)"
-    }
-  ]
-}
+"source": "huggingface.co/FINAL-Bench/POCKET-Darwin-180B-GGUF (shard 4/4, hash LFS upstream)"
+      },
+      {
+        "path": "Pocket-Darwin-180B/mtp-Qwen3.8-Flash-Next-Q4_K_M.gguf",
+        "size": 2786204800,
+        "sha256": "8087dbb39fc73f79ac069b1debe4069a44b73ada900c8bd761569d43a5a90231",
+        "format": "gguf",
+        "enforce": false,
+        "source": "huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF (cartella MTP, head per spec-decode; il repo non pubblica SHA256SUMS, hash calcolato sul file scaricato)"
+      }
+    ]
+  }

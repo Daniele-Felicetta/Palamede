@@ -5,23 +5,15 @@
 import { existsSync, mkdirSync, readdirSync } from 'node:fs'
 import { connect } from 'node:net'
 import { basename, dirname, join } from 'node:path'
-import { ROOT } from './root.mjs'
+import { ROOT, llamaBin } from './root.mjs'
 import { spawnLogged, killChild } from './proc.mjs'
 import { proxyStream } from './proxy.mjs'
 
 export const TEXT_PORT = Number(process.env.PALAMEDE_TEXT_PORT || 8121)
-// Build di llama.cpp. Si preferisce la piu' recente se presente: lo
-// spec-decode MTP per Darwin richiede >= b11048 (il tensor 'output_hc_norm'
-// mancante nel draft faceva fallire il load), e su b10648 non esiste. La
-// cartella nuova e' un'estrazione a fianco, quindi tornare indietro basta
-// rimuoverla. L'override esplicito resta per il bench e i test.
-const LLAMA_DIRS = [
-  process.env.PALAMEDE_LLAMA_DIR,
-  join(ROOT, 'tools', 'llama-cpp-b11457'),
-  join(ROOT, 'tools', 'llama-cpp'),
-].filter(Boolean)
-const LLAMA_DIR = LLAMA_DIRS.find((d) => existsSync(join(d, 'llama-server.exe'))) || LLAMA_DIRS.at(-1)
-const LLAMA = join(LLAMA_DIR, 'llama-server.exe')
+// Build di llama.cpp: risolta in root.mjs, così chat, rerank e i bench
+// usano lo stesso binario (vedi LLAMA_DIR). Lo spec-decode MTP per Darwin
+// richiede >= b11048.
+const LLAMA = llamaBin('llama-server.exe')
 const TEXT_LOG = join(ROOT, 'outputs', 'text-server.log')
 // Modalita' solo CPU: marcatore scritto da scripts/setup.ps1 -CpuOnly.
 // Forza tutto su CPU (-ngl 0, niente flash-attn) qualunque cosa chieda la UI.
@@ -78,7 +70,7 @@ const TEXT_MODEL_DEFS = [
   // head MTP: l'accettanza misurata e' del 69,9% con 2,40 token accettati per
   // passaggio, quindi l'head combacia col target.
   { id: 'pocket-darwin-180b', name: 'POCKET-Darwin 180B · UD-Q4_K_XL', moe: true, asyncOffload: true, maxContext: 262144,
-    mtpHead: join(ROOT, 'models', 'mtp-Qwen3.8-Flash-Next-Q4_K_M.gguf'),
+    mtpHead: join(ROOT, 'models', 'Pocket-Darwin-180B', 'mtp-Qwen3.8-Flash-Next-Q4_K_M.gguf'),
     file: join(ROOT, 'models', 'Pocket-Darwin-180B', 'POCKET-Darwin-180B-UD-Q4_K_XL-00001-of-00004.gguf') },
 ]
 
@@ -293,7 +285,7 @@ async function bootText(cfg) {
   }
   args.push('--reasoning', thinking ? 'on' : 'off')
 
-  if (!existsSync(LLAMA)) throw new Error(`manca ${LLAMA} — esegui scripts/setup.ps1`)
+  if (!LLAMA) throw new Error(`manca llama-server.exe in ${LLAMA_DIR} — esegui scripts/setup.ps1`)
   mkdirSync(join(ROOT, 'outputs'), { recursive: true })
 
   // Qualcun altro tiene TEXT_PORT (hub riavviato, istanza precedente

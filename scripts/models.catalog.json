@@ -217,9 +217,9 @@
           "id": "pocket-darwin-180b",
           "name": "POCKET-Darwin 180B · UD-Q4_K_XL",
           "label": "alternativa",
-          "role": "Il più forte in assoluto: 96,7% al Banco di prova, pari a Gemma 4 26B. MoE 512 esperti, ragiona a lungo. Ma è 111 GB in 4 shard e il più lento in generazione (18 t/s): sotto i ~64 GB di RAM gli esperti MoE vengono riletti dall'SSD a ogni token. Sul prefill l'offload asincrono (--no-op-offload, attivo solo qui) recupera 82 t/s contro 40 senza. Da usare quando serve la qualità, non in fretta.",
+          "role": "Il più forte in assoluto: 96,7% al Banco di prova, pari a Gemma 4 26B. MoE 512 esperti, ragiona a lungo. È 111 GB in 4 shard, quindi su 64 GB di RAM gli esperti MoE vengono riletti dall'SSD a ogni token. Con l'head MTP (2,8 GB, file separato) lo spec-decode porta la generazione da 20 a 26,5 t/s: accettanza 67,8%, circa 2,4 token verificati per passaggio. Sul prefill l'offload asincrono (--no-op-offload, attivo solo qui) recupera 82 t/s contro 40 senza.",
           "quality": "96.7%",
-          "speed": "18.2 t/s",
+          "speed": "26.5 t/s con MTP",
           "vram": "~15 GB",
           "sizeBytes": 111334654769,
           "files": [
@@ -250,9 +250,16 @@
               "sizeBytes": 12087983520,
               "sha256": "0f45b1445b2a4d032d44766936107031d2f503b6bc7eb7fcf80f35232477ab5b",
               "note": "shard 4/4"
+            },
+            {
+              "dest": "models/Pocket-Darwin-180B/mtp-Qwen3.8-Flash-Next-Q4_K_M.gguf",
+              "url": "https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/main/MTP/mtp-Qwen3.8-Flash-Next-Q4_K_M.gguf",
+              "sizeBytes": 2786204800,
+              "sha256": "8087dbb39fc73f79ac069b1debe4069a44b73ada900c8bd761569d43a5a90231",
+              "note": "head MTP per lo spec-decode: il GGUF di Darwin non contiene i tensori nextn.*, quindi l'head sta in un file a parte e va in -md. Deve stare in VRAM (profilo cpuMoe -1) o il suo forward attraversa il PCIe a ogni token: -5% senza, +33% con. L'head e' del parent ma R3 ha lasciato intatte le head MTP: accettanza misurata 67,8%. Lo sha256 non e' pubblicato upstream (il repo non ha SHA256SUMS per questa cartella): e' l'hash del file scaricato, serve a rilevare scarichi corrotti, non a certificare l'origine."
             }
           ],
-          "requires": "GPU ≥ 8 GB VRAM · 64 GB RAM (esperti su NVMe) · 111 GB liberi su disco"
+          "requires": "GPU ≥ 8 GB VRAM · 64 GB RAM (esperti su NVMe) · 111 GB liberi su disco · 2,8 GB per l'head MTP"
         }
       ]
     },

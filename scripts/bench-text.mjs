@@ -10,8 +10,15 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
-const LLAMA_SERVER = join(ROOT, 'tools', 'llama-cpp', 'llama-server.exe')
-const LLAMA_BENCH = join(ROOT, 'tools', 'llama-cpp', 'llama-bench.exe')
+// Stessa build che usa l'hub (LLAMA_DIR in hub/lib/root.mjs): se la chat gira
+// su b11457 e il bench su b10679 i numeri non sono confrontabili.
+const LLAMA_BUILD = (process.env.PALAMEDE_LLAMA_DIR
+  ? process.env.PALAMEDE_LLAMA_DIR
+  : ['llama-cpp-b11457', 'llama-cpp'].map((d) => join(ROOT, 'tools', d)))
+  .find((d) => existsSync(join(d, 'llama-server.exe')))
+  ?? join(ROOT, 'tools', 'llama-cpp')
+const LLAMA_SERVER = join(LLAMA_BUILD, 'llama-server.exe')
+const LLAMA_BENCH = join(LLAMA_BUILD, 'llama-bench.exe')
 // porta dedicata (non :8121 della chat, non :8122 del giudice immagini):
 // così il banco si può lanciare anche con l'app accesa.
 const PORT = Number(process.env.BENCH_PORT || 8127)

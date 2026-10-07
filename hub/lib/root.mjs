@@ -29,6 +29,30 @@ export const TRELLIS_LOG = join(ROOT, 'outputs', 'trellis-server.log')
 // LM Studio (OpenAI-compatible :1234): modelli vision-language per le storie
 export const LMSTUDIO = process.env.PALAMEDE_LMSTUDIO || 'http://127.0.0.1:1234'
 
+// ── build di llama.cpp ────────────────────────────────────────────────────
+// setup.ps1 installa b11457 in tools/llama-cpp. Sulle macchine che hanno
+// anche una build più recente affiancata (tools/llama-cpp-<tag>) si preferisce
+// quella: lo spec-decode MTP di Darwin richiede >= b11048, e su b10648 il
+// draft non carica ("tensor 'output_hc_norm.weight' not found"). Override
+// esplicito con PALAMEDE_LLAMA_DIR. Tutti i moduli che lanciano un binario di
+// llama.cpp passano di qui, altrimenti chat e rerank possono finire su build
+// diverse nella stessa sessione.
+const LLAMA_DIR_CANDIDATES = [
+  process.env.PALAMEDE_LLAMA_DIR,
+  join(ROOT, 'tools', 'llama-cpp-b11457'),
+  join(ROOT, 'tools', 'llama-cpp'),
+].filter(Boolean)
+
+export const LLAMA_DIR =
+  LLAMA_DIR_CANDIDATES.find((d) => existsSync(join(d, 'llama-server.exe')))
+  ?? LLAMA_DIR_CANDIDATES.at(-1)
+
+/** Percorso di un binario della build scelta, o null se non c'è. */
+export function llamaBin(name) {
+  const p = join(LLAMA_DIR, name)
+  return existsSync(p) ? p : null
+}
+
 // documenti serviti alla sezione Progetto della UI (whitelist: niente path traversal)
 export const DOC_FILES = { mappa: 'MAPPA.md', readme: 'README.md', spec: 'SPEC.md', security: 'SECURITY.md' }
 

@@ -9,8 +9,8 @@ esempi generati dai modelli stessi (oggi completa per **Immagini**; le altre sez
 **Stato**: **Immagini**, **Chat** e **RAG** sono operative: quattro
 modelli immagine (**Bonsai 4B ternary**, **Z-Image Turbo Q4_K_M**, **Klein 4B
 FLUX.2** e **Qwen-Image 2.1 Q4_K_M**), chat
-locale con **nove modelli testuali** (Ornith 1.5 35B-A3B e 9B Q4/Q5, K2
-Horizon 7B e 36B-A4B, Bonsai 27B, LFM2.5 VL 3B, Gemma 4 26B e MiniCPM5 2B)
+locale con **dieci modelli testuali** (Ornith 1.5 35B-A3B e 9B Q4/Q5, K2
+Horizon 7B e 36B-A4B, Bonsai 27B, Qwen3.8 27B, LFM2.5 VL 3B, Gemma 4 26B e MiniCPM5 2B)
 via llama.cpp, un **Banco di prova** che
 ne misura qualità e velocità, e una **knowledge base RAG in stile
 NotebookLM** in `knowledge/` — fonti spezzate in chunk ed embedded localmente,

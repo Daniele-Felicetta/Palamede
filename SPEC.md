@@ -81,7 +81,7 @@ Browser ── http://127.0.0.1:4600 ── hub/server.mjs (Node, zero deps)
                                      ├─ 3D: backends/trellis_server.py :8124 (TRELLIS.2)
                                      │
                                      ├─ chat: tools/llama-cpp/llama-server.exe :8121
-                                     │    (9 modelli locali, start su richiesta)
+                                     │    (10 modelli locali, start su richiesta)
                                      │
                                      ├─ rerank: tools/llama-cpp/llama-server.exe :8125
                                      │    (MiniCPM5 2B, start lazy + idle timeout 60s)
@@ -146,6 +146,7 @@ senza toccare `reference/`.
 | Ornith 1.5 9B | `ornith-1.5-9b/Ornith-1.5-9B-Q4_K_M.gguf` | 5.2 GB | dense, chat |
 | Ornith 1.5 9B Q5 | `ornith-1.5-9b/Ornith-1.5-9B-Q5_K_M.gguf` | 6.1 GB | dense, chat (qualità) |
 | Bonsai 27B | `bonsai-27b/Bonsai-27B-Q1_0.gguf` | 3.5 GB | dense, chat (thinking opzionale) |
+| Qwen3.8 27B | `qwen38-27b/Qwen3.8-27B-GSQ-RCO-IQ3_XXS.gguf` | 10.1 GB | dense ibrido (arch. `qwen35`), chat con reasoning, profili 32k/q4 · 60k/q8 · 131k/q4 (~32 t/s) |
 | K2 Horizon 7B | `k2-7b/K2-Horizon-7B-Q4_K_M.gguf` | 5.2 GB | dense, chat (reasoning) |
 | K2 Horizon 36B-A4B MoVA | `k2-36b/K2-Horizon-MoVA-36B-A4B-Q4_K_M.gguf` | 20.8 GB | MoE 4B attivi + MoVA, chat |
 | LFM2.5 VL 3B | `lfm/lfm-vl-3b/LFM2.5-VL-3B-Q5_K_XL.gguf` | 1.8 GB | vision-language, chat |

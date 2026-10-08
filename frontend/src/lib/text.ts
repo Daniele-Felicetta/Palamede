@@ -11,7 +11,7 @@
 //   let m: Text.ModelId = 'ornith-9b'
 
 export namespace Text {
-  export type ModelId = 'ornith-35b' | 'ornith-9b' | 'ornith-9b-q5' | 'k2-7b' | 'k2-36b' | 'bonsai-27b' | 'lfm-vl-3b' | 'gemma-4-26b' | 'gemma-4-12b' | 'minicpm5-2b' | 'pocket-darwin-180b'
+  export type ModelId = 'ornith-35b' | 'ornith-9b' | 'ornith-9b-q5' | 'k2-7b' | 'k2-36b' | 'bonsai-27b' | 'lfm-vl-3b' | 'gemma-4-26b' | 'gemma-4-12b' | 'minicpm5-2b' | 'qwen38-27b' | 'pocket-darwin-180b'
 
   /** Dati canonici per-modello. */
   export interface Model {
@@ -204,6 +204,23 @@ export namespace Text {
       thinking: false,
     },
     {
+      id: 'qwen38-27b',
+      name: 'Qwen3.8 27B',
+      family: 'Qwen · dense ibrido · reasoning',
+      quant: 'IQ3_XXS (GSQ-RCO)',
+      diskGB: '10.1 GB',
+      moe: false,
+      mova: false,
+      movaCpu: false,
+      context: 32768,
+      kv: 'q4_0',
+      gpuLayers: 99,
+      mtp: false,
+      cpuMoe: 0,
+      temperature: 0.6,
+      thinking: true,
+    },
+    {
       id: 'pocket-darwin-180b',
       name: 'POCKET-Darwin 180B',
       family: 'FINAL-Bench · MoE 512 esperti, 3B attivi · reasoning',
@@ -363,10 +380,39 @@ export namespace Text {
     },
   ]
 
+  /** Qwen3.8 27B: dense 27B, niente MoE/MoVA (cpuMoe/movaCpu sempre 0/false).
+   *  Misure su RTX 5060 Ti 16 GB (llama.cpp b11457, offload pieno):
+   *  32k+q4_0 12,98 GB · prompt 174 t/s · gen ~32 t/s; 32k+f16 14,34 GB
+   *  (KV max non paga: stessa recall, -15% velocita'); 131k+q4_0 15,18 GB ·
+   *  gen ~32 t/s, ago da 36k token ritrovato a ~700 t/s di prefill. Il 60k+q8_0
+   *  e' stimato per interpolazione (~14,2 GB). 262k si carica ma va in
+   *  spilling (16 GB pieni, ~3-5 t/s): fuori dai profili. */
+  export const QWEN38_PROFILES: VramProfile[] = [
+    {
+      id: 'standard',
+      label: 'Standard (32k, KV q4)',
+      hint: '32k contesto · ~13 GB VRAM · ~32 t/s',
+      cpuMoe: 0, movaCpu: false, kv: 'q4_0', context: 32768,
+    },
+    {
+      id: 'balanced-60k',
+      label: 'Bilanciato (60k, KV q8)',
+      hint: '60k contesto · ~14 GB VRAM · ~28 t/s',
+      cpuMoe: 0, movaCpu: false, kv: 'q8_0', context: 61440,
+    },
+    {
+      id: 'long-131k',
+      label: 'Contesto lungo (131k, KV q4)',
+      hint: '131k contesto · ~15,2 GB VRAM · ~30 t/s',
+      cpuMoe: 0, movaCpu: false, kv: 'q4_0', context: 131072,
+    },
+  ]
+
   /** Profili VRAM disponibili per un modello. */
   export function vramProfilesFor(id: string): VramProfile[] {
     if (supportsMova(id)) return K2_36B_PROFILES
     if (id === 'pocket-darwin-180b') return DARWIN_PROFILES
+    if (id === 'qwen38-27b') return QWEN38_PROFILES
     return []
   }
 

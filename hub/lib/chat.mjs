@@ -57,6 +57,14 @@ const TEXT_MODEL_DEFS = [
   // MiniCPM5 2B: dense compatto (usato anche come reranker RAG su :8125).
   { id: 'minicpm5-2b', name: 'MiniCPM5 2B · Q4_K_M', moe: false,
     file: join(ROOT, 'models', 'minicpm5-2b', 'MiniCPM5-2B-Q4_K_M.gguf') },
+  // Qwen3.8 27B GSQ-RCO IQ3_XXS (ISTA-DASLab): dense ibrido con reasoning
+  // (arch. `qwen35`, ctx nativo 262144). Misurato su RTX 5060 Ti 16 GB
+  // (llama.cpp b11457, offload pieno): ~32 t/s di generazione a KV q4_0,
+  // prompt ~170 t/s a 32k e ~700 t/s su 36k token (ago nel pagliaio
+  // ritrovato esatto). 131k e' il tetto pratico (~15,2 GB VRAM); a 262k la
+  // VRAM si satura (16 GB) e crolla a ~3-5 t/s. Tetto qui: 131072.
+  { id: 'qwen38-27b', name: 'Qwen3.8 27B · IQ3_XXS', moe: false, maxContext: 131072,
+    file: join(ROOT, 'models', 'qwen38-27b', 'Qwen3.8-27B-GSQ-RCO-IQ3_XXS.gguf') },
   // POCKET-Darwin 180B: Qwen3.8-Flash-Next + RSI (arch. `qwen4exp`), MoE 512
   // esperti con 10 attivi per token (~3B attivi). Solo testo, niente vision
   // encoder. 111 GB in 4 shard: su 64 GB di RAM gli esperti restano su NVMe via

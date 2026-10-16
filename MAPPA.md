@@ -103,6 +103,8 @@ Palamede/                       (repo git · aggiornata: 2026-10-01 13:08)
 - `setup-observatory.ps1` / `start-observatory.ps1` - verifica dei prerequisiti e avvio del backend Osservatorio neurale (`:8131`, `reference/trellis-venv`: torch CUDA + transformers 5.x per i layer ibridi di LFM2.5). I pesi devono essere un checkpoint Hugging Face in `models/lfm/lfm2.5-230m/`, non un GGUF.
 - `start-trellis.ps1` — avvia il server 3D TRELLIS (:8124, venv separato); gestito anche dal hub (`/api/3d/start`).
 - `bench-text.mjs` (+ `bench-text.evalset.json`) / `bench-images.mjs` — banco di prova dei modelli testuali (llama-server :8127 via `BENCH_PORT`) e immagine (giudice :8122 via `BENCH_JUDGE_PORT`); scrivono `outputs/benchmark*/summary.json`.
+- `bench-agentic.mjs` (+ `bench-agentic.tasks.json`) — banco AGENTICO end-to-end: loop ReAct con strumenti locali (calcolatrice, archivio, cerca), stadi multi-turno e piani vincolati, punteggio oggettivo senza giudici LLM (llama-server :8128 via `BENCH_AGENTIC_PORT`); scrive `outputs/benchmark-agentic/summary.json`.
+- `bench-arc.mjs` (+ `bench-arc.tasks.json`) — banco ARC-AGI-1: 20 task training vendorizzati (Apache-2.0, mai il set evaluation), 2 tentativi per task, esattezza + accuratezza celle (llama-server :8129 via `BENCH_ARC_PORT`); scrive `outputs/benchmark-arc/summary.json`.
 - `check-offsets.mjs` — verifica eseguibile degli offset di `chunkText` (RAG) su LF/CRLF/CR/misti: `node scripts/check-offsets.mjs`.
 - `sign.ps1` — firma Authenticode opzionale dell'exe (`PALAMEDE_CERT_*`).
 - `gguf_fix_shapes.py` / `gguf_to_safetensors.py` / `t5_to_t5encoder_gguf.py` — utilità di conversione pesi (una tantum).
@@ -128,11 +130,11 @@ Palamede/                       (repo git · aggiornata: 2026-10-01 13:08)
 
 | Cartella | Contenuto |
 |---|---|
-| `models/` | pesi: bonsai-image-4B, z-image gguf+TE+VAE, klein-4b, ornith 35b/9b. `_inutilizzati/` = animatediff + ltx-2.5 + wan2.1 (VAE incluso) + klein-9b (sospesi, non referenziati dal codice). `trellis-deps/` = dinov3 (DINOv3 ViT, Meta AI, feature extraction) + rmbg2 (BRIA RMBG-2.0 / BiRefNet, rimozione sfondo), dipendenze di visione locali non referenziate dal codice. `TRELLIS.2/` = codice sorgente del progetto TRELLIS.2 di Microsoft (~37,5 MB, 2201 file, licenza MIT; pipeline image-to-3D + texturing) — **integrato** via `backends/trellis_server.py` (patch per backend `sdpa` e fix transformers 5.16). `TRELLIS.2-4B/` = pesi ufficiali 4B in safetensors (~15,12 GB, 22 file) per la generazione 3D da immagine — **integrati** (backend TRELLIS operativo). |
+| `models/` | pesi: bonsai-image-4B, z-image gguf+TE+VAE, klein-4b, ornith 35b/9b, minicpm-v47-35b (Q4_K_M 19,7 GB + draft dspark 0,7 GB) — **integrato** in chat con spec-decode `draft-dspark`. `_inutilizzati/` = animatediff + ltx-2.5 + wan2.1 (VAE incluso) + klein-9b (sospesi, non referenziati dal codice). `trellis-deps/` = dinov3 (DINOv3 ViT, Meta AI, feature extraction) + rmbg2 (BRIA RMBG-2.0 / BiRefNet, rimozione sfondo), dipendenze di visione locali non referenziate dal codice. `TRELLIS.2/` = codice sorgente del progetto TRELLIS.2 di Microsoft (~37,5 MB, 2201 file, licenza MIT; pipeline image-to-3D + texturing) — **integrato** via `backends/trellis_server.py` (patch per backend `sdpa` e fix transformers 5.16). `TRELLIS.2-4B/` = pesi ufficiali 4B in safetensors (~15,12 GB, 22 file) per la generazione 3D da immagine — **integrati** (backend TRELLIS operativo). |
 | `reference/` | repo/pesi sorgente esterni, mai toccati in scrittura. |
 | `tools/` | sd-cpp (sd-server.exe, sd-cli.exe), llama-cpp (llama-server.exe). |
 | `knowledge/` | RAG stile NotebookLM: `raw/` (fonti), `rag/chunks.json` (chunk + vettori + indice). |
-| `outputs/` | `history/` (immagini), `stories/` (partite Bandersketch), `chats/` (conversazioni), `benchmark/` + `benchmark-images/` (banco), `3d/` (asset generati), `*.log` runtime (backend, hub, text/rerank/trellis/jev). |
+| `outputs/` | `history/` (immagini), `stories/` (partite Bandersketch), `chats/` (conversazioni), `benchmark/` + `benchmark-images/` + `benchmark-agentic/` + `benchmark-arc/` (banco), `3d/` (asset generati), `*.log` runtime (backend, hub, text/rerank/trellis/jev). |
 
 ## Convenzioni
 

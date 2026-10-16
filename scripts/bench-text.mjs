@@ -48,6 +48,11 @@ const MODELS = [
   { id: 'lfm-vl-3b', name: 'LFM2.5 VL 3B · Q5_K_XL', file: 'models/lfm/lfm-vl-3b/LFM2.5-VL-3B-Q5_K_XL.gguf', ngl: 99 },
   { id: 'gemma-4-26b', name: 'Gemma 4 26B-A3.8B · IQ3_S', file: 'models/gemma-4-26b/gemma-4-26B-A4B-it-UD-IQ3_S.gguf', ngl: 99, moe: true, fallback: { cpuMoe: true } },
   { id: 'minicpm5-2b', name: 'MiniCPM5 2B · Q4_K_M', file: 'models/minicpm5-2b/MiniCPM5-2B-Q4_K_M.gguf', ngl: 99 },
+  // MiniCPM-V 4.7 35B-A3B: MoE 256 esperti (qwen35moe, 21.2 GB). ncmoe 30 come
+  // Ornith 35B (stessa taglia); text-only, reasoning off.
+  { id: 'minicpm-v47-35b', name: 'MiniCPM-V 4.7 35B-A3B · Q4_K_M', file: 'models/minicpm-v47-35b/MiniCPM-V-4_7-35B-A3B-Q4_K_M.gguf', ngl: 99, ncmoe: 30, moe: true, fallback: { ncmoe: -1 } },
+  { id: 'qwen38-27b', name: 'Qwen3.8 27B · IQ3_XXS', file: 'models/qwen38-27b/Qwen3.8-27B-GSQ-RCO-IQ3_XXS.gguf', ngl: 99 },
+  { id: 'gemma-4-12b', name: 'Gemma 4 12B IT · QAT Q4', file: 'models/Jarvis/gemma-4-12B-it-qat-UD-Q4_K_XL.gguf', ngl: 99 },
 ]
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))

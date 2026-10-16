@@ -48,7 +48,7 @@ import { createStoriesRoutes } from './lib/stories.mjs'
 import { createKbRoutes } from './lib/kb.mjs'
 import { createChatsRoutes } from './lib/chats.mjs'
 import { handleDoc } from './lib/docs.mjs'
-import { handleBench, handleBenchImages, handleBenchImageFile } from './lib/bench.mjs'
+import { handleBench, handleBenchAgentic, handleBenchArc, handleBenchImages, handleBenchImageFile } from './lib/bench.mjs'
 import { downloaderList, availability } from './lib/catalog.mjs'
 import { startDownload, downloadStatus, cancelDownload } from './lib/downloader.mjs'
 import { handleJev } from './lib/jev.mjs'
@@ -230,6 +230,16 @@ async function handleApi(req, res, path) {
   // ── benchmark dei modelli testuali (sezione Banco nella UI) ───────────
   if (path === '/api/bench' && req.method === 'GET') {
     return handleBench(req, res)
+  }
+
+  // ── benchmark agentico ReAct (sezione Banco nella UI) ───────────────────
+  if (path === '/api/bench-agentic' && req.method === 'GET') {
+    return handleBenchAgentic(req, res)
+  }
+
+  // ── benchmark ARC-AGI (sezione Banco nella UI) ───────────────────────────
+  if (path === '/api/bench-arc' && req.method === 'GET') {
+    return handleBenchArc(req, res)
   }
 
   // ── benchmark dei modelli immagine + immagini generate ────────────────

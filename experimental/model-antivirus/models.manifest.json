@@ -298,6 +298,22 @@
         "format": "gguf",
         "enforce": false,
         "source": "huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF (cartella MTP, head per spec-decode; il repo non pubblica SHA256SUMS, hash calcolato sul file scaricato)"
+      },
+      {
+        "path": "minicpm-v47-35b/MiniCPM-V-4_7-35B-A3B-Q4_K_M.gguf",
+        "size": 21166255008,
+        "sha256": "bf3d1c67f7843193e4483aebd26c5dea6b6d1f6a06ffa03c2387a6f3cc6d7df5",
+        "format": "gguf",
+        "enforce": false,
+        "source": "MiniCPM-V 4.7 35B-A3B chat Q4_K_M (arch qwen35moe; hash uguale al .metadata di download)"
+      },
+      {
+        "path": "minicpm-v47-35b/dspark-MiniCPM-V-4_7-35B-A3B-F16.gguf",
+        "size": 789442368,
+        "sha256": "dbeca717b96448ecbb2240864ae00d2f90fe069bc3a8ce08c58084c8b7b96c0f",
+        "format": "gguf",
+        "enforce": false,
+        "source": "MiniCPM-V 4.7 35B-A3B DSpark (arch dflash, draft per spec-decode --spec-type draft-dspark; hash calcolato sul file scaricato)"
       }
     ]
   }

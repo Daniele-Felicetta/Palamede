@@ -1,7 +1,8 @@
 // Palamede hub — benchmark (sezione Banco nella UI).
-// Serve outputs/benchmark/summary.json (modelli testuali) e
+// Serve outputs/benchmark/summary.json (modelli testuali),
+// outputs/benchmark-agentic/summary.json (banco agentico ReAct) e
 // outputs/benchmark-images/summary.json + le immagini generate (modelli
-// immagine). Prodotti da scripts/bench-text.mjs e scripts/bench-images.mjs.
+// immagine). Prodotti da scripts/bench-text.mjs, scripts/bench-agentic.mjs e scripts/bench-images.mjs.
 
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -23,6 +24,24 @@ export async function handleBenchImages(req, res) {
     return json(res, 200, JSON.parse(text))
   } catch {
     return json(res, 404, { error: { message: 'nessun benchmark immagini: esegui node scripts/bench-images.mjs' } })
+  }
+}
+
+export async function handleBenchAgentic(req, res) {
+  try {
+    const text = await readFile(join(ROOT, 'outputs', 'benchmark-agentic', 'summary.json'), 'utf8')
+    return json(res, 200, JSON.parse(text))
+  } catch {
+    return json(res, 404, { error: { message: 'nessun benchmark agentico: esegui node scripts/bench-agentic.mjs' } })
+  }
+}
+
+export async function handleBenchArc(req, res) {
+  try {
+    const text = await readFile(join(ROOT, 'outputs', 'benchmark-arc', 'summary.json'), 'utf8')
+    return json(res, 200, JSON.parse(text))
+  } catch {
+    return json(res, 404, { error: { message: 'nessun benchmark ARC: esegui node scripts/bench-arc.mjs' } })
   }
 }
 

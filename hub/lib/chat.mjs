@@ -65,6 +65,15 @@ const TEXT_MODEL_DEFS = [
   // VRAM si satura (16 GB) e crolla a ~3-5 t/s. Tetto qui: 131072.
   { id: 'qwen38-27b', name: 'Qwen3.8 27B · IQ3_XXS', moe: false, maxContext: 131072,
     file: join(ROOT, 'models', 'qwen38-27b', 'Qwen3.8-27B-GSQ-RCO-IQ3_XXS.gguf') },
+  // MiniCPM-V 4.7 35B-A3B: MoE 256 esperti, 8 attivi per token (~3B attivi,
+  // arch. `qwen35moe` come Ornith 35B e Qwen3.8, ctx nativo 262144). Solo testo
+  // via llama-server (il template gestisce anche immagini/video, ma senza
+  // mmproj dedicato gira text-only). Draft esterno `dflash` (5 layer, 0,7 GB)
+  // per lo spec-decode: --spec-type draft-dspark (non draft-mtp come Darwin).
+  { id: 'minicpm-v47-35b', name: 'MiniCPM-V 4.7 35B-A3B · Q4_K_M', moe: true, maxContext: 131072,
+    specType: 'draft-dspark',
+    draftHead: join(ROOT, 'models', 'minicpm-v47-35b', 'dspark-MiniCPM-V-4_7-35B-A3B-F16.gguf'),
+    file: join(ROOT, 'models', 'minicpm-v47-35b', 'MiniCPM-V-4_7-35B-A3B-Q4_K_M.gguf') },
   // POCKET-Darwin 180B: Qwen3.8-Flash-Next + RSI (arch. `qwen4exp`), MoE 512
   // esperti con 10 attivi per token (~3B attivi). Solo testo, niente vision
   // encoder. 111 GB in 4 shard: su 64 GB di RAM gli esperti restano su NVMe via
@@ -281,12 +290,16 @@ async function bootText(cfg) {
   // il modello tiene ~14,5 dei 16,3 GB di VRAM e il draft da 2,6 non entra:
   // misurato -5%. Con --cpu-moe gli esperti vanno a RAM, la VRAM si libera e il
   // draft gira a velocita' piena: misurato +33% a 32k e +31% a 131k.
+  // Spec-decode: Darwin usa l'head MTP esterna (draft-mtp), MiniCPM-V 4.7 il
+  // draft `dflash` dedicato (draft-dspark). Stesso interruttore UI (`mtp`).
   let mtpActive = false
-  if (mtp && model.mtpHead) {
-    if (!existsSync(model.mtpHead)) {
-      eprintln(`[chat] mtp: manca ${model.mtpHead} — spec-decode disattivato`)
+  const specHead = model.mtpHead || model.draftHead
+  const specKind = model.mtpHead ? 'draft-mtp' : (model.specType || 'draft-dspark')
+  if (mtp && specHead) {
+    if (!existsSync(specHead)) {
+      console.error(`[chat] spec-decode: manca ${specHead} — spec-decode disattivato`)
     } else {
-      args.push('--spec-type', 'draft-mtp', '-md', model.mtpHead,
+      args.push('--spec-type', specKind, '-md', specHead,
         '--spec-draft-n-max', '2', '-ngld', 'all')
       mtpActive = true
     }

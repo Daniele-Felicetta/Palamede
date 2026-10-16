@@ -84,3 +84,69 @@ export function benchImageUrl(model: string, file: string): string {
   const name = file.split('/').pop() || file
   return `/api/bench-images/file/${model}/${name}`
 }
+
+// ── Benchmark agentico ReAct ──────────────────────────────────────────
+export interface AgenticBenchRow {
+  id: string
+  name: string
+  success: number | null   // media punteggi task, 0..1
+  successBase?: number | null
+  successHard?: number | null
+  solved: number
+  total: number
+  byCategory?: Record<string, number | null>
+  avgSteps: number | null
+  toolErrors: number
+  formatErrors: number
+  recovered: number
+}
+
+export interface AgenticBenchSummary {
+  generatedAt: string
+  hardware: string
+  taskCount?: number
+  categories?: string[]
+  thinking?: boolean
+  maxSteps?: number
+  method?: { protocol: string; tools: string; scoring: string }
+  rows: AgenticBenchRow[]
+  bySuccess: BenchRank[]
+}
+
+/** null quando non è stato registrato alcun benchmark agentico. */
+export async function getAgenticBench(): Promise<AgenticBenchSummary | null> {
+  const r = await fetch('/api/bench-agentic')
+  if (r.status === 404) return null
+  if (!r.ok) throw new Error(`HTTP ${r.status}`)
+  return r.json()
+}
+
+// ── Benchmark ARC-AGI ─────────────────────────────────────────────
+export interface ArcBenchRow {
+  id: string
+  name: string
+  solved: number
+  total: number
+  exact: number | null     // task esatti / totale, 0..1
+  cellAcc: number | null   // accuratezza celle, 0..1
+  loadMs?: number | null
+}
+
+export interface ArcBenchSummary {
+  generatedAt: string
+  hardware: string
+  taskCount?: number
+  thinking?: boolean
+  attempts?: number
+  method?: { protocol: string; scoring: string }
+  rows: ArcBenchRow[]
+  byExact: BenchRank[]
+}
+
+/** null quando non è stato registrato alcun benchmark ARC. */
+export async function getArcBench(): Promise<ArcBenchSummary | null> {
+  const r = await fetch('/api/bench-arc')
+  if (r.status === 404) return null
+  if (!r.ok) throw new Error(`HTTP ${r.status}`)
+  return r.json()
+}

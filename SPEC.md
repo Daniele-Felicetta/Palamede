@@ -10,10 +10,11 @@ qualità ed esempi generati dai modelli stessi.
 
 Stato attuale: **Immagini, Chat, RAG, Banco e 3D sono funzionanti** — quattro
 modelli immagine (Bonsai 4B ternary, Z-Image Turbo Q4_K_M, Klein 4B FLUX.2 e
-Qwen-Image 2.1 Q4_K_M), chat locale con nove modelli testuali (Ornith
-1.5 35B-A3B, 9B Q4/Q5, K2 Horizon 7B/36B-A4B, Bonsai 27B, LFM2.5 VL 3B, Gemma 4 26B,
-MiniCPM5 2B) via llama.cpp, il **Banco di prova** che ne misura qualità e
-velocità, e una **knowledge base RAG in stile
+Qwen-Image 2.1 Q4_K_M), chat locale con tredici modelli testuali (Ornith
+1.5 35B-A3B, 9B Q4/Q5, K2 Horizon 7B/36B-A4B, Bonsai 27B, Qwen3.8 27B,
+MiniCPM-V 4.7 35B-A3B, LFM2.5 VL 3B, Gemma 4 26B/12B,
+MiniCPM5 2B) via llama.cpp, il **Banco di prova** che ne misura qualità,
+velocità, comportamento agentico end-to-end (ReAct con strumenti locali) e ragionamento astratto (ARC-AGI-1), e una **knowledge base RAG in stile
 NotebookLM** in `knowledge/`: le fonti vengono spezzate in chunk ed embedded
 localmente (Ollama `embeddinggemma`), interrogate con retrieval ibrido e
 rerank dedicato (MiniCPM5 2B), con risposte grounded e citazioni `[n]`
@@ -81,7 +82,7 @@ Browser ── http://127.0.0.1:4600 ── hub/server.mjs (Node, zero deps)
                                      ├─ 3D: backends/trellis_server.py :8124 (TRELLIS.2)
                                      │
                                      ├─ chat: tools/llama-cpp/llama-server.exe :8121
-                                     │    (10 modelli locali, start su richiesta)
+                                     │    (13 modelli locali, start su richiesta)
                                      │
                                      ├─ rerank: tools/llama-cpp/llama-server.exe :8125
                                      │    (MiniCPM5 2B, start lazy + idle timeout 60s)
@@ -147,6 +148,7 @@ senza toccare `reference/`.
 | Ornith 1.5 9B Q5 | `ornith-1.5-9b/Ornith-1.5-9B-Q5_K_M.gguf` | 6.1 GB | dense, chat (qualità) |
 | Bonsai 27B | `bonsai-27b/Bonsai-27B-Q1_0.gguf` | 3.5 GB | dense, chat (thinking opzionale) |
 | Qwen3.8 27B | `qwen38-27b/Qwen3.8-27B-GSQ-RCO-IQ3_XXS.gguf` | 10.1 GB | dense ibrido (arch. `qwen35`), chat con reasoning, profili 32k/q4 · 60k/q8 · 131k/q4 (~32 t/s) |
+| MiniCPM-V 4.7 35B-A3B | `minicpm-v47-35b/MiniCPM-V-4_7-35B-A3B-Q4_K_M.gguf` + `dspark-MiniCPM-V-4_7-35B-A3B-F16.gguf` | 20.4 GB | MoE 256 esperti/8 attivi (arch. `qwen35moe`), chat text-only, Banco: 93,3% qualità e 56 t/s (ncmoe 30, ~9,5 GB VRAM), spec-decode dspark OFF di default |
 | K2 Horizon 7B | `k2-7b/K2-Horizon-7B-Q4_K_M.gguf` | 5.2 GB | dense, chat (reasoning) |
 | K2 Horizon 36B-A4B MoVA | `k2-36b/K2-Horizon-MoVA-36B-A4B-Q4_K_M.gguf` | 20.8 GB | MoE 4B attivi + MoVA, chat |
 | LFM2.5 VL 3B | `lfm/lfm-vl-3b/LFM2.5-VL-3B-Q5_K_XL.gguf` | 1.8 GB | vision-language, chat |
@@ -513,11 +515,11 @@ Pagine:
 | `/images` | Generatore funzionante (quattro modelli: Bonsai, Z-Image, Klein img2img, Qwen-Image) + gallery locale + wiki dei modelli con esempi reali |
 | `/chat` | **Chat funzionante**: 11 modelli locali (Ornith 35B-A3B / 9B / 9B-Q5, K2 Horizon 7B / 36B-A4B, Bonsai 27B, LFM2.5 VL 3B, Gemma 4 26B, MiniCPM5 2B, POCKET-Darwin 180B), streaming con ragionamento mostrato, impostazioni (contesto, KV quant, MTP, layer MoE su CPU, layer GPU, temperatura, toggle thinking (default off)), avvio/stop server, **toggle knowledge on** per rispondere dalle tue fonti con citazioni `[n]` cliccabili. **Solo i modelli installati** compaiono nel selettore; per i GGUF spezzati tutti gli shard devono essere presenti, altrimenti il modello non viene offerto. |
 | `/downloader` | **Downloader**: catalogo dei modelli (dal migliore al peggiore) con nome, peso, requisiti di sistema e sorgente ufficiale; scarica i pesi in `models/` con progresso e verifica SHA-256. Catalogo condiviso con l'installer CLI (`scripts/models.catalog.json`). |
-| `/bench` | **Banco di prova** (rotta propria, montata anche dentro `/extra`): benchmark dei modelli testuali (qualità su eval set oggettivo + velocità llama-bench) e dei generatori di immagini (tempi cold/warm a 512²/1024² + qualità da VLM judge), con tabelle, classifiche per qualità/velocità/combinata, dettaglio per categoria e galleria. Dati da `outputs/benchmark/` e `outputs/benchmark-images/` via `/api/bench` e `/api/bench-images`. |
+| `/bench` | **Banco di prova** (rotta propria, montata anche dentro `/extra`): benchmark dei modelli testuali (qualità su eval set oggettivo + velocità llama-bench), benchmark AGENTICO end-to-end (loop ReAct con strumenti locali, stadi multi-turno, piani vincolati, punteggio oggettivo), benchmark ARC-AGI-1 (20 task training, 2 tentativi, esattezza + accuratezza celle) e dei generatori di immagini (tempi cold/warm a 512²/1024² + qualità da VLM judge), con tabelle, classifiche per qualità/velocità/combinata, dettaglio per categoria e galleria. Dati da `outputs/benchmark/`, `outputs/benchmark-agentic/`, `outputs/benchmark-arc/` e `outputs/benchmark-images/` via `/api/bench`, `/api/bench-agentic`, `/api/bench-arc` e `/api/bench-images`. |
 | `/rag` | **Knowledge base RAG funzionante** (stile NotebookLM): aggiungi fonti (paste o drag&drop `.md/.txt`), indicizzazione chunk+embedding, chat grounded con citazioni, fonte aperta con il chunk citato evidenziato |
 | `/3d` | **Generatore 3D funzionante**: upload immagine, qualità 512/1024, viewer three.js, download GLB + STL, sezione Server per start/stop del server TRELLIS. |
 | `/mcp` | Bozza: wiki del tipo di modello + checklist requisiti + stato non installato. |
-| `/extra` | Extra: Progetto (documentazione), **Banco di prova** (benchmark modelli testuali e immagine), Experimental (registro prove + JEV Hub) e Giochi (**Bandersketch**), impilati in un'unica pagina (le rotte `/progetto`, `/bench`, `/experimental`, `/games` restano auto-routate ma fuori dalla nav). |
+| `/extra` | Extra: Progetto (documentazione), **Banco di prova** (benchmark modelli testuali, agentico, ARC e immagine), Experimental (registro prove + JEV Hub) e Giochi (**Bandersketch**), impilati in un'unica pagina (le rotte `/progetto`, `/bench`, `/experimental`, `/games` restano auto-routate ma fuori dalla nav). |
 
 ## Script
 

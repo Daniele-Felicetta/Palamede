@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { getBench, getImageBench, benchImageUrl } from '../api'
-  import type { BenchSummary, ImageBenchSummary } from '../api'
+  import { getBench, getImageBench, getAgenticBench, getArcBench, benchImageUrl } from '../api'
+  import type { BenchSummary, ImageBenchSummary, AgenticBenchSummary, ArcBenchSummary } from '../api'
   import { Text } from '../lib/text'
   import { navigate } from '../router.svelte'
   import { EmptyState, Gauge, Hintline, SectionHead, Stamp } from '../components/ui'
@@ -11,14 +11,18 @@
 
   let data = $state<BenchSummary | null>(null)
   let img = $state<ImageBenchSummary | null>(null)
+  let ag = $state<AgenticBenchSummary | null>(null)
+  let arc = $state<ArcBenchSummary | null>(null)
   let err = $state('')
   let loading = $state(true)
 
   onMount(async () => {
     try {
-      const [t, i] = await Promise.all([getBench(), getImageBench()])
+      const [t, i, a, c] = await Promise.all([getBench(), getImageBench(), getAgenticBench(), getArcBench()])
       data = t
       img = i
+      ag = a
+      arc = c
     } catch (e) { err = e instanceof Error ? e.message : String(e) }
     finally { loading = false }
   })
@@ -40,6 +44,20 @@
   let topC = $derived(data?.rows.find((r) => r.combined === bestC))
   let moeCfg = $derived(data ? data.rows.filter((r) => r.qualityConfig && (r.qualityConfig.cpuMoe || (r.qualityConfig.ncmoe ?? 0) > 0)) : [])
 
+  // ── agentico ReAct ──
+  let arows = $derived(ag ? [...ag.rows].sort((a, b) => (b.success ?? -1) - (a.success ?? -1)) : [])
+  let acats = $derived(ag?.categories ?? [])
+  let bestA = $derived(ag ? Math.max(...ag.rows.map((r) => r.success ?? -1)) : -1)
+  let topA = $derived(ag?.rows.find((r) => r.success === bestA))
+  let showHard = $derived(ag ? ag.rows.some((r) => r.successHard != null) : false)
+  let acatPct = (x: number | null | undefined) => (x == null ? '—' : (x * 100).toFixed(0))
+
+  // ── ARC-AGI ──
+  let crows = $derived(arc ? [...arc.rows].sort((a, b) => (b.exact ?? -1) - (a.exact ?? -1) || (b.cellAcc ?? -1) - (a.cellAcc ?? -1)) : [])
+  let bestE = $derived(arc ? Math.max(...arc.rows.map((r) => r.exact ?? -1)) : -1)
+  let bestCell = $derived(arc ? Math.max(...arc.rows.map((r) => r.cellAcc ?? -1)) : -1)
+  let topE = $derived(arc?.rows.find((r) => r.exact === bestE))
+
   // ── immagini ──
   let irows = $derived(img ? [...img.rows].sort((a, b) => (b.combined ?? -1) - (a.combined ?? -1)) : [])
   let iBestQ = $derived(img ? Math.max(...img.rows.map((r) => r.q ?? -1)) : -1)
@@ -54,7 +72,7 @@
 {#if !embed}
   <SectionHead
     title="Banco di prova"
-    sub="Misure reali su questa macchina, modello per modello. Un solo modello in VRAM alla volta. Velocità e qualità dei modelli testuali (llama.cpp) e dei generatori di immagini (sd.cpp / gemlite)."
+    sub="Misure reali su questa macchina, modello per modello. Un solo modello in VRAM alla volta. Velocità e qualità dei modelli testuali (llama.cpp), comportamento agentico end-to-end (ReAct con strumenti), ragionamento astratto (ARC-AGI) e generatori di immagini (sd.cpp / gemlite)."
   />
 {/if}
 
@@ -62,10 +80,10 @@
   <Hintline>lettura del registro…</Hintline>
 {:else if err}
   <Hintline err>{err}</Hintline>
-{:else if !data && !img}
+{:else if !data && !img && !ag && !arc}
   <EmptyState>
     <p class="empty-title">Nessun benchmark registrato</p>
-    <p>Esegui <code>node scripts/bench-text.mjs</code> e <code>node scripts/bench-images.mjs</code> dalla root del progetto: al termine i risultati compaiono qui.</p>
+    <p>Esegui <code>node scripts/bench-text.mjs</code>, <code>node scripts/bench-agentic.mjs</code>, <code>node scripts/bench-arc.mjs</code> e <code>node scripts/bench-images.mjs</code> dalla root del progetto: al termine i risultati compaiono qui.</p>
   </EmptyState>
 {:else}
   {#if data}
@@ -184,6 +202,150 @@
           Dati grezzi in <code>outputs/benchmark/</code> · rigenera con <code>node scripts/bench-text.mjs</code>.
           Prova i modelli in <a href="#/chat" onclick={(e) => { e.preventDefault(); navigate('/chat') }}>Chat</a> ·
           <a href="#/downloader">scarica modelli</a>.
+        </p>
+      </section>
+    </section>
+  {/if}
+
+  {#if ag}
+    <section class="bench-part" aria-label="Benchmark agentico">
+      <h2 class="bench-part-title">Agentico <span class="bench-sub">(ReAct end-to-end)</span></h2>
+      <Gauge
+        cells={[
+          { num: String(ag.rows.length), label: 'modelli sul banco' },
+          { num: topA && topA.success != null ? (topA.success * 100).toFixed(0) : '—', unit: '%', label: 'miglior successo · ' + (topA ? name(topA.id) : '') },
+          { num: String(ag.taskCount ?? '—'), label: 'task per modello' },
+          { num: topA?.avgSteps != null ? topA.avgSteps.toFixed(1) : '—', label: 'passi medi del migliore' },
+        ]}
+      />
+
+      <section class="bench-block" aria-label="Risultati agentici per modello">
+        <h3 class="bench-h">Tutti i modelli</h3>
+        <div class="bench-scroll">
+          <table class="bench-table">
+            <thead>
+              <tr>
+                <th>Modello</th>
+                <th class="num">Successo</th>
+                {#if showHard}<th class="num">Difficili</th>{/if}
+                <th class="num">Risolti</th>
+                <th class="num">Passi medi</th>
+                <th class="num">Err. tool</th>
+                <th class="num">Err. formato</th>
+                <th class="num">Recuperi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each arows as r (r.id)}
+                <tr>
+                  <td class="bench-model">{r.name}</td>
+                  <td class="num {r.success === bestA ? 'best' : ''}">{pct(r.success)}</td>
+                  {#if showHard}<td class="num">{pct(r.successHard)}</td>{/if}
+                  <td class="num">{r.solved}/{r.total}</td>
+                  <td class="num">{fmt(r.avgSteps)}</td>
+                  <td class="num">{r.toolErrors}</td>
+                  <td class="num">{r.formatErrors}</td>
+                  <td class="num">{r.recovered}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+        <p class="bench-note">
+          Successo = media dei punteggi sui {ag.taskCount} task (il task budget dà punteggio parziale).
+          Errori tool = chiamate fallite o a strumenti vietati; recuperi = task risolti dopo almeno un errore.
+        </p>
+      </section>
+
+      {#if acats.length}
+        <section class="bench-block" aria-label="Successo per categoria">
+          <h3 class="bench-h">Per categoria <span class="bench-sub">(media punteggi)</span></h3>
+          <div class="bench-scroll">
+            <table class="bench-table cat">
+              <thead>
+                <tr>
+                  <th>Modello</th>
+                  {#each acats as c (c)}<th class="num">{c}</th>{/each}
+                </tr>
+              </thead>
+              <tbody>
+                {#each arows as r (r.id)}
+                  <tr>
+                    <td class="bench-model">{r.name}</td>
+                    {#each acats as c (c)}<td class="num">{acatPct(r.byCategory?.[c])}</td>{/each}
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      {/if}
+
+      <section class="bench-block" aria-label="Metodo agentico">
+        <h3 class="bench-h">Metodo e dati</h3>
+        <ul class="bench-method">
+          <li><strong>Protocollo</strong> — {ag.method?.protocol ?? 'ReAct multi-stadio'}.</li>
+          <li><strong>Strumenti</strong> — {ag.method?.tools ?? 'calcolatrice · archivio · cerca'}.</li>
+          <li><strong>Punteggio</strong> — {ag.method?.scoring ?? 'oggettivo per task'} · thinking {ag.thinking ? 'on' : 'off'}.</li>
+          <li><strong>Hardware</strong> — {ag.hardware} · misurato il {new Date(ag.generatedAt).toLocaleString('it-IT')}.</li>
+        </ul>
+        <p class="bench-note">
+          Dati grezzi e tracce in <code>outputs/benchmark-agentic/</code> · rigenera con <code>node scripts/bench-agentic.mjs</code>.
+        </p>
+      </section>
+    </section>
+  {/if}
+
+  {#if arc}
+    <section class="bench-part" aria-label="Benchmark ARC-AGI">
+      <h2 class="bench-part-title">ARC-AGI <span class="bench-sub">(ragionamento astratto)</span></h2>
+      <Gauge
+        cells={[
+          { num: String(arc.rows.length), label: 'modelli sul banco' },
+          { num: topE && topE.exact != null ? (topE.exact * 100).toFixed(0) : '—', unit: '%', label: 'task esatti · ' + (topE ? name(topE.id) : '') },
+          { num: bestCell >= 0 ? (bestCell * 100).toFixed(0) : '—', unit: '%', label: 'miglior accuratezza celle' },
+          { num: String(arc.taskCount ?? '—'), label: 'task per modello' },
+        ]}
+      />
+
+      <section class="bench-block" aria-label="Risultati ARC per modello">
+        <h3 class="bench-h">Tutti i modelli</h3>
+        <div class="bench-scroll">
+          <table class="bench-table">
+            <thead>
+              <tr>
+                <th>Modello</th>
+                <th class="num">Esatte</th>
+                <th class="num">Acc. celle</th>
+                <th class="num">Load s</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each crows as r (r.id)}
+                <tr>
+                  <td class="bench-model">{r.name}</td>
+                  <td class="num {r.exact === bestE ? 'best' : ''}">{r.solved}/{r.total}{r.exact != null ? ` (${(r.exact * 100).toFixed(0)}%)` : ''}</td>
+                  <td class="num {r.cellAcc === bestCell ? 'best' : ''}">{pct(r.cellAcc)}</td>
+                  <td class="num">{r.loadMs != null ? (r.loadMs / 1000).toFixed(1) : '—'}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+        <p class="bench-note">
+          Esatta = tutte le celle giuste su tutti i test del task (2 tentativi). Sottoinsieme training ARC-AGI-1 (Apache-2.0): i modelli locali piccoli risolvono quasi zero task esatti, ma l'accuratezza celle distingue comunque i tentativi.
+        </p>
+      </section>
+
+      <section class="bench-block" aria-label="Metodo ARC">
+        <h3 class="bench-h">Metodo e dati</h3>
+        <ul class="bench-method">
+          <li><strong>Protocollo</strong> — {arc.method?.protocol ?? 'demo in/out, 2 tentativi'}.</li>
+          <li><strong>Punteggio</strong> — {arc.method?.scoring ?? 'esatto + accuratezza celle'} · thinking {arc.thinking ? 'on' : 'off'}.</li>
+          <li><strong>Hardware</strong> — {arc.hardware} · misurato il {new Date(arc.generatedAt).toLocaleString('it-IT')}.</li>
+        </ul>
+        <p class="bench-note">
+          Dati grezzi in <code>outputs/benchmark-arc/</code> · rigenera con <code>node scripts/bench-arc.mjs</code> · task in <code>scripts/bench-arc.tasks.json</code>.
         </p>
       </section>
     </section>

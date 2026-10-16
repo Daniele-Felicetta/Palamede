@@ -11,7 +11,7 @@
 //   let m: Text.ModelId = 'ornith-9b'
 
 export namespace Text {
-  export type ModelId = 'ornith-35b' | 'ornith-9b' | 'ornith-9b-q5' | 'k2-7b' | 'k2-36b' | 'bonsai-27b' | 'lfm-vl-3b' | 'gemma-4-26b' | 'gemma-4-12b' | 'minicpm5-2b' | 'qwen38-27b' | 'pocket-darwin-180b'
+  export type ModelId = 'ornith-35b' | 'ornith-9b' | 'ornith-9b-q5' | 'k2-7b' | 'k2-36b' | 'bonsai-27b' | 'lfm-vl-3b' | 'gemma-4-26b' | 'gemma-4-12b' | 'minicpm5-2b' | 'qwen38-27b' | 'minicpm-v47-35b' | 'pocket-darwin-180b'
 
   /** Dati canonici per-modello. */
   export interface Model {
@@ -219,6 +219,32 @@ export namespace Text {
       cpuMoe: 0,
       temperature: 0.6,
       thinking: true,
+    },
+    {
+      id: 'minicpm-v47-35b',
+      name: 'MiniCPM-V 4.7 35B-A3B',
+      family: 'OpenBMB · MoE 256 esperti, 8 attivi · vision-text',
+      quant: 'Q4_K_M',
+      diskGB: '19.7 GB',
+      moe: true,
+      mova: false,
+      movaCpu: false,
+      // Stessa arch del resto della famiglia (`qwen35moe`, ctx nativo 262144).
+      // Tetto pratico 131072 come Qwen3.8 27B: oltre, la KV satura i 16 GB VRAM.
+      // Banco: 93,3% qualita' e 56 t/s con ncmoe 30 (~9,5 GB VRAM).
+      context: 32768,
+      kv: 'q8_0',
+      gpuLayers: 99,
+      // Spec-decode OFF di default: misurato su RTX 5060 Ti 16 GB (ncmoe 30,
+      // 250 token, temp 0) 47,1 t/s senza draft contro 40,9 t/s con dspark
+      // (acceptance 0,30, mean len 1,60: il costo del draft supera il guadagno).
+      // Resta disponibile dal pannello per prove future.
+      mtp: false,
+      cpuMoe: 30,
+      // Il GGUF dichiara sampling temp 1.0 / top_k 20 / top_p 0.95 (la UI
+      // espone solo temperature). Non e' un thinking model.
+      temperature: 1.0,
+      thinking: false,
     },
     {
       id: 'pocket-darwin-180b',

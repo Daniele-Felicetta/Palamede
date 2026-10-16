@@ -214,6 +214,31 @@
           "requires": "GPU ≥ 4 GB VRAM"
         },
         {
+          "id": "minicpm-v47-35b",
+          "name": "MiniCPM-V 4.7 35B-A3B · Q4_K_M + dspark",
+          "label": "consigliato",
+          "role": "93,3% come Ornith 35B ma più veloce (56 vs 50 t/s). MoE 256 esperti/8 attivi in arch. qwen35moe. Draft dspark dedicato cablato ma OFF di default (misurato: acceptance 0,30, rallenta da 47 a 41 t/s). Text-only in Palamede (niente mmproj).",
+          "quality": "93.3%",
+          "speed": "56.0 t/s",
+          "vram": "~7-13 GB",
+          "sizeBytes": 21955707376,
+          "files": [
+            {
+              "dest": "models/minicpm-v47-35b/MiniCPM-V-4_7-35B-A3B-Q4_K_M.gguf",
+              "manual": true,
+              "sizeBytes": 21166255008,
+              "note": "pesi già in locale (GGUF Q4_K_M, arch qwen35moe)"
+            },
+            {
+              "dest": "models/minicpm-v47-35b/dspark-MiniCPM-V-4_7-35B-A3B-F16.gguf",
+              "manual": true,
+              "sizeBytes": 789442368,
+              "note": "draft dflash per lo spec-decode (--spec-type draft-dspark)"
+            }
+          ],
+          "requires": "GPU ≥ 8 GB VRAM · 64 GB RAM (esperti su CPU)"
+        },
+        {
           "id": "pocket-darwin-180b",
           "name": "POCKET-Darwin 180B · UD-Q4_K_XL",
           "label": "alternativa",

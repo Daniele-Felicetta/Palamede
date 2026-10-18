@@ -76,6 +76,38 @@
       "source": "huggingface.co/unsloth/Qwen3-VL-8B-Instruct-GGUF (text encoder)"
     },
     {
+      "path": "qwen-image-edit/qwen-image-edit-2509-Q3_K_M.gguf",
+      "size": 9744742944,
+      "sha256": "277e6adf3b8cfa1728c1af276b3507fda3c227ab858aa250ba5d4d38aaf0e54e",
+      "format": "gguf",
+      "enforce": true,
+      "source": "huggingface.co/unsloth/Qwen-Image-Edit-2509-GGUF (DiT Q3_K_M; hash verificato sul file il 2026-10-18)"
+    },
+    {
+      "path": "qwen-image-edit/vae/diffusion_pytorch_model.safetensors",
+      "size": 253806966,
+      "sha256": "0c8bc8b758c649abef9ea407b95408389a3b2f610d0d10fcb054fe171d0a8344",
+      "format": "safetensors",
+      "enforce": true,
+      "source": "huggingface.co/unsloth/Qwen-Image-Edit-2509-GGUF vae/ (AutoencoderKLQwenImage; hash dall'API HF, 2026-10-18)"
+    },
+    {
+      "path": "qwen-image-edit/Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf",
+      "size": 4683072384,
+      "sha256": "d16776dcd9a28d42758c2958ed3a752aabf20a305252cd64ff2be72b4a78c503",
+      "format": "gguf",
+      "enforce": true,
+      "source": "huggingface.co/unsloth/Qwen2.5-VL-7B-Instruct-GGUF (text encoder Qwen2.5-VL-7B; hash verificato sul file il 2026-10-18)"
+    },
+    {
+      "path": "qwen-image-edit/mmproj-BF16.gguf",
+      "size": 1354163040,
+      "sha256": "f0edf43c09b69d6e5dd24262f33b356a1e9dd978e7c3299b3e69141fcbb87553",
+      "format": "gguf",
+      "enforce": true,
+      "source": "huggingface.co/unsloth/Qwen2.5-VL-7B-Instruct-GGUF (torre visiva BF16; hash verificato sul file il 2026-10-18)"
+    },
+    {
       "path": "_inutilizzati/klein-9b/flux-2-klein-9b-bf16.safetensors",
       "size": 18157189648,
       "sha256": "a7868f46634b19243bbbdc3d19658e88b709125efde3f239a7eb03d0bea90159",
@@ -314,6 +346,38 @@
         "format": "gguf",
         "enforce": false,
         "source": "MiniCPM-V 4.7 35B-A3B DSpark (arch dflash, draft per spec-decode --spec-type draft-dspark; hash calcolato sul file scaricato)"
+      },
+      {
+        "path": "lfm/lfm-24a2b/LFM2.5-24B-A2B-UD-Q5_K_XL.gguf",
+        "size": 17918820608,
+        "sha256": "d5a53342a2f5bec4ebee06652a437ee3b9fbc5e6b9b693f6f2343d96e699f38a",
+        "format": "gguf",
+        "enforce": false,
+        "source": "LFM2.5 24B-A2B Preview UD-Q5_K_XL (arch lfm2moe; hash uguale al .metadata di download)"
+      },
+      {
+        "path": "NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q3_K_XL.gguf",
+        "size": 39027158016,
+        "sha256": "51077d511c769efb299073cc7b33d31bb007eb4fdaed60938dc1133146b708e3",
+        "format": "gguf",
+        "enforce": false,
+        "source": "NVIDIA Nemotron 3.5 Bolt 74B-A9B UD-Q3_K_XL (arch nemotron_h_moe, MoE a esperti per-layer 240/304/368/432/496, serve llama.cpp >= b11707; hash uguale al .metadata di download)"
+      },
+      {
+        "path": "dflash-NVIDIA-Nemotron-3.5-Bolt-74B-A9B-NVFP4.gguf",
+        "size": 998242560,
+        "sha256": "080e1ea41c9562a7804dbf30c6fbd4d17e216c6b8ff666f88e6edb1816010194",
+        "format": "gguf",
+        "enforce": false,
+        "source": "head dflash 1.1B (NVFP4) per lo spec-decode di Nemotron 3.5 Bolt (--spec-type draft-dflash -md); hash calcolato sul file scaricato"
+      },
+      {
+        "path": "NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q2_K_XL.gguf",
+        "size": 28753128448,
+        "sha256": "5bbe3ec6af8f80cbf1035711b265f3e1f7aaf52f8429e989c4101084916135f7",
+        "format": "gguf",
+        "enforce": false,
+        "source": "NVIDIA Nemotron 3.5 Bolt 74B-A9B UD-Q2_K_XL (stessa arch nemotron_h_moe del Q3, esperti in IQ3_XXS: 26,8 GB per chi non ha 40 GB di RAM liberi; hash uguale al .metadata di download)"
       }
     ]
   }

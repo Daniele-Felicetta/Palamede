@@ -133,6 +133,20 @@
   align-self: flex-start;
 }
 
+/* I modelli solo-editing non hanno il cursore "forza": al suo posto la
+   spiega su cosa scrivere nel prompt. */
+.img2img-note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--paper-dim);
+}
+
+.img2img-note em {
+  color: var(--paper);
+  font-style: normal;
+}
+
 .plates {
   display: grid;
   grid-template-columns: 1fr 1fr;

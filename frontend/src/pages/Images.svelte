@@ -154,9 +154,13 @@
     try {
       ui.initImg = await Images.readImageAsDataURL(f);
       ui.error = false;
-      ui.hint = Images.supportsImg2img(ui.model)
-        ? "immagine caricata — img2img pronto"
-        : "Bonsai non fa img2img: scegli un altro modello";
+      if (Images.isEditOnly(ui.model)) {
+        ui.hint = "immagine caricata — ora scrivi cosa cambiare";
+      } else if (Images.supportsImg2img(ui.model)) {
+        ui.hint = "immagine caricata — img2img pronto";
+      } else {
+        ui.hint = "Bonsai non fa img2img: scegli un altro modello";
+      }
     } catch (err) {
       ui.hint =
         err instanceof Error ? err.message : "lettura dell'immagine fallita";
@@ -172,10 +176,18 @@
       ui.error = true;
       return;
     }
+    if (Images.isEditOnly(ui.model) && !ui.initImg) {
+      ui.hint =
+        "Qwen-Image-Edit fa solo editing: carica un'immagine da cui partire";
+      ui.error = true;
+      return;
+    }
     ui.busy = true;
     ui.error = false;
     ui.hint = ui.initImg
-      ? "in coda sulla GPU (img2img)…"
+      ? Images.isEditOnly(ui.model)
+        ? "istruzione in coda sulla GPU…"
+        : "in coda sulla GPU (img2img)…"
       : "in coda sulla GPU…";
     const [w, h] = Images.parseSize(ui.size);
     ui.previewUrl = null;
@@ -339,18 +351,25 @@
       <div class="img2img-prep">
         <img src={ui.initImg} alt="immagine di partenza" />
         <div class="img2img-meta">
-          <label for="strength">Forza del cambiamento</label>
-          <div class="img2img-row">
-            <input
-              id="strength"
-              type="range"
-              min={0.05}
-              max={1}
-              step={0.05}
-              bind:value={ui.strength}
-            />
-            <span class="img2img-val">{ui.strength.toFixed(2)}</span>
-          </div>
+          {#if Images.isEditOnly(ui.model)}
+            <p class="img2img-note">
+              Scrivi <em>cosa cambiare</em>: "metti la neve per strada", "il
+              testo in blu", "portalo in uno stile acquerello".
+            </p>
+          {:else}
+            <label for="strength">Forza del cambiamento</label>
+            <div class="img2img-row">
+              <input
+                id="strength"
+                type="range"
+                min={0.05}
+                max={1}
+                step={0.05}
+                bind:value={ui.strength}
+              />
+              <span class="img2img-val">{ui.strength.toFixed(2)}</span>
+            </div>
+          {/if}
           <Button
             variant="side"
             onclick={() => {
@@ -366,15 +385,18 @@
     {:else}
       <Dropzone onfile={loadFile}>
         <span
-          >+ Trascina un'immagine qui per <em>image-to-image</em><br />o clicca
-          per sceglierne una</span
+          >{Images.isEditOnly(ui.model)
+            ? "Questo modello edita: trascina qui l'immagine da cui partire"
+            : "+ Trascina un'immagine qui per image-to-image, o clicca per sceglierne una"}</span
         >
       </Dropzone>
     {/if}
 
     <PromptBox
       bind:value={ui.prompt}
-      placeholder="Descrivi l'immagine…"
+      placeholder={Images.isEditOnly(ui.model)
+        ? "Cosa devo cambiare nell'immagine?"
+        : "Descrivi l'immagine…"}
       ariaLabel="Prompt"
     />
 
@@ -431,7 +453,7 @@
 
     <Button
       type="submit"
-      disabled={ui.busy || !!store.selecting || !ui.prompt.trim()}
+      disabled={ui.busy || !!store.selecting || !ui.prompt.trim() || (Images.isEditOnly(ui.model) && !ui.initImg)}
     >
       {store.selecting
         ? "caricamento…"

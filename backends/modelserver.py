@@ -121,26 +121,69 @@ def _resolve_klein_diffusion() -> str:
         return str(cands[0])
     return exact
 
+def _qwen_edit_llm() -> tuple[str, str | None]:
+    """(text-encoder, mmproj) per Qwen-Image-Edit: due impianti possibili.
+
+    - GGUF (unsloth/Qwen2.5-VL-7B-Instruct-GGUF): LLM e ViT in due file, il
+      tokenizer sta dentro il GGUF;
+    - safetensors (unsloth/Qwen-Image-Edit-2509-GGUF, cartella text_encoder/):
+      LLM e ViT nello stesso file, quindi nessun mmproj; sd.cpp legge gli
+      shard dal model.safetensors.index.json e usa il Qwen2Tokenizer interno.
+
+    Se il GGUF c'è uso quello, altrimenti la cartella safetensors. Il GGUF
+      si cerca nella cartella del modello e in models/ (dove spesso finisce).
+    """
+    d = ROOT / "models" / "qwen-image-edit"
+    for cand in (d / "Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf",
+                 ROOT / "models" / "Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf"):
+        if cand.exists():
+            for mm in ("mmproj-F16.gguf", "mmproj-BF16.gguf"):
+                if (d / mm).exists():
+                    return str(cand), str(d / mm)
+            return str(cand), str(d / "mmproj-F16.gguf")
+    return str(d / "text_encoder"), None
+
+
+def _qwen_edit_vae() -> str:
+    """VAE di Qwen-Image: layout del repo unsloth (vae/...) o piatta."""
+    d = ROOT / "models" / "qwen-image-edit"
+    for cand in (d / "vae" / "diffusion_pytorch_model.safetensors",
+                 d / "diffusion_pytorch_model.safetensors"):
+        if cand.exists():
+            return str(cand)
+    return str(cand)
+
+
 MODELS = {
     "bonsai": {"name": "Bonsai 4B ternary", "engine": "gemlite in-process (richiede CUDA)"},
     "zimage": {"name": "Z-Image Turbo Q4_K_M", "engine": "stable-diffusion.cpp (sd-server)"},
     "klein": {"name": "Klein 4B Q4 (FLUX.2)", "engine": "stable-diffusion.cpp (sd-server, flux2)"},
     "qwenimage": {"name": "Qwen-Image 2.1 Q4_K_M", "engine": "stable-diffusion.cpp (sd-server, qwen-image)"},
+    "qwenimageedit": {"name": "Qwen-Image-Edit 2509 Q3_K_M", "engine": "stable-diffusion.cpp (sd-server, qwen-image edit)"},
 }
 
 # Modelli serviti da sd-server (subprocess gestito, uno alla volta).
-SD_MODELS = ("zimage", "klein", "qwenimage")
+SD_MODELS = ("zimage", "klein", "qwenimage", "qwenimageedit")
 
 # cfg_scale / sampler per modello sd-server: i distillati (Z-Image, Klein)
 # escono con cfg 1.0 (= 0 effettivo), Qwen-Image è un modello CFG "vero"
 # (6.0, sampler euler, 40 step di default come da guida unsloth).
 # "cache" = caching dei blocchi DiT: utile solo con molti step (Qwen, 40):
 # cache-dit misura ~2.4× sul sampling senza perdita visibile.
+# "flow_shift" = lo shift dei modelli flow (3.0 = valore delle guide sd.cpp
+# per Qwen-Image-Edit). "edit": il prompt è un'istruzione e l'immagine
+# entra come reference (ref_images), non come init image: niente denoise.
 SD_GEN = {
     "zimage": {"cfg": 1.0, "sampler": None},
     "klein": {"cfg": 1.0, "sampler": None},
     "qwenimage": {"cfg": 6.0, "sampler": "euler", "cache": "cache-dit"},
+    "qwenimageedit": {"cfg": 2.5, "sampler": "euler", "cache": "cache-dit",
+                      "flow_shift": 3.0, "edit": True},
 }
+
+# Modelli che NON fanno text-to-image: senza immagine di partenza non hanno
+# niente da editare (sd.cpp avvisa e inventa una reference nera).
+SD_EDIT_MODELS = ("qwenimageedit",)
 
 # Caching DiT attivo di default (0 = disattiva, per confronti qualità/tempo).
 SD_CACHE = os.environ.get("PALAMEDE_SD_CACHE", "1") != "0"
@@ -244,26 +287,36 @@ class ModelManager:
                 time.sleep(1.0)
         raise RuntimeError(f"sd-server non pronto entro {timeout}s")
 
-    def _sd_files(self, model: str) -> tuple[str, str, str, str]:
-        """(diffusion, vae, text-encoder, vae-format) per un modello sd-server.
+    def _sd_files(self, model: str) -> tuple[str, str, str, str | None, str]:
+        """(diffusion, vae, text-encoder, llm-vision, vae-format) per sd-server.
 
-        Il text-encoder può essere `--llm` (Z-Image/Klein, Qwen): chi
-        chiama sceglie il flag in base al modello. Il ritorno è sempre
-        (diffusion, vae, encoder, vae-format).
+        Il text-encoder è `--llm` (Z-Image/Klein, Qwen). `llm-vision` è il
+        mmproj `--llm_vision`: serve solo ai modelli di editing, dove
+        l'immagine passa dal VLM (None = non serve).
         """
         if model == "zimage":
             return (str(ROOT / "models" / "z-image-turbo-Q4_K_M.gguf"),
                     str(ROOT / "models" / "z-image-vae.safetensors"),
                     str(ROOT / "models" / "Qwen3-4B-Instruct-2507-Q4_K_M.gguf"),
-                    "auto")
+                    None, "auto")
         if model == "klein":
-            return (_resolve_klein_diffusion(), KLEIN_VAE, KLEIN_LLM, "flux2")
+            return (_resolve_klein_diffusion(), KLEIN_VAE, KLEIN_LLM, None, "flux2")
         if model == "qwenimage":
             qwen_dir = ROOT / "models" / "qwen-image"
             return (str(qwen_dir / "qwen-image-2.1-Q4_K_M.gguf"),
                     str(qwen_dir / "qwen_image_2.1_vae_bf16.safetensors"),
                     str(qwen_dir / "Qwen3-VL-8B-Instruct-UD-Q4_K_XL.gguf"),
-                    "auto")
+                    None, "auto")
+        if model == "qwenimageedit":
+            # NB: l'editing Qwen-Image usa il text encoder Qwen2.5-VL (NON il
+            # Qwen3-VL di Qwen-Image 2.1: architettura del prompt diversa) e la
+            # VAE originale di Qwen-Image (quella 2.1 ha blocchi a 64 canali e
+            # viene rifiutata in fase di load).
+            d = ROOT / "models" / "qwen-image-edit"
+            llm, llm_vision = _qwen_edit_llm()
+            return (str(d / "qwen-image-edit-2509-Q3_K_M.gguf"),
+                    _qwen_edit_vae(),
+                    llm, llm_vision, "auto")
         raise ValueError(f"modello sconosciuto: {model}")
 
     def _load_sd(self, model: str) -> None:
@@ -274,12 +327,12 @@ class ModelManager:
         # cambio modello: termina il server precedente (libera VRAM)
         if self._sd is not None:
             self._kill_sd()
-        diffusion, vae, encoder, vae_format = self._sd_files(model)
-        missing = [p for p in (diffusion, vae, encoder) if not Path(p).exists()]
+        diffusion, vae, encoder, vision, vae_format = self._sd_files(model)
+        missing = [p for p in (diffusion, vae, encoder, vision) if p and not Path(p).exists()]
         if missing:
             raise RuntimeError(
                 f"mancano file per {model}: {', '.join(missing)} — "
-                "completa il download (vedi scripts/copy-models.ps1)")
+                "completa il download dalla pagina Scarica")
         Path(SD_LOG).parent.mkdir(parents=True, exist_ok=True)
         cmd = [SD_EXE,
                "--diffusion-model", diffusion,
@@ -288,15 +341,22 @@ class ModelManager:
                "--listen-port", str(SD_PORT)]
         # il text encoder è --llm (Z-Image/Klein, Qwen)
         cmd += ["--llm", encoder]
+        if vision:
+            # encoder di visione (mmproj): i modelli di editing gli passano
+            # l'immagine di riferimento attraverso il VLM, non i soli latenti
+            cmd += ["--llm_vision", vision]
         if SD_TE_CPU:
             # TE su RAM: ~2,3 GB risparmiati in VRAM, encoding una tantum su CPU
             cmd += ["--backend", "te=cpu"]
         if vae_format != "auto":
             cmd += ["--vae-format", vae_format]
         # caching DiT (solo modelli con molti step, es. Qwen-Image 40 step)
-        cache = SD_GEN.get(model, {}).get("cache") if SD_CACHE else None
+        gen = SD_GEN.get(model, {})
+        cache = gen.get("cache") if SD_CACHE else None
         if cache:
             cmd += ["--cache-mode", cache]
+        if gen.get("flow_shift"):
+            cmd += ["--flow-shift", str(gen["flow_shift"])]
         t0 = time.perf_counter()
         self._close_sd_log()
         stdout = open(SD_LOG, "ab", buffering=0)
@@ -345,7 +405,11 @@ class ModelManager:
         if model not in MODELS:
             raise ValueError(f"modello sconosciuto: {model}")
         if image and model == "bonsai":
-            raise ValueError("bonsai non supporta image-to-image (usa zimage, klein o qwenimage)")
+            raise ValueError("bonsai non supporta image-to-image (usa zimage, klein, qwenimage o qwenimageedit)")
+        if model in SD_EDIT_MODELS and not image:
+            raise ValueError(
+                f"{MODELS[model]['name']} fa solo editing: carica un'immagine "
+                "da cui partire e scrivi cosa cambiare")
         # il VAE richiede multipli di 32: snap difensivo (la UI invia preset validi)
         width = max(64, (int(width) // 32) * 32)
         height = max(64, (int(height) // 32) * 32)
@@ -418,9 +482,17 @@ class ModelManager:
                 b64 = parts[1]
             else:
                 b64 = image
-            body["init_images"] = [b64]
-            body["denoising_strength"] = strength
-            url = f"http://127.0.0.1:{SD_PORT}/sdapi/v1/img2img"
+            if gen.get("edit"):
+                # editing istruzionale (Qwen-Image-Edit): l'immagine entra
+                # come reference — la vede il VLM e il prompt dice cosa fare.
+                # Niente init image: il denoise riparte da zero (strength 1),
+                # quindi qui il cursore "forza del cambiamento" non serve.
+                body["extra_images"] = [b64]
+            else:
+                # img2img classico: init image + forza di denoise
+                body["init_images"] = [b64]
+                body["denoising_strength"] = strength
+                url = f"http://127.0.0.1:{SD_PORT}/sdapi/v1/img2img"
         req = urllib.request.Request(
             url, data=json.dumps(body).encode(),
             headers={"Content-Type": "application/json"},

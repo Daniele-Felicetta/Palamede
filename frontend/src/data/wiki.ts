@@ -143,7 +143,40 @@ export const QWENIMAGE: ModelWiki = {
   examples: [],
 }
 
-export const IMAGE_MODELS = [BONSAI, ZIMAGE, KLEIN, QWENIMAGE]
+export const QWENIMAGEEDIT: ModelWiki = {
+  id: 'qwenimageedit',
+  name: 'Qwen-Image-Edit 2509 — Q3_K_M',
+  family: 'Qwen (Alibaba) · DiT 20B + Qwen2.5-VL',
+  how: [
+    'Qwen-Image-Edit 2509 è la versione di settembre di Qwen-Image-Edit: fa solo editing, non text-to-image. Non descrivi un\'immagine, dai un\'istruzione — "metti la neve per strada", "il testo in blu", "portalo in acquerello" — e il modello modifica quella che gli dai.',
+    'Il GGUF Q3_K_M (unsloth Dynamic 2.0) è il solo denoiser. Il prompt e l\'immagine di partenza passano entrambi dal text encoder Qwen2.5-VL-7B, che è anche la vista: l\'istruzione viene letta insieme all\'immagine e produce i condizionamenti sia per il VLM sia per il DiT. Per questo l\'editing di questo modello non è un img2img con una soglia di denoise: non esiste un cursore di "forza", perché la quantità di cambiamento la decide il modello in base all\'istruzione.',
+    'A differenza di Qwen-Image 2.1, che usa il text encoder Qwen3-VL, qui l\'architettura del prompt è quella di Qwen2.5-VL: i due non sono intercambiabili, e la VAE è quella originale di Qwen-Image (quella di Qwen-Image 2.1 ha blocchi più larghi e viene rifiutata in carico).',
+    'Gira in stable-diffusion.cpp come gli altri modelli sd-server, con cfg 2.5, sampler euler e flow-shift 3 come da guida, e il caching dei blocchi DiT attivo di default (40 step sono molti).',
+  ],
+  specs: {
+    'Parametri': 'DiT ~20B quantizzato Q3_K_M + text encoder Qwen2.5-VL-7B',
+    'Peso disco': '≈ 14,7 GB (DiT 9,7 + TE 4,7 + VAE 0,25)',
+    'Text encoder': 'Qwen2.5-VL-7B-Instruct (GGUF Q4_K_M) + mmproj visione',
+    'VAE': 'Qwen-Image originale (AutoencoderKLQwenImage)',
+    'Step': '40 (consigliati)',
+    'CFG': '2.5 · sampler euler · flow-shift 3',
+    'Uso': 'solo image editing: immagine di partenza obbligatoria',
+    'Tempo 512²': '115 s misurati (40 step, cache-dit, text encoder su CPU)',
+    'VRAM misurata': '≈ 9,3 GB in VRAM (DiT 9,3 + VAE 0,24) + ≈ 5,3 GB in RAM per il text encoder',
+    'Endpoint': 'POST /api/image (hub —> :8000/generate, backend sd-server)',
+  },
+  quality: [
+    'Punto di forza: la consistenza dell\'identità. Volti e prodotti restano riconoscibili mentre cambiano pose, sfondo o stile — è la specialità dichiarata del 2509.',
+    'Eccellente anche sul testo: oltre a cambiarne il contenuto, ne cambia font, colore e materiale, cosa che i modelli di editing più piccoli raramente fanno bene.',
+    'Multi-immagine da 1 a 3 input (persone + persone, persona + prodotto, persona + scena) e keypoint/schizzi come guida: capacità che la UI attuale non espone ancora, la pagina copre una sola immagine di partenza.',
+    'Il costo è alto: ~14 GB di pesi, DiT da 9,3 GB in VRAM e un text encoder da 5,3 GB che gira su CPU. Non coesiste con nessun altro modello.',
+  ],
+  examples: [
+    { file: 'qwenimageedit-snow.png', prompt: 'make it snow on the ground', note: '512² · 115 s — la struttura resta, cambia solo la quantità di neve' },
+  ],
+}
+
+export const IMAGE_MODELS = [BONSAI, ZIMAGE, KLEIN, QWENIMAGE, QWENIMAGEEDIT]
 
 // ── Wiki delle sezioni "bozza" ────────────────────────────────────────────
 

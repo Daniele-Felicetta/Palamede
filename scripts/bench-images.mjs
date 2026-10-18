@@ -35,6 +35,8 @@ const SKIP_SPEED = argv.includes('--skip-speed')
 const SKIP_QUALITY = argv.includes('--skip-quality')
 const NO_BACKEND = argv.includes('--no-backend')
 
+// qwenimageedit (Qwen-Image-Edit 2509) NON è qui: è solo editing, quindi
+// misurarlo con i prompt sotto fallirebbe — serve un'immagine di partenza.
 const MODELS = [
   { id: 'bonsai', name: 'Bonsai 4B ternary', steps: 4, note: 'gemlite int2' },
   { id: 'zimage', name: 'Z-Image Turbo Q4_K_M', steps: 8, note: 'sd.cpp' },

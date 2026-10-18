@@ -239,6 +239,25 @@
           "requires": "GPU ≥ 8 GB VRAM · 64 GB RAM (esperti su CPU)"
         },
         {
+          "id": "lfm-24a2b",
+          "name": "LFM2.5 24B-A2B · UD-Q5_K_XL",
+          "label": "alternativa",
+          "role": "MoE nativo Liquid (64 esperti, 4 attivi ~2B) in arch. lfm2moe, ctx 131k. Preview: da misurare al Banco.",
+          "quality": "—",
+          "speed": "—",
+          "vram": "~8-12 GB",
+          "sizeBytes": 17918820608,
+          "files": [
+            {
+              "dest": "models/lfm/lfm-24a2b/LFM2.5-24B-A2B-UD-Q5_K_XL.gguf",
+              "manual": true,
+              "sizeBytes": 17918820608,
+              "note": "pesi già in locale (GGUF UD-Q5_K_XL, arch lfm2moe)"
+            }
+          ],
+          "requires": "GPU ≥ 8 GB VRAM · 64 GB RAM (esperti su CPU)"
+        },
+        {
           "id": "pocket-darwin-180b",
           "name": "POCKET-Darwin 180B · UD-Q4_K_XL",
           "label": "alternativa",
@@ -285,6 +304,50 @@
             }
           ],
           "requires": "GPU ≥ 8 GB VRAM · 64 GB RAM (esperti su NVMe) · 111 GB liberi su disco · 2,8 GB per l'head MTP"
+        },
+        {
+          "id": "nemotron-bolt-74b",
+          "name": "Nemotron 3.5 Bolt 74B-A9B · UD-Q3_K_XL",
+          "label": "consigliato",
+          "role": "Ibrido SSM+attenzione di NVIDIA (arch. nemotron_h_moe): 88 layer = 8 a attenzione piena, 40 SSM e 40 MoE a proiezione latente con 9B attivi. Il numero di esperti CAMBIA per layer (240/304/368/432/496), quindi richiede llama.cpp >= b11707: la build precedente accetta un solo expert_count e il load muore sul layer 8. Ragiona (<think>) e risponde in italiano. Più veloce solo con il `-ot` dell'hub (soli tensori per-esperto in CPU: gli shared expert restano in VRAM) — con --n-cpu-moe si scende a 3,6 t/s. Banco: 30/30 sugli item base e 9/12 sui 12 item hard; agentico 69,6% (16/23) con il miglior punteggio base (92%), ma due task hard in meno della variante Q2. L'head dflash è ON di default nel config veloce (decode 17,4 → 23,7 t/s a prompt corto, 21,5 → 27,0 t/s a 6k di prompt).",
+          "quality": "92.9% (30/30 base, 9/12 hard)",
+          "speed": "20.7 t/s tg128 · 23.7 t/s in chat col draft",
+          "vram": "~9.1 GB",
+          "sizeBytes": 40025343576,
+          "files": [
+            {
+              "dest": "models/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q3_K_XL.gguf",
+              "manual": true,
+              "sizeBytes": 39027158016,
+              "note": "pesi già in locale (GGUF UD-Q3_K_XL di unsloth/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-GGUF; hash 51077d51... come nel .metadata di download)"
+            },
+            {
+              "dest": "models/dflash-NVIDIA-Nemotron-3.5-Bolt-74B-A9B-NVFP4.gguf",
+              "manual": true,
+              "sizeBytes": 998242560,
+              "note": "head dflash 1.1B (NVFP4) per --spec-type draft-dflash: non è nei tensori nextn.* del GGUF, va in -md e in VRAM (-ngld all)"
+            }
+          ],
+          "requires": "GPU ≥ 8 GB VRAM · 64 GB RAM (esperti su CPU) · llama.cpp ≥ b11707"
+        },
+        {
+          "id": "nemotron-bolt-74b-q2",
+          "name": "Nemotron 3.5 Bolt 74B-A9B · UD-Q2_K_XL",
+          "label": "alternativa",
+          "role": "Stessa architettura del Q3 in Q2_K_XL: 26,8 GB invece di 36,3 (esperti in IQ3_XXS), quindi 9,5 GB in meno di RAM e di disco. Al Banco non perde nulla (30/30 base, stessi 9/12 hard) e all'agentico fa meglio: 78,3% (18/23) contro 69,6% del Q3 — ma il vantaggio sono 2 soli task, dentro il rumore di 11 item hard. Il Q2 è anche il più veloce dei due (24,9 contro 20,7 t/s in llama-bench). Se hai 40 GB di RAM liberi, il Q3 resta la scelta conservativa: la quantizzazione Q3 mette meno tappe nel routing, e un solo item (disaccordo) separa i due.",
+          "quality": "92.9% (30/30 base, 9/12 hard)",
+          "speed": "24.9 t/s tg128",
+          "vram": "~8.6 GB",
+          "sizeBytes": 29746972008,
+          "files": [
+            {
+              "dest": "models/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q2_K_XL.gguf",
+              "manual": true,
+              "sizeBytes": 28753128448,
+              "note": "pesi già in locale (GGUF UD-Q2_K_XL; hash 5bbe3ec6... come nel .metadata di download). Riutilizza lo stesso head dflash del Q3"
+            }
+          ],
+          "requires": "GPU ≥ 8 GB VRAM · 48 GB RAM (esperti su CPU) · llama.cpp ≥ b11707"
         }
       ]
     },
@@ -404,6 +467,46 @@
             }
           ],
           "requires": "GPU ≥ 14 GB VRAM"
+        },
+        {
+          "id": "qwenimageedit",
+          "name": "Qwen-Image-Edit 2509 Q3_K_M",
+          "label": "solo editing",
+          "role": "Non genera da zero: prende un'immagine e un'istruzione (\"metti la neve\") e la modifica. Punto forte: identità coerente di volti e prodotti, e testo che cambia font/colore.",
+          "speed": "lento (TE 7B su CPU)",
+          "vram": "~11 GB",
+          "sizeBytes": 14730000000,
+          "files": [
+            {
+              "dest": "models/qwen-image-edit/qwen-image-edit-2509-Q3_K_M.gguf",
+              "url": "https://huggingface.co/unsloth/Qwen-Image-Edit-2509-GGUF/resolve/main/qwen-image-edit-2509-Q3_K_M.gguf",
+              "sizeBytes": 9744742944,
+              "audit": true,
+              "note": "DiT"
+            },
+            {
+              "dest": "models/qwen-image-edit/vae/diffusion_pytorch_model.safetensors",
+              "url": "https://huggingface.co/unsloth/Qwen-Image-Edit-2509-GGUF/resolve/main/vae/diffusion_pytorch_model.safetensors",
+              "sizeBytes": 253806966,
+              "audit": true,
+              "note": "VAE (Qwen-Image originale: quella 2.1 non va bene)"
+            },
+            {
+              "dest": "models/qwen-image-edit/Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf",
+              "url": "https://huggingface.co/unsloth/Qwen2.5-VL-7B-Instruct-GGUF/resolve/main/Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf",
+              "sizeBytes": 4683072384,
+              "audit": true,
+              "note": "text encoder (Qwen2.5-VL, NON il Qwen3-VL di Qwen-Image 2.1)"
+            },
+            {
+              "dest": "models/qwen-image-edit/mmproj-BF16.gguf",
+              "url": "https://huggingface.co/unsloth/Qwen2.5-VL-7B-Instruct-GGUF/resolve/main/mmproj-BF16.gguf",
+              "sizeBytes": 1354163040,
+              "audit": true,
+              "note": "torre visiva: senza questa l'istruzione non vede l'immagine (F16 accettata come alternativa)"
+            }
+          ],
+          "requires": "GPU ≥ 12 GB VRAM · ~14 GB su disco"
         }
       ]
     }

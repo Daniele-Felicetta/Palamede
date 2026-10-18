@@ -6,11 +6,12 @@ giusto quando lo selezioni (mai due modelli in VRAM insieme), e una **wiki** con
 funzionamento, ingombri, tempi misurati, qualità ed
 esempi generati dai modelli stessi (oggi completa per **Immagini**; le altre sezioni hanno note inline).
 
-**Stato**: **Immagini**, **Chat** e **RAG** sono operative: quattro
+**Stato**: **Immagini**, **Chat** e **RAG** sono operative: cinque
 modelli immagine (**Bonsai 4B ternary**, **Z-Image Turbo Q4_K_M**, **Klein 4B
-FLUX.2** e **Qwen-Image 2.1 Q4_K_M**), chat
-locale con **tredici modelli testuali** (Ornith 1.5 35B-A3B e 9B Q4/Q5, K2
-Horizon 7B e 36B-A4B, Bonsai 27B, Qwen3.8 27B, MiniCPM-V 4.7 35B-A3B, LFM2.5 VL 3B, Gemma 4 26B/12B e MiniCPM5 2B)
+FLUX.2**, **Qwen-Image 2.1 Q4_K_M** e **Qwen-Image-Edit 2509 Q3_K_M**, che fa
+solo editing), chat
+locale con **sedici modelli testuali** (Ornith 1.5 35B-A3B e 9B Q4/Q5, K2
+Horizon 7B e 36B-A4B, Bonsai 27B, Qwen3.8 27B, MiniCPM-V 4.7 35B-A3B, Nemotron 3.5 Bolt 74B-A9B in Q3 e Q2, LFM2.5 24B-A2B e VL 3B, Gemma 4 26B/12B e MiniCPM5 2B)
 via llama.cpp, un **Banco di prova** che
 ne misura qualità, velocità, comportamento agentico end-to-end e ragionamento astratto (ARC-AGI), e una **knowledge base RAG in stile
 NotebookLM** in `knowledge/` — fonti spezzate in chunk ed embedded localmente,
@@ -166,7 +167,7 @@ Invoke-RestMethod -Uri 'http://127.0.0.1:4600/api/image' -Method Post `
 |---|---|
 | `GET /api/health` | stato del modello server + modello caricato |
 | `GET /api/models` | elenco modelli e quale è caricato |
-| `POST /api/select` | carica/scarica `{model: "bonsai"\|"zimage"\|"klein"\|"qwenimage"}` |
+| `POST /api/select` | carica/scarica `{model: "bonsai"\|"zimage"\|"klein"\|"qwenimage"\|"qwenimageedit"}` |
 | `POST /api/image` | `{model, prompt, steps, seed, width, height, count}` → `{images:[{dataUrl,timeMs,seed}]}` |
 | `GET /api/metrics` | CPU/RAM/GPU (usata dalla sidebar) |
 | `GET /api/doc` | documenti del progetto (README, SPEC, MAPPA, SECURITY) in markdown |

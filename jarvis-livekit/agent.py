@@ -28,7 +28,9 @@ def _post(path, payload, timeout=120):
 
 
 def tool_image(prompt, model="bonsai"):
-    """Genera un'immagine via Palamede. model: bonsai|zimage|klein|qwenimage."""
+    """Genera un'immagine via Palamede. model: bonsai|zimage|klein|qwenimage.
+    qwenimageedit fa solo editing: richiede 'image' (dataUrl) + un prompt
+    che sia un'istruzione."""
     return _post("/api/image", {"model": model, "prompt": prompt,
                                 "steps": 4, "seed": -1, "width": 512, "height": 512, "count": 1},
                  timeout=900)

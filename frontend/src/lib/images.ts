@@ -10,7 +10,7 @@
 //   let m: Images.ModelId = 'zimage'
 
 export namespace Images {
-  export type ModelId = 'bonsai' | 'zimage' | 'klein' | 'qwenimage'
+  export type ModelId = 'bonsai' | 'zimage' | 'klein' | 'qwenimage' | 'qwenimageedit'
 
   /** Preset di formato disponibili (valore · etichetta). */
   export const SIZES = [
@@ -27,7 +27,9 @@ export namespace Images {
   ] as const
 
   /** Step consigliati per modello. */
-  export const DEFAULT_STEPS: Record<ModelId, number> = { bonsai: 4, zimage: 8, klein: 4, qwenimage: 40 }
+  export const DEFAULT_STEPS: Record<ModelId, number> = {
+    bonsai: 4, zimage: 8, klein: 4, qwenimage: 40, qwenimageedit: 40,
+  }
 
   /** Nome breve del modello. */
   export const MODEL_NAMES: Record<ModelId, string> = {
@@ -35,6 +37,7 @@ export namespace Images {
     zimage: 'Z-Image',
     klein: 'Klein',
     qwenimage: 'Qwen-Image',
+    qwenimageedit: 'Qwen-Image-Edit',
   }
 
   /** Nome breve del modello (fallback: l'id stesso). */
@@ -45,6 +48,13 @@ export namespace Images {
   /** true se il modello accetta image-to-image (init image + strength). */
   export function supportsImg2img(id: ModelId): boolean {
     return id !== 'bonsai'
+  }
+
+  /** true se il modello fa SOLO editing: senza un'immagine di partenza
+   *  non può generare nulla, e il prompt è un'istruzione ("metti la neve")
+   *  invece di una descrizione: il cursore "forza" non si applica. */
+  export function isEditOnly(id: ModelId): boolean {
+    return id === 'qwenimageedit'
   }
 
   /** '512x512' → [512, 512]; snap a multipli di 32 (vincolo VAE),
@@ -143,6 +153,7 @@ export namespace Images {
     zimage: 'Z-Image Q4',
     klein: 'Klein 4B Q4',
     qwenimage: 'Qwen-Image 2.1',
+    qwenimageedit: 'Qwen-Image-Edit 2509',
   }
 
   /** Etichetta descrittiva del modello (fallback: l'id stesso). */
@@ -156,6 +167,7 @@ export namespace Images {
     zimage: 'Q4_K_M',
     klein: 'Q4',
     qwenimage: 'Q4_K_M',
+    qwenimageedit: 'Q3_K_M',
   }
 
   /** Stamp "N step · quant" per le piastrelle modello. */
@@ -169,6 +181,7 @@ export namespace Images {
     zimage: 'testo nell\'immagine, fotorealismo spinto',
     klein: 'img2img nativo · 2,5 GB · ~1.8 s',
     qwenimage: '7B · testo e img2img · 40 step',
+    qwenimageedit: 'solo editing · il prompt è un\'istruzione',
   }
 
   /** Tagline del modello (fallback: stringa vuota). */

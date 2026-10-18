@@ -10,9 +10,9 @@ qualità ed esempi generati dai modelli stessi.
 
 Stato attuale: **Immagini, Chat, RAG, Banco e 3D sono funzionanti** — quattro
 modelli immagine (Bonsai 4B ternary, Z-Image Turbo Q4_K_M, Klein 4B FLUX.2 e
-Qwen-Image 2.1 Q4_K_M), chat locale con tredici modelli testuali (Ornith
+Qwen-Image 2.1 Q4_K_M), chat locale con sedici modelli testuali (Ornith
 1.5 35B-A3B, 9B Q4/Q5, K2 Horizon 7B/36B-A4B, Bonsai 27B, Qwen3.8 27B,
-MiniCPM-V 4.7 35B-A3B, LFM2.5 VL 3B, Gemma 4 26B/12B,
+MiniCPM-V 4.7 35B-A3B, Nemotron 3.5 Bolt 74B-A9B Q3/Q2, LFM2.5 24B-A2B e VL 3B, Gemma 4 26B/12B,
 MiniCPM5 2B) via llama.cpp, il **Banco di prova** che ne misura qualità,
 velocità, comportamento agentico end-to-end (ReAct con strumenti locali) e ragionamento astratto (ARC-AGI-1), e una **knowledge base RAG in stile
 NotebookLM** in `knowledge/`: le fonti vengono spezzate in chunk ed embedded
@@ -77,12 +77,12 @@ Browser ── http://127.0.0.1:4600 ── hub/server.mjs (Node, zero deps)
                                      │
                                      ├─ UNICO backend: backends/modelserver.py :8000
                                      │    ├─ bonsai → GpuPipeline gemlite in-process
-                                     │    └─ zimage/klein/qwenimage → sd-server (:8123)
+                                     │    └─ zimage/klein/qwenimage/qwenimageedit → sd-server (:8123)
                                      │
                                      ├─ 3D: backends/trellis_server.py :8124 (TRELLIS.2)
                                      │
                                      ├─ chat: tools/llama-cpp/llama-server.exe :8121
-                                     │    (13 modelli locali, start su richiesta)
+                                     │    (16 modelli locali, start su richiesta)
                                      │
                                      ├─ rerank: tools/llama-cpp/llama-server.exe :8125
                                      │    (MiniCPM5 2B, start lazy + idle timeout 60s)
@@ -104,9 +104,13 @@ tutti i modelli immagine e ne tiene **uno solo caricato**:
 
 - `POST /select {"model":"bonsai"}` → scarica il corrente, carica la
   `GpuPipeline` gemlite (in-process, ~6 GB VRAM) e prewarma i 5 artifact.
-- `POST /select {"model":"zimage"|"klein"|"qwenimage"}` → scarica bonsai,
+- `POST /select {"model":"zimage"|"klein"|"qwenimage"|"qwenimageedit"}` → scarica bonsai,
   **spawna sd-server** come subprocess (log in `outputs/sd-server.log`),
   aspetta la readiness.
+- `qwenimageedit` (Qwen-Image-Edit 2509) fa **solo editing**: `/generate` senza
+  `image` risponde 400. L'immagine entra come *reference* (`extra_images`), non
+  come init image, e `strength` non viene usata: il prompt è un'istruzione.
+  Va con text encoder Qwen2.5-VL (+ mmproj di visione) e VAE originale Qwen-Image.
 - Cambiare modello sd-server (o deselezionare) **termina** sd-server →
   VRAM liberata.
 - `POST /generate` auto-carica se il modello richiesto non è quello attivo.
@@ -149,12 +153,15 @@ senza toccare `reference/`.
 | Bonsai 27B | `bonsai-27b/Bonsai-27B-Q1_0.gguf` | 3.5 GB | dense, chat (thinking opzionale) |
 | Qwen3.8 27B | `qwen38-27b/Qwen3.8-27B-GSQ-RCO-IQ3_XXS.gguf` | 10.1 GB | dense ibrido (arch. `qwen35`), chat con reasoning, profili 32k/q4 · 60k/q8 · 131k/q4 (~32 t/s) |
 | MiniCPM-V 4.7 35B-A3B | `minicpm-v47-35b/MiniCPM-V-4_7-35B-A3B-Q4_K_M.gguf` + `dspark-MiniCPM-V-4_7-35B-A3B-F16.gguf` | 20.4 GB | MoE 256 esperti/8 attivi (arch. `qwen35moe`), chat text-only, Banco: 93,3% qualità e 56 t/s (ncmoe 30, ~9,5 GB VRAM), spec-decode dspark OFF di default |
+| LFM2.5 24B-A2B Preview | `lfm/lfm-24a2b/LFM2.5-24B-A2B-UD-Q5_K_XL.gguf` | 16.7 GB | MoE nativo `lfm2moe` (64 esperti/4 attivi), chat text-only, Banco: da misurare |
 | K2 Horizon 7B | `k2-7b/K2-Horizon-7B-Q4_K_M.gguf` | 5.2 GB | dense, chat (reasoning) |
 | K2 Horizon 36B-A4B MoVA | `k2-36b/K2-Horizon-MoVA-36B-A4B-Q4_K_M.gguf` | 20.8 GB | MoE 4B attivi + MoVA, chat |
 | LFM2.5 VL 3B | `lfm/lfm-vl-3b/LFM2.5-VL-3B-Q5_K_XL.gguf` | 1.8 GB | vision-language, chat |
 | Gemma 4 26B-A3.8B | `gemma-4-26b/gemma-4-26B-A4B-it-UD-IQ3_S.gguf` | 10.5 GB | MoE 3.8B attivi, chat |
 | MiniCPM5 2B | `minicpm5-2b/MiniCPM5-2B-Q4_K_M.gguf` | 1.5 GB | dense, chat (+ reranker RAG) |
 | POCKET-Darwin 180B | `Pocket-Darwin-180B/POCKET-Darwin-180B-UD-Q4_K_XL-0000{1..4}-of-00004.gguf` + `mtp-Qwen3.8-Flash-Next-Q4_K_M.gguf` | 106,5 GB | MoE 512 esperti (3B attivi, arch. `qwen4exp`), solo testo, chat (reasoning), `--no-op-offload` (prefill 22s → 5s), spec-decode MTP via `-md` (20 → 26,5 t/s) |
+| NVIDIA Nemotron 3.5 Bolt 74B-A9B | `NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q3_K_XL.gguf` + `dflash-NVIDIA-Nemotron-3.5-Bolt-74B-A9B-NVFP4.gguf` | 36,3 GB | ibrido SSM+attenzione (arch. `nemotron_h_moe`): 88 layer = 8 attenzione + 40 SSM + 40 MoE a proiezione latente, **esperti diversi per layer** (240/304/368/432/496), solo testo, chat (reasoning `<think>`). Serve llama.cpp **>= b11707**: b11457 ha un solo `expert_count` e muore in load. Gli esperti si spostano in CPU con `-ot` sui soli tensori per-esperto, **non** con `--n-cpu-moe` (che trascina in CPU anche i 1,8B di shared expert densi): 3,6 → **17,6 t/s**, VRAM 15,6 → **9,1 GB**, 131k di contesto incluso. Head dflash (`draft-dflash`, `-md`, ON di default nel config veloce): accettanza 72-89%, decode 17,4 → 23,7 t/s a prompt corto e 21,5 → 27,0 t/s a 6k di prompt, prefill −4/−8% |
+| NVIDIA Nemotron 3.5 Bolt 74B-A9B (Q2) | `NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q2_K_XL.gguf` | 26,8 GB | stesso modello in Q2_K_XL (esperti in IQ3_XXS) per chi non ha 40 GB di RAM liberi: 16,9-19,5 t/s, ~8,6 GB di VRAM con la stessa `-ot`. Non è più veloce del Q3 e la qualità cala |
 
 > **In bozza (`models/_inutilizzati/`)**: Wan 2.1 T2V 1.3B (+ VAE, UMT5-XXL) e Klein 9B BF16 sono sospesi. Wan ha un backend proprio (`backends/wan_server.py`, `:8126`) ma **non e' cablato al hub**: nessun endpoint lo espone.
 
@@ -259,8 +266,9 @@ Dettaglio e principi in `experimental/neural-observatory/README.md`.
 
 ### Chat locale (llama.cpp)
 
-`tools/llama-cpp/llama-server.exe` (release **b11457**, CUDA 13.4) serve Ornith
-con parametri scelti dalla UI:
+`tools/llama-cpp-b11707/llama-server.exe` (release **b11707**, CUDA 13.4;
+`llama-cpp-b11457` resta come fallback, la scelta è in `hub/lib/root.mjs`)
+serve Ornith con parametri scelti dalla UI:
 
 - **contesto** (`-c`) 1024–65536, default 8192;
 - **KV cache quantizzata** (`--cache-type-k/v`): `q8_0` consigliato, `q4_0`
@@ -275,10 +283,17 @@ con parametri scelti dalla UI:
   **20 → 26,5 t/s (+33%)**, accettanza 67,8%. Per questo `chat.mjs` forza
   `-ngld all` sul draft e i profili veloci di Darwin hanno `cpuMoe: -1`.
   Se il file manca l'hub logga e prosegue senza MTP invece di morire in load;
-- llama.cpp b11457 è un requisito, non una scelta: sotto b11048 il draft non
-  carica (`tensor 'output_hc_norm.weight' not found`).
+- llama.cpp b11707 è un requisito, non una scelta: sotto b11048 il draft non
+  carica (`tensor 'output_hc_norm.weight' not found`), e **b11707 è la prima
+  build che legge i MoE a esperti per-layer** (Nemotron 3.5 Bolt ne ha cinque
+  diversi: 240/304/368/432/496). Su b11457 quel modello muore in load.
 - **layer MoE su CPU** (`--n-cpu-moe N`, solo per il 35B): sposta gli esperti
-  dei primi N layer in RAM (64 GB) per liberare VRAM;
+  dei primi N layer in RAM (64 GB) per liberare VRAM. **Nemotron è
+  l'eccezione**: usa `-ot` sui soli tensori per-esperto
+  (`ffn_up_exps`, `ffn_down_exps`, `ffn_gate_inp`, `exp_probs_b`), perché
+  `--n-cpu-moe` porta in CPU anche gli shared expert — 1,8B di parametri
+  *densi* calcolati a ogni token — e senza sovrapposizione con la GPU il
+  decode crolla (3,6 → 17,6 t/s misurati);
 - **layer GPU** (`-ngl`), default 99 (full offload);
 - `--flash-attn on`, `--no-warmup`.
 
@@ -387,7 +402,7 @@ il modello corrente e libera la VRAM prima di caricare il nuovo).
 
 ```json
 // request
-{ "model": "bonsai" | "zimage" | "klein" | "qwenimage",
+{ "model": "bonsai" | "zimage" | "klein" | "qwenimage" | "qwenimageedit",
   "prompt": "…", "steps": 4, "seed": 42,
   "width": 512, "height": 512, "count": 1 }
 // response
@@ -397,6 +412,8 @@ il modello corrente e libera la VRAM prima di caricare il nuovo).
 
 - `seed: -1` → seed casuale vero (SystemRandom) generato dal modello
   server, restituito in risposta.
+- `qwenimageedit`: `image` è **obbligatoria** (senza → 400) e viene mandata
+  come reference; `strength` è ignorata.
 - `count>1` → generazione seriale (seed incrementali), la coda è comunque
   one-shot per richiesta.
 - Auto-carica il modello se non è quello attivo (defensivo; la UI chiama

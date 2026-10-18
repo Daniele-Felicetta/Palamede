@@ -26,9 +26,12 @@ export namespace Images {
     ['832x1248', 'ritratto 2:3 HD'],
   ] as const
 
-  /** Step consigliati per modello. */
+  /** Step consigliati per modello.
+   *  qwenimageedit: 20, non i 40 della scheda diffusers — su questa macchina
+   *  gli step sono marginali (~2 s) rispetto a un costo fisso di ~50 s di
+   *  encoding su CPU, quindi 40→20 toglie il 38% del tempo e non si vede. */
   export const DEFAULT_STEPS: Record<ModelId, number> = {
-    bonsai: 4, zimage: 8, klein: 4, qwenimage: 40, qwenimageedit: 40,
+    bonsai: 4, zimage: 8, klein: 4, qwenimage: 40, qwenimageedit: 20,
   }
 
   /** Nome breve del modello. */

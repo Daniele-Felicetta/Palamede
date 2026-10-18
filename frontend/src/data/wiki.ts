@@ -158,10 +158,11 @@ export const QWENIMAGEEDIT: ModelWiki = {
     'Peso disco': '≈ 14,7 GB (DiT 9,7 + TE 4,7 + VAE 0,25)',
     'Text encoder': 'Qwen2.5-VL-7B-Instruct (GGUF Q4_K_M) + mmproj visione',
     'VAE': 'Qwen-Image originale (AutoencoderKLQwenImage)',
-    'Step': '40 (consigliati)',
+    'Step': '20 (misurati: sotto i 20 non si guadagna tempo, sopra non si vede)',
     'CFG': '2.5 · sampler euler · flow-shift 3',
     'Uso': 'solo image editing: immagine di partenza obbligatoria',
-    'Tempo 512²': '115 s misurati (40 step, cache-dit, text encoder su CPU)',
+    'Tempo 512²': '71 s a 20 step · 115 s a 40 step · 61 s a 8 step — metà del tempo è un costo fisso di ~50 s (encoding dell\'istruzione col text encoder su CPU), gli step aggiungono ~2 s a testa',
+    'Confronto online': 'su RTX 5060 Ti 16GB, in ComfyUI, altri misurano ~224 s a 20 step col GGUF Q4_K_M e ~30 s a 4 step con il Lightning LoRA',
     'VRAM misurata': '≈ 9,3 GB in VRAM (DiT 9,3 + VAE 0,24) + ≈ 5,3 GB in RAM per il text encoder',
     'Endpoint': 'POST /api/image (hub —> :8000/generate, backend sd-server)',
   },
@@ -172,7 +173,8 @@ export const QWENIMAGEEDIT: ModelWiki = {
     'Il costo è alto: ~14 GB di pesi, DiT da 9,3 GB in VRAM e un text encoder da 5,3 GB che gira su CPU. Non coesiste con nessun altro modello.',
   ],
   examples: [
-    { file: 'qwenimageedit-snow.png', prompt: 'make it snow on the ground', note: '512² · 115 s — la struttura resta, cambia solo la quantità di neve' },
+    { file: 'qwenimageedit-snow.png', prompt: 'make it snow on the ground', note: '512² · 71 s a 20 step — la struttura resta, cambia solo la quantità di neve' },
+    { file: 'qwenimageedit-snow-8step.png', prompt: 'make it snow on the ground', note: '512² · 61 s a 8 step — la stessa scena, aghi più fusi: non vale i 20' },
   ],
 }
 

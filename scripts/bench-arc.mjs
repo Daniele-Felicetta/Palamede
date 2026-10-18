@@ -15,22 +15,25 @@ import { fileURLToPath } from 'node:url'
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 const LLAMA_BUILD = (process.env.PALAMEDE_LLAMA_DIR
   ? process.env.PALAMEDE_LLAMA_DIR
-  : ['llama-cpp-b11457', 'llama-cpp'].map((d) => join(ROOT, 'tools', d)))
+  : ['llama-cpp-b11707', 'llama-cpp-b11457', 'llama-cpp'].map((d) => join(ROOT, 'tools', d)))
   .find((d) => existsSync(join(d, 'llama-server.exe')))
   ?? join(ROOT, 'tools', 'llama-cpp')
 const LLAMA_SERVER = join(LLAMA_BUILD, 'llama-server.exe')
 // porta dedicata (non :8121 chat, :8122 giudice, :8125 rerank, :8126 wan, :8127 testuale, :8128 agentico)
 const PORT = Number(process.env.BENCH_ARC_PORT || 8129)
-const OUT = join(ROOT, 'outputs', 'benchmark-arc')
-const LOGS = join(OUT, 'logs')
 const BANK = JSON.parse(readFileSync(join(ROOT, 'scripts', 'bench-arc.tasks.json'), 'utf8'))
-const ATTEMPTS = 2
 
 const argv = process.argv.slice(2)
 const argVal = (name) => { const i = argv.indexOf(name); return i >= 0 ? argv[i + 1] : null }
 const ONLY = (argVal('--only') || '').split(',').map((s) => s.trim()).filter(Boolean)
 const ONLY_TASKS = (argVal('--tasks') || '').split(',').map((s) => s.trim()).filter(Boolean)
 const THINKING = argv.includes('--thinking')
+// --out-dir: destinazione alternativa (relativa alla root). Serve a tenere
+// separate le misure thinking-on dagli ufficiali thinking-off.
+const OUT_REL = argVal('--out-dir') || 'outputs/benchmark-arc'
+const OUT = join(ROOT, ...OUT_REL.split('/'))
+const LOGS = join(OUT, 'logs')
+const ATTEMPTS = 2
 
 // Stessi file/flag di scripts/bench-text.mjs (fonte per ncmoe/fallback).
 const MODELS = [
@@ -47,6 +50,12 @@ const MODELS = [
   { id: 'minicpm-v47-35b', name: 'MiniCPM-V 4.7 35B-A3B · Q4_K_M', file: 'models/minicpm-v47-35b/MiniCPM-V-4_7-35B-A3B-Q4_K_M.gguf', ngl: 99, ncmoe: 30, moe: true, fallback: { ncmoe: -1 } },
   { id: 'qwen38-27b', name: 'Qwen3.8 27B · IQ3_XXS', file: 'models/qwen38-27b/Qwen3.8-27B-GSQ-RCO-IQ3_XXS.gguf', ngl: 99 },
   { id: 'gemma-4-12b', name: 'Gemma 4 12B IT · QAT Q4', file: 'models/Jarvis/gemma-4-12B-it-qat-UD-Q4_K_XL.gguf', ngl: 99 },
+  { id: 'lfm-24a2b', name: 'LFM2.5 24B-A2B · UD-Q5_K_XL', file: 'models/lfm/lfm-24a2b/LFM2.5-24B-A2B-UD-Q5_K_XL.gguf', ngl: 99, ncmoe: 30, moe: true, fallback: { ncmoe: -1 } },
+  // Nemotron 3.5 Bolt: esperti diversi per layer (240..496) -> serve llama.cpp
+  // >= b11707; e gli esperti si spostano con -ot sui soli tensori per-esperto
+  // (con --n-cpu-moe il decode scende a 3,6 t/s invece di 17).
+  { id: 'nemotron-bolt-74b', name: 'Nemotron 3.5 Bolt 74B-A9B · UD-Q3_K_XL', file: 'models/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q3_K_XL.gguf', ngl: 99, ncmoe: 40, moe: true, ot: 'blk\\.[0-9]+\\.ffn_(up_exps|down_exps|gate_inp|exp_probs_b)=CPU', fallback: { ncmoe: -1 } },
+  { id: 'nemotron-bolt-74b-q2', name: 'Nemotron 3.5 Bolt 74B-A9B · UD-Q2_K_XL', file: 'models/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q2_K_XL.gguf', ngl: 99, ncmoe: 40, moe: true, ot: 'blk\\.[0-9]+\\.ffn_(up_exps|down_exps|gate_inp|exp_probs_b)=CPU', fallback: { ncmoe: -1 } },
 ]
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -55,7 +64,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 function offloadArgs(cfg) {
   const a = []
-  if (cfg.cpuMoe) a.push('--cpu-moe')
+  // `ot`: solo tensori per-esperto in CPU (Nemotron shared expert in VRAM)
+  if (cfg.ot) a.push('-ot', cfg.ot)
+  else if (cfg.cpuMoe) a.push('--cpu-moe')
   else if (cfg.ncmoe === -1) a.push('--cpu-moe')
   else if (cfg.ncmoe > 0) a.push('--n-cpu-moe', String(cfg.ncmoe))
   if (cfg.mova && cfg.movaCpu) a.push('-ot', 'attn_v_exps=CPU')
@@ -300,7 +311,7 @@ async function main() {
   mkdirSync(LOGS, { recursive: true })
   const taskList = BANK.tasks.filter((t) => !ONLY_TASKS.length || ONLY_TASKS.includes(t.id))
   const list = MODELS.filter((m) => !ONLY.length || ONLY.includes(m.id))
-  console.log(`Benchmark ARC-AGI: ${list.length} modelli × ${taskList.length} task (${ATTEMPTS} tentativi, thinking ${THINKING ? 'on' : 'off'})`)
+  console.log(`Benchmark ARC-AGI: ${list.length} modelli × ${taskList.length} task (${ATTEMPTS} tentativi, thinking ${THINKING ? 'on' : 'off'}) → ${OUT_REL}`)
   const results = []
   for (const cfg of list) {
     if (!existsSync(join(ROOT, cfg.file))) { console.log(`SKIP ${cfg.id}: manca ${cfg.file}`); continue }

@@ -14,7 +14,7 @@ const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 // su b11457 e il bench su b10679 i numeri non sono confrontabili.
 const LLAMA_BUILD = (process.env.PALAMEDE_LLAMA_DIR
   ? process.env.PALAMEDE_LLAMA_DIR
-  : ['llama-cpp-b11457', 'llama-cpp'].map((d) => join(ROOT, 'tools', d)))
+  : ['llama-cpp-b11707', 'llama-cpp-b11457', 'llama-cpp'].map((d) => join(ROOT, 'tools', d)))
   .find((d) => existsSync(join(d, 'llama-server.exe')))
   ?? join(ROOT, 'tools', 'llama-cpp')
 const LLAMA_SERVER = join(LLAMA_BUILD, 'llama-server.exe')
@@ -22,8 +22,6 @@ const LLAMA_BENCH = join(LLAMA_BUILD, 'llama-bench.exe')
 // porta dedicata (non :8121 della chat, non :8122 del giudice immagini):
 // così il banco si può lanciare anche con l'app accesa.
 const PORT = Number(process.env.BENCH_PORT || 8127)
-const OUT = join(ROOT, 'outputs', 'benchmark')
-const LOGS = join(OUT, 'logs')
 const EVALSET = JSON.parse(readFileSync(join(ROOT, 'scripts', 'bench-text.evalset.json'), 'utf8'))
 
 const argv = process.argv.slice(2)
@@ -31,6 +29,15 @@ const argVal = (name) => { const i = argv.indexOf(name); return i >= 0 ? argv[i 
 const ONLY = (argVal('--only') || '').split(',').map((s) => s.trim()).filter(Boolean)
 const SKIP_BENCH = argv.includes('--skip-bench')
 const SKIP_QUALITY = argv.includes('--skip-quality')
+const THINKING = argv.includes('--thinking')
+// --level base|hard|all: i 30 item "facili" e i 12 "hard" (catene di passi,
+// distrattori, formato severo) si misurano insieme o separati.
+const LEVEL = (argVal('--level') || 'all').toLowerCase()
+// --out-dir: destinazione alternativa (relativa alla root), per tenere separate
+// le misure thinking-on dagli ufficiali thinking-off.
+const OUT_REL = argVal('--out-dir') || 'outputs/benchmark'
+const OUT = join(ROOT, ...OUT_REL.split('/'))
+const LOGS = join(OUT, 'logs')
 
 // Config per modello. `ncmoe` = primi N layer di esperti MoE in RAM (VRAM<16GB).
 // `fallback` = config usata se la primaria non carica (es. OOM).
@@ -53,13 +60,25 @@ const MODELS = [
   { id: 'minicpm-v47-35b', name: 'MiniCPM-V 4.7 35B-A3B · Q4_K_M', file: 'models/minicpm-v47-35b/MiniCPM-V-4_7-35B-A3B-Q4_K_M.gguf', ngl: 99, ncmoe: 30, moe: true, fallback: { ncmoe: -1 } },
   { id: 'qwen38-27b', name: 'Qwen3.8 27B · IQ3_XXS', file: 'models/qwen38-27b/Qwen3.8-27B-GSQ-RCO-IQ3_XXS.gguf', ngl: 99 },
   { id: 'gemma-4-12b', name: 'Gemma 4 12B IT · QAT Q4', file: 'models/Jarvis/gemma-4-12B-it-qat-UD-Q4_K_XL.gguf', ngl: 99 },
+  // LFM2.5 24B-A2B Preview: MoE nativo lfm2moe (64 esperti, 16.7 GB). ncmoe 30
+  // come gli altri MoE da ~20 GB; text-only, reasoning off.
+  { id: 'lfm-24a2b', name: 'LFM2.5 24B-A2B · UD-Q5_K_XL', file: 'models/lfm/lfm-24a2b/LFM2.5-24B-A2B-UD-Q5_K_XL.gguf', ngl: 99, ncmoe: 30, moe: true, fallback: { ncmoe: -1 } },
+  // Nemotron 3.5 Bolt 74B-A9B (arch nemotron_h_moe, 36.3 GB): ibrido
+  // SSM+attenzione, MoE a proiezione latente con esperti DIVERSI per layer
+  // (240/304/368/432/496) -> serve llama.cpp >= b11707. Solo testo, reasoning.
+  { id: 'nemotron-bolt-74b', name: 'Nemotron 3.5 Bolt 74B-A9B · UD-Q3_K_XL', file: 'models/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q3_K_XL.gguf', ngl: 99, ncmoe: 40, moe: true, ot: 'blk\\.[0-9]+\\.ffn_(up_exps|down_exps|gate_inp|exp_probs_b)=CPU', fallback: { ncmoe: -1 } },
+  // Stessa arch in Q2_K_XL (26,8 GB): serve dove il Q3 non entra in RAM.
+  { id: 'nemotron-bolt-74b-q2', name: 'Nemotron 3.5 Bolt 74B-A9B · UD-Q2_K_XL', file: 'models/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q2_K_XL.gguf', ngl: 99, ncmoe: 40, moe: true, ot: 'blk\\.[0-9]+\\.ffn_(up_exps|down_exps|gate_inp|exp_probs_b)=CPU', fallback: { ncmoe: -1 } },
 ]
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 function offloadArgs(cfg) {
   const a = []
-  if (cfg.cpuMoe) a.push('--cpu-moe')
+  // Nemotron: `ot` = solo tensori per-esperto in CPU (shared expert in VRAM).
+  // Vedi NEMOTRON_EXPERTS_CPU in hub/lib/chat.mjs per il perche'.
+  if (cfg.ot) a.push('-ot', cfg.ot)
+  else if (cfg.cpuMoe) a.push('--cpu-moe')
   else if (cfg.ncmoe === -1) a.push('--cpu-moe')
   else if (cfg.ncmoe > 0) a.push('--n-cpu-moe', String(cfg.ncmoe))
   if (cfg.mova && cfg.movaCpu) a.push('-ot', 'attn_v_exps=CPU')
@@ -73,7 +92,8 @@ function offloadArgs(cfg) {
 function benchArgs(cfg) {
   const a = ['-m', join(ROOT, cfg.file), '-ngl', String(cfg.ngl ?? 99), '-fa', 'on',
     '-ctk', 'q8_0', '-ctv', 'q8_0', '-p', '512', '-n', '128', '-r', '3', '-o', 'json']
-  if (cfg.cpuMoe || cfg.ncmoe === -1) a.push('-ncmoe', '999')
+  if (cfg.ot) a.push('-ot', cfg.ot)
+  else if (cfg.cpuMoe || cfg.ncmoe === -1) a.push('-ncmoe', '999')
   else if (cfg.ncmoe > 0) a.push('-ncmoe', String(cfg.ncmoe))
   if (cfg.mova && cfg.movaCpu) a.push('-ot', 'attn_v_exps=CPU')
   if (cfg.asyncOffload) a.push('-nopo', '1')
@@ -83,7 +103,7 @@ function benchArgs(cfg) {
 function serverArgs(cfg) {
   const a = ['-m', join(ROOT, cfg.file), '--host', '127.0.0.1', '--port', String(PORT),
     '-c', '4096', '-ngl', String(cfg.ngl ?? 99), '--flash-attn', 'on', '--no-warmup',
-    '--cache-type-k', 'q8_0', '--cache-type-v', 'q8_0', '--reasoning', 'off',
+    '--cache-type-k', 'q8_0', '--cache-type-v', 'q8_0', '--reasoning', THINKING ? 'on' : 'off',
     ...offloadArgs(cfg)]
   return a
 }
@@ -163,41 +183,63 @@ async function runBench(cfg) {
   }
 }
 
+// Scoreri STRICTI. Le versioni permissive ("prendi l'ultimo numero del testo",
+// "prendi l'ultima lettera A-D") lasciavano passare risposte che divagavano:
+// bastava finire con "391" o con "B" per azzeccare. Ora il numero e la lettera
+// devono stare dove il prompt li chiede, e il fallback non prende più
+// l'ultimo valore "a caso" trovato nel testo.
 function scoreItem(item, text) {
   const t = (text || '').trim()
   const low = t.toLowerCase()
   if (item.type === 'mcq') {
     let letter = null
-    const m = t.match(/(?:answer|risposta|opzione|lettera)\s*(?:is|:)?\s*[\(\[]?\s*([ABCD])\b/i)
-    if (m) letter = m[1].toUpperCase()
-    else {
+    const labeled = t.match(/(?:answer|risposta|opzione|lettera)\s*(?:is|:)?\s*[\(\[]?\s*([A-E])\b/i)
+    const bare = t.match(/^\s*[\(\[]?([A-E])[\)\].:]?\s*$/m)
+    if (labeled) letter = labeled[1].toUpperCase()
+    else if (bare) letter = bare[1].toUpperCase()
+    else if (item.strict === false) {
       const all = t.match(/\b[ABCD]\b/g)
       if (all && all.length) letter = all[all.length - 1].toUpperCase()
     }
-    return { ok: letter === item.answer.toUpperCase(), got: letter }
+    return { ok: letter === item.answer.toUpperCase(), got: letter || '—' }
   }
   if (item.type === 'number') {
-    const m = t.replace(/\.(?=\d{3}\b)/g, '').match(/(?:answer|risposta|risultato|vale|=|:)\s*(-?\d+(?:[.,]\d+)?)/i)
-    let got = m ? m[1].replace(',', '.') : null
-    if (got === null) {
+    const first = t.replace(/\.(?=\d{3}\b)/g, '')
+    let m = first.match(/(?:risposta|risultato|totale|answer)\s*(?:finale)?\s*(?:e'|è|:|=)?\s*(-?\d+(?:[.,]\d+)?)/i)
+    if (!m) m = t.match(/(?:vale|sono|=)\s*(-?\d+(?:[.,]\d+)?)/i)
+    // Risposta secca ("80") = esattamente il formato chiesto da molti item
+    // base: va sempre accettata, altrimenti lo stretto misura pedanteria.
+    if (!m && /^[\s\-−]?\d+(?:[.,]\d+)?\s*$/.test(t)) m = [null, t.trim()]
+    // Fallback "ultimo numero del testo": solo se l'item lo ammette
+    // esplicitamente (strict: false). E' quello che permetteva a una risposta
+    // che divaga di azzeccare il numero per caso.
+    if (!m && item.strict === false) {
       const nums = t.replace(/,/g, '').match(/-?\d+(?:\.\d+)?/g)
-      got = nums && nums.length ? nums[nums.length - 1] : null
+      if (nums && nums.length) m = [null, nums[nums.length - 1]]
     }
-    return { ok: got !== null && Math.abs(Number(got) - Number(item.answer)) < 1e-6, got }
+    const got = m ? Number(m[1].replace(/\s/g, '').replace(',', '.')) : null
+    const tol = item.tol ?? 1e-6
+    return { ok: got !== null && Math.abs(got - Number(item.answer)) <= tol, got: got === null ? '—' : String(got) }
   }
   if (item.type === 'contains') {
-    const subs = item.answer.map((s) => s.toLowerCase())
+    const subs = item.answer.map((s) => String(s).toLowerCase())
     const hit = subs.map((s) => low.includes(s))
     const ok = item.mode === 'any' ? hit.some(Boolean) : hit.every(Boolean)
-    return { ok, got: subs.map((s, i) => `${s}:${hit[i] ? 'Y' : 'N'}`).join(' ') }
+    return { ok, score: ok ? 1 : 0, got: subs.map((s, i) => `${s}:${hit[i] ? 'Y' : 'N'}`).join(' ') }
   }
   return { ok: false, got: 'tipo sconosciuto' }
 }
 
 async function ask(item) {
+  // Gli item hard usano un system severo sul formato: senza, i modelli
+  // aggiungono spiegazioni e lo scorer stretto le rifiuta (misurarebbe la
+  // verbosita' invece della capacita').
+  const sys = item.level === 'hard' ? (EVALSET.hardSystem || EVALSET.system) : EVALSET.system
   const body = {
-    messages: [{ role: 'system', content: EVALSET.system }, { role: 'user', content: item.prompt }],
-    temperature: 0, top_p: 1, seed: 42, max_tokens: 512, stream: false,
+    messages: [{ role: 'system', content: sys }, { role: 'user', content: item.prompt }],
+    // col thinking il ragionamento precede la risposta: a 512 token alcuni
+    // modelli (k2, bonsai, MiniCPM-V) finiscono il budget senza rispondere.
+    temperature: 0, top_p: 1, seed: 42, max_tokens: THINKING ? 2048 : 512, stream: false,
   }
   const t0 = Date.now()
   const r = await fetch(`http://127.0.0.1:${PORT}/v1/chat/completions`, {
@@ -212,7 +254,8 @@ async function ask(item) {
 
 async function runQuality(cfg) {
   const items = []
-  for (const item of EVALSET.items) {
+  const selected = EVALSET.items.filter((t) => LEVEL === 'all' || (t.level || 'base') === LEVEL)
+  for (const item of selected) {
     let res, sc
     try {
       const a = await ask(item)
@@ -304,8 +347,9 @@ function buildSummary(results) {
     categories,
     method: {
       speed: 'llama-bench pp512/tg128 · KV q8_0 · flash-attn · 3 ripetizioni',
-      quality: `${EVALSET.items.length} item a punteggio oggettivo (scelta multipla, numero esatto, sottostringhe) · temperatura 0 · reasoning off`,
+      quality: `${EVALSET.items.length} item a punteggio oggettivo (scelta multipla, numero esatto, sottostringhe) · temperatura 0 · reasoning ${THINKING ? 'on' : 'off'}`,
     },
+    thinking: THINKING,
     rows, byQuality, bySpeed, byCombined,
   }
 }

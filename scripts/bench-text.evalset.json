@@ -1,7 +1,8 @@
 {
-  "version": 1,
-  "note": "Set di valutazione automatico per modelli testuali. Punteggio oggettivo: mcq (lettera), number (numero esatto), contains (sottostringhe).",
+  "version": 2,
+  "note": "Set di valutazione automatico per modelli testuali. Punteggio oggettivo: mcq (lettera), number (numero esatto), contains (sottostringhe). level base = item da risposta singola; level hard = catena di passi, distrattori, formato severo. strict=false torna al fallback permissivo (numero secca o ultima lettera).",
   "system": "Sei un assistente conciso. Segui esattamente le istruzioni dell'utente e non aggiungere preamboli.",
+  "hardSystem": "Sei un assistente preciso. Rispoudi SOLO con quanto richiesto, nel formato esatto indicato. Nessuna spiegazione, nessun ragionamento, nessun testo aggiuntivo.",
   "items": [
     { "id": "mcq_aus", "category": "Conoscenza", "type": "mcq", "answer": "B",
       "prompt": "Qual è la capitale dell'Australia?\nA) Sydney\nB) Canberra\nC) Melbourne\nD) Perth\nRispondi solo con la lettera." },
@@ -62,6 +63,30 @@
     { "id": "it_ops", "category": "Italiano", "type": "number", "answer": "14",
       "prompt": "Quanto fa 8 + 3 × 2 rispettando la precedenza degli operatori? Rispondi solo con il numero." },
     { "id": "it_proverb", "category": "Italiano", "type": "contains", "mode": "all", "answer": ["lontano"],
-      "prompt": "Completa il proverbio: 'Chi va piano va sano e va ...'. Rispondi con una sola parola." }
+      "prompt": "Completa il proverbio: 'Chi va piano va sano e va ...'. Rispondi con una sola parola." },
+    { "id": "h_rate", "level": "hard", "category": "Matematica", "type": "number", "answer": "180",
+      "prompt": "Un liquido entra a 12 litri al minuto e l'altro esce a 15 litri al minuto. Quanti litri di liquido si perdono in 60 minuti? Rispondi con 'risposta: <numero>'." },
+    { "id": "h_mix", "level": "hard", "category": "Matematica", "type": "number", "answer": "15",
+      "prompt": "Un rettangolo ha area 108 cm² e perimetro 42 cm. I lati sono interi. Calcola la diagonale con Pitagora. Rispondi con 'risposta: <numero>'." },
+    { "id": "h_units", "level": "hard", "category": "Matematica", "type": "number", "answer": "0.9", "tol": 0.001,
+      "prompt": "Un tratto di 150 m viene convertito in km e poi moltiplicato per 6. Rispondi con 'risposta: <numero>' (il risultato in km)." },
+    { "id": "h_mod", "level": "hard", "category": "Logica", "type": "number", "answer": "4",
+      "prompt": "Oggi è martedì. Che giorno sarà tra 100 giorni? Rispondi solo con il numero del giorno della settimana (lunedì=1, domenica=7)." },
+    { "id": "h_work", "level": "hard", "category": "Logica", "type": "number", "answer": "18",
+      "prompt": "Un operaio fa un muro in 6 giorni, un secondo in 3 giorni. In quanti giorni lo fanno insieme? Rispondi con 'risposta: <numero>'." },
+    { "id": "h_trap_mcq", "level": "hard", "category": "Conoscenza", "type": "mcq", "answer": "C",
+      "prompt": "Un computer spento costa 180 euro. Il prezzo di listino era 200 euro e si è applicato lo sconto. Quanto si è risparmiato in percentuale?\nA) 10%\nB) 18%\nC) 20%\nD) 22%\nRispondi solo con la lettera." },
+    { "id": "h_bool_and", "level": "hard", "category": "Logica", "type": "number", "answer": "3",
+      "prompt": "Quante delle seguenti affermazioni sono vere? (1) Ogni quadrilatero con 4 angoli retti è un rettangolo. (2) Esiste un triangolo con due lati uguali e tre angoli uguali. (3) La somma degli angoli interni di un pentagono è 540 gradi. (4) Un numero primo è divisibile per 1 e per se stesso. Rispondi solo col numero." },
+    { "id": "h_seq", "level": "hard", "category": "Logica", "type": "number", "answer": "29",
+      "prompt": "La sequenza è 1, 2, 4, 7, 11, 16, 22. Qual è il prossimo termine? Rispondi solo col numero." },
+    { "id": "h_code_bug", "level": "hard", "category": "Codice", "type": "contains", "mode": "all", "answer": ["index"],
+      "prompt": "In Python, `xs = [1,2,3]` e `xs[3]` solleva un errore. Qual è il nome dell'errore in inglese? Rispondi solo con la parola chiave." },
+    { "id": "h_code_trap", "level": "hard", "category": "Codice", "type": "number", "answer": "1",
+      "prompt": "In Python, qual è il valore di `len('abc') // 2`? Rispondi solo col numero." },
+    { "id": "h_it_trap", "level": "hard", "category": "Italiano", "type": "mcq", "answer": "B",
+      "prompt": "Quale frase è grammaticalmente corretta?\nA) Vorrei un caffè ma non un tè.\nB) Vorrei un caffè, ma non un tè.\nC) Vorrei un caffè, ma non un te.\nD) Vorrei un caffè ma non un tè.\nRispondi solo con la lettera." },
+    { "id": "h_it_num", "level": "hard", "category": "Italiano", "type": "number", "answer": "13",
+      "prompt": "In italiano, 'trentatré' è un numero dispari. Qual è il prossimo numero dispari dopo 11? Rispondi solo col numero." }
   ]
 }

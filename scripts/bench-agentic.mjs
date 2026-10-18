@@ -15,14 +15,12 @@ import { fileURLToPath } from 'node:url'
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 const LLAMA_BUILD = (process.env.PALAMEDE_LLAMA_DIR
   ? process.env.PALAMEDE_LLAMA_DIR
-  : ['llama-cpp-b11457', 'llama-cpp'].map((d) => join(ROOT, 'tools', d)))
+  : ['llama-cpp-b11707', 'llama-cpp-b11457', 'llama-cpp'].map((d) => join(ROOT, 'tools', d)))
   .find((d) => existsSync(join(d, 'llama-server.exe')))
   ?? join(ROOT, 'tools', 'llama-cpp')
 const LLAMA_SERVER = join(LLAMA_BUILD, 'llama-server.exe')
 // porta dedicata (non :8121 chat, :8122 giudice, :8125 rerank, :8126 wan, :8127 banco testuale)
 const PORT = Number(process.env.BENCH_AGENTIC_PORT || 8128)
-const OUT = join(ROOT, 'outputs', 'benchmark-agentic')
-const LOGS = join(OUT, 'logs')
 const TASKS = JSON.parse(readFileSync(join(ROOT, 'scripts', 'bench-agentic.tasks.json'), 'utf8'))
 
 const argv = process.argv.slice(2)
@@ -32,6 +30,11 @@ const ONLY_TASKS = (argVal('--tasks') || '').split(',').map((s) => s.trim()).fil
 const LEVEL = (argVal('--level') || 'all').toLowerCase()
 const MAX_STEPS = Math.max(1, Number(argVal('--max-steps')) || TASKS.maxStepsPerStage || 8)
 const THINKING = argv.includes('--thinking')
+// --out-dir: destinazione alternativa (relativa alla root), per tenere separate
+// le misure thinking-on dagli ufficiali thinking-off.
+const OUT_REL = argVal('--out-dir') || 'outputs/benchmark-agentic'
+const OUT = join(ROOT, ...OUT_REL.split('/'))
+const LOGS = join(OUT, 'logs')
 const levelOk = (t) => LEVEL === 'all' || (t.level || 'base') === LEVEL
 
 // Config per modello: stessi file/flag di scripts/bench-text.mjs (fonte per ncmoe/fallback).
@@ -47,8 +50,13 @@ const MODELS = [
   { id: 'gemma-4-26b', name: 'Gemma 4 26B-A3.8B · IQ3_S', file: 'models/gemma-4-26b/gemma-4-26B-A4B-it-UD-IQ3_S.gguf', ngl: 99, moe: true, fallback: { cpuMoe: true } },
   { id: 'minicpm5-2b', name: 'MiniCPM5 2B · Q4_K_M', file: 'models/minicpm5-2b/MiniCPM5-2B-Q4_K_M.gguf', ngl: 99 },
   { id: 'minicpm-v47-35b', name: 'MiniCPM-V 4.7 35B-A3B · Q4_K_M', file: 'models/minicpm-v47-35b/MiniCPM-V-4_7-35B-A3B-Q4_K_M.gguf', ngl: 99, ncmoe: 30, moe: true, fallback: { ncmoe: -1 } },
+  // Nemotron 3.5 Bolt 74B-A9B: esperti diversi per layer (240..496), quindi
+  // solo su llama.cpp >= b11707.
+  { id: 'nemotron-bolt-74b', name: 'Nemotron 3.5 Bolt 74B-A9B · UD-Q3_K_XL', file: 'models/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q3_K_XL.gguf', ngl: 99, ncmoe: 40, moe: true, ot: 'blk\\.[0-9]+\\.ffn_(up_exps|down_exps|gate_inp|exp_probs_b)=CPU', fallback: { ncmoe: -1 } },
+  { id: 'nemotron-bolt-74b-q2', name: 'Nemotron 3.5 Bolt 74B-A9B · UD-Q2_K_XL', file: 'models/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q2_K_XL.gguf', ngl: 99, ncmoe: 40, moe: true, ot: 'blk\\.[0-9]+\\.ffn_(up_exps|down_exps|gate_inp|exp_probs_b)=CPU', fallback: { ncmoe: -1 } },
   { id: 'qwen38-27b', name: 'Qwen3.8 27B · IQ3_XXS', file: 'models/qwen38-27b/Qwen3.8-27B-GSQ-RCO-IQ3_XXS.gguf', ngl: 99 },
   { id: 'gemma-4-12b', name: 'Gemma 4 12B IT · QAT Q4', file: 'models/Jarvis/gemma-4-12B-it-qat-UD-Q4_K_XL.gguf', ngl: 99 },
+  { id: 'lfm-24a2b', name: 'LFM2.5 24B-A2B · UD-Q5_K_XL', file: 'models/lfm/lfm-24a2b/LFM2.5-24B-A2B-UD-Q5_K_XL.gguf', ngl: 99, ncmoe: 30, moe: true, fallback: { ncmoe: -1 } },
 ]
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -57,7 +65,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 function offloadArgs(cfg) {
   const a = []
-  if (cfg.cpuMoe) a.push('--cpu-moe')
+  // `ot`: solo tensori per-esperto in CPU (Nemotron shared expert in VRAM)
+  if (cfg.ot) a.push('-ot', cfg.ot)
+  else if (cfg.cpuMoe) a.push('--cpu-moe')
   else if (cfg.ncmoe === -1) a.push('--cpu-moe')
   else if (cfg.ncmoe > 0) a.push('--n-cpu-moe', String(cfg.ncmoe))
   if (cfg.mova && cfg.movaCpu) a.push('-ot', 'attn_v_exps=CPU')
@@ -110,9 +120,13 @@ async function stopServer(proc) {
 }
 
 async function chat(messages, maxTokens = 512) {
+  // Con --thinking il ragionamento mangia token PRIMA della risposta: misurati
+  // fino a ~1800 caratteri (k2-36b) con risposta finale vuota a 512 token.
+  // Sotto il soffitto i punteggi sarebbero tutti zero (fasulli), quindi si alza.
+  const limit = THINKING ? 2048 : maxTokens
   const r = await fetch(`http://127.0.0.1:${PORT}/v1/chat/completions`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages, temperature: 0, top_p: 1, seed: 42, max_tokens: maxTokens, stream: false }),
+    body: JSON.stringify({ messages, temperature: 0, top_p: 1, seed: 42, max_tokens: limit, stream: false }),
     signal: AbortSignal.timeout(180_000),
   })
   const j = await r.json()
@@ -514,7 +528,7 @@ async function main() {
   mkdirSync(LOGS, { recursive: true })
   const taskList = TASKS.tasks.filter((t) => levelOk(t) && (!ONLY_TASKS.length || ONLY_TASKS.includes(t.id)))
   const list = MODELS.filter((m) => !ONLY.length || ONLY.includes(m.id))
-  console.log(`Benchmark agentico: ${list.length} modelli × ${taskList.length} task (livello ${LEVEL}, thinking ${THINKING ? 'on' : 'off'}, max ${MAX_STEPS} passi/stadio)`)
+  console.log(`Benchmark agentico: ${list.length} modelli × ${taskList.length} task (livello ${LEVEL}, thinking ${THINKING ? 'on' : 'off'}, max ${MAX_STEPS} passi/stadio) → ${OUT_REL}`)
   const results = []
   for (const cfg of list) {
     if (!existsSync(join(ROOT, cfg.file))) { console.log(`SKIP ${cfg.id}: manca ${cfg.file}`); continue }

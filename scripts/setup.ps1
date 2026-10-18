@@ -4,11 +4,13 @@ param(
     # release di stable-diffusion.cpp (binari Windows CUDA 12). Deve contenere
     # il supporto Qwen-Image 2.1 (PR #1994, commit 137f740, dal 2026-09-20).
     [string]$SdTag = 'master-896-e112ab5',
-    # release di llama.cpp (binari Windows CUDA)
-    [string]$LlamaTag = 'b11457',
-    # versione CUDA dei binari: accoppiata al tag, non indipendente. b11457
-    # pubblica cuda-12.4 e cuda-13.4 (non piu' la 13.3 delle build precedenti),
-    # quindi il parametro serve a non hardcodare una versione che non esiste.
+    # release di llama.cpp (binari Windows CUDA). b11707 e' la prima build che
+    # legge i MoE con esperti per-layer (Nemotron 3.5 Bolt ne ha 5 diversi:
+    # 240/304/368/432/496); b11457 ne accetta uno solo e muore in load.
+    [string]$LlamaTag = 'b11707',
+    # versione CUDA dei binari: accoppiata al tag, non indipendente. b11707
+    # pubblica cuda-12.4 e cuda-13.4, quindi il parametro serve a non
+    # hardcodare una versione che non esiste.
     [string]$LlamaCuda = '13.4',
     # solo CPU (niente CUDA): scarica le build CPU di sd-cpp e llama.cpp e
     # scrive il marcatore tools\.cpu (letto dall'hub: -ngl 0, niente flash-attn).

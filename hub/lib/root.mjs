@@ -37,8 +37,13 @@ export const LMSTUDIO = process.env.PALAMEDE_LMSTUDIO || 'http://127.0.0.1:1234'
 // esplicito con PALAMEDE_LLAMA_DIR. Tutti i moduli che lanciano un binario di
 // llama.cpp passano di qui, altrimenti chat e rerank possono finire su build
 // diverse nella stessa sessione.
+//
+// b11707 sta per primo: è la prima build che sa leggere i MoE a esperti
+// per-layer (Nemotron 3.5 Bolt ne ha 5 diversi), cosa che b11457 non
+// rappresenta (un solo expert_count per modello). b11457 resta il fallback.
 const LLAMA_DIR_CANDIDATES = [
   process.env.PALAMEDE_LLAMA_DIR,
+  join(ROOT, 'tools', 'llama-cpp-b11707'),
   join(ROOT, 'tools', 'llama-cpp-b11457'),
   join(ROOT, 'tools', 'llama-cpp'),
 ].filter(Boolean)

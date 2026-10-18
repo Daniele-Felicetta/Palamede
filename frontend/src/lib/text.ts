@@ -11,7 +11,7 @@
 //   let m: Text.ModelId = 'ornith-9b'
 
 export namespace Text {
-  export type ModelId = 'ornith-35b' | 'ornith-9b' | 'ornith-9b-q5' | 'k2-7b' | 'k2-36b' | 'bonsai-27b' | 'lfm-vl-3b' | 'gemma-4-26b' | 'gemma-4-12b' | 'minicpm5-2b' | 'qwen38-27b' | 'minicpm-v47-35b' | 'pocket-darwin-180b'
+  export type ModelId = 'ornith-35b' | 'ornith-9b' | 'ornith-9b-q5' | 'k2-7b' | 'k2-36b' | 'bonsai-27b' | 'lfm-vl-3b' | 'lfm-24a2b' | 'gemma-4-26b' | 'gemma-4-12b' | 'minicpm5-2b' | 'qwen38-27b' | 'minicpm-v47-35b' | 'pocket-darwin-180b' | 'nemotron-bolt-74b' | 'nemotron-bolt-74b-q2'
 
   /** Dati canonici per-modello. */
   export interface Model {
@@ -153,6 +153,26 @@ export namespace Text {
       thinking: false,
     },
     {
+      id: 'lfm-24a2b',
+      name: 'LFM2.5 24B-A2B',
+      family: 'Liquid AI · MoE 64 esperti, 4 attivi',
+      quant: 'UD-Q5_K_XL',
+      diskGB: '16.7 GB',
+      moe: true,
+      mova: false,
+      movaCpu: false,
+      // Arch nativa `lfm2moe`, ctx nativo 131072, tetto pratico come Qwen3.8.
+      context: 32768,
+      kv: 'q8_0',
+      gpuLayers: 99,
+      mtp: false,
+      cpuMoe: 30,
+      // Il GGUF dichiara sampling temp 0.1 / top_k 50 (la UI espone solo
+      // temperature); 0.3 e' il compromesso chat, non thinking model.
+      temperature: 0.3,
+      thinking: false,
+    },
+    {
       id: 'gemma-4-26b',
       name: 'Gemma 4 26B-A4B',
       family: 'Google · MoE 3.8B attivi',
@@ -282,6 +302,57 @@ export namespace Text {
       cpuMoe: -1,
       // Il model card raccomanda temperature 1.0 (top-p 0.95, top-k 20: la
       // UI non espone gli ultimi due).
+      temperature: 1.0,
+      thinking: true,
+    },
+    {
+      id: 'nemotron-bolt-74b',
+      name: 'Nemotron 3.5 Bolt 74B-A9B',
+      family: 'NVIDIA · ibrido SSM+attenzione · MoE latente',
+      quant: 'UD-Q3_K_XL',
+      diskGB: '36.3 GB',
+      moe: true,
+      mova: false,
+      movaCpu: false,
+      // Solo 8 layer su 88 hanno attenzione piena (40 sono SSM, 40 MoE a
+      // proiezione latente): la KV costa 64 KB/token a q8_0 invece dei ~250
+      // dei modelli densi, e con la config veloce resta ~9 GB di VRAM anche a
+      // 131k. 131k è il tetto in maxContext (nativo 262144) e il default.
+      context: 131072,
+      kv: 'q4_0',
+      gpuLayers: 99,
+      // Spec-decode ON di default (head dflash 1,1B in VRAM): nel config veloce la
+      // GPU ha tempo libero mentre la CPU lavora sugli esperti, e il draft ci
+      // sta dentro. Misure a cache calda (2 run per config): decode 17,4 →
+      // 23,7 t/s a prompt corto (+36%) e 21,5 → 27,0 t/s a 6k di prompt
+      // (+25%), prefill -4/-8%. Nella config LENTA (--n-cpu-moe) il
+      // guadagno spariva: la CPU era già satura e il draft peggiorava tutto.
+      mtp: true,
+      // Gli esperti routed vanno in CPU, ma NON con --n-cpu-moe: l'hub usa il
+      // caso speciale -ot (solo *_exps/gate_inp/exp_probs_b) che lascia gli
+      // shared expert in VRAM. Con cpuMoe > 0 attivi la regola; a 0 tutti gli
+      // esperti in VRAM, che non ci stanno (36,3 GB su 16,3 di VRAM).
+      cpuMoe: 40,
+      temperature: 1.0,
+      thinking: true,
+    },
+    {
+      id: 'nemotron-bolt-74b-q2',
+      name: 'Nemotron 3.5 Bolt 74B-A9B (Q2)',
+      family: 'NVIDIA · ibrido SSM+attenzione · MoE latente · leggero',
+      quant: 'UD-Q2_K_XL',
+      diskGB: '26.8 GB',
+      moe: true,
+      mova: false,
+      movaCpu: false,
+      // 26,8 GB invece di 36,3: esperti in IQ3_XXS. Serve quando i 36 GB non
+      // stanno in RAM. Non e' piu' veloce (il collo e' sempre la CPU sugli
+      // esperti) e la qualita' cala: per questo il Q3 resta il default.
+      context: 131072,
+      kv: 'q4_0',
+      gpuLayers: 99,
+      mtp: true,
+      cpuMoe: 40,
       temperature: 1.0,
       thinking: true,
     },
@@ -434,11 +505,46 @@ export namespace Text {
     },
   ]
 
+  /** Nemotron 3.5 Bolt 74B-A9B: la variante veloce sta nel `-ot` sui soli
+   *  tensori per-esperto (hub/lib/chat.mjs), NON in --n-cpu-moe: 3,6 → 17,6
+   *  t/s e la VRAM scende da 15,6 a 9,1 GB, quindi il contesto lungo costa
+   *  quasi nulla. Misure su RTX 5060 Ti 16 GB + 64 GB RAM (b11707, KV q4_0,
+   *  thinking off; la VRAM è quella totale col desktop acceso):
+   *    --n-cpu-moe 40, 32k ....... 15,6 GB · 3,6 t/s    <- la config lenta
+   *    -ot routed, 32k ...........  9,1 GB · 17,6 t/s · prefill 21,8 t/s
+   *    -ot routed, 131k ..........  9,5 GB · 17,4 t/s
+   *    -ot + draft dflash, 131k ..  ~9,5 GB · 27,0 t/s su 6k di prompt
+   *    Q2_K_XL, -ot, 32k .........  8,6 GB · 16,9 t/s
+   *    Q2_K_XL, -ot, 131k ........  9,0 GB · 19,5 t/s
+   *  Tutte le misure con cache CALDA (dopo una richiesta di riscaldamento):
+   *  la prima dopo il load legge ~25 GB di esperti da NVMe e vale la metà. */
+  export const NEMOTRON_PROFILES: VramProfile[] = [
+    {
+      id: 'long-131k',
+      label: 'Contesto lungo (131k, KV q4)',
+      hint: '131k contesto · ~9,5 GB VRAM · ~17,4 t/s (27 con draft)',
+      cpuMoe: 40, movaCpu: false, kv: 'q4_0', context: 131072, mtp: true,
+    },
+    {
+      id: 'standard',
+      label: 'Standard (32k, KV q8)',
+      hint: '32k contesto · ~11 GB VRAM · ~17,6 t/s (24 con draft)',
+      cpuMoe: 40, movaCpu: false, kv: 'q8_0', context: 32768, mtp: true,
+    },
+    {
+      id: 'no-draft',
+      label: 'Senza draft (prefill più veloce)',
+      hint: '131k contesto · ~9,5 GB VRAM · ~17,4 t/s, prefill +8%',
+      cpuMoe: 40, movaCpu: false, kv: 'q4_0', context: 131072, mtp: false,
+    },
+  ]
+
   /** Profili VRAM disponibili per un modello. */
   export function vramProfilesFor(id: string): VramProfile[] {
     if (supportsMova(id)) return K2_36B_PROFILES
     if (id === 'pocket-darwin-180b') return DARWIN_PROFILES
     if (id === 'qwen38-27b') return QWEN38_PROFILES
+    if (id === 'nemotron-bolt-74b' || id === 'nemotron-bolt-74b-q2') return NEMOTRON_PROFILES
     return []
   }
 

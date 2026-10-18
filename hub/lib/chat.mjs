@@ -21,6 +21,16 @@ export const CPU_ONLY = existsSync(join(ROOT, 'tools', '.cpu'))
 
 // Elenco calcolato a ogni chiamata (non a import): un modello scaricato dal
 // Downloader compare subito, senza riavviare il hub.
+// Nemotron 3.5 Bolt: i soli tensori PER-ESPERTO da mandare in CPU con -ot.
+// --n-cpu-moe non va bene li': porta in CPU anche gli shared expert
+// (ffn_up/down_shexp, 40 layer da 5376 = 1,8B parametri DENSI calcolati a ogni
+// token) e il grafo non si sovrappone piu' alla GPU. Misurato su RTX 5060 Ti
+// 16 GB (ctx 32k, KV q4_0): --n-cpu-moe 40 = 3,6 t/s e 15,6 GB di VRAM;
+// questo -ot = 17,6 t/s e 9,1 GB (il grafo MoE uniforme a 496 esperti non
+// viene costruito). Restano in VRAM shared expert, proiezioni latenti, SSM,
+// attenzione ed embedding (~1,7 GB di pesi piu' i buffer).
+const NEMOTRON_EXPERTS_CPU = 'blk\\.[0-9]+\\.ffn_(up_exps|down_exps|gate_inp|exp_probs_b)=CPU'
+
 const TEXT_MODEL_DEFS = [
   { id: 'ornith-35b', name: 'Ornith 1.5 35B-A3B · Q4_K_M', moe: true,
     file: join(ROOT, 'models', 'ornith-1.5-35b', 'Ornith-1.5-35B-Q4_K_M.gguf'),
@@ -44,6 +54,10 @@ const TEXT_MODEL_DEFS = [
   { id: 'lfm-vl-3b', name: 'LFM2.5 VL 3B · Q5_K_XL', moe: false,
     file: join(ROOT, 'models', 'lfm', 'lfm-vl-3b', 'LFM2.5-VL-3B-Q5_K_XL.gguf'),
     mmproj: 'mmproj-LFM2.5-VL-3B-F32.gguf' },
+  // LFM2.5 24B-A2B Preview: MoE nativo `lfm2moe` (64 esperti, 4 attivi ~2B),
+  // ctx nativo 131072, text-only (niente mmproj). UD-Q5_K_XL, ~16.7 GB.
+  { id: 'lfm-24a2b', name: 'LFM2.5 24B-A2B · UD-Q5_K_XL', moe: true, maxContext: 131072,
+    file: join(ROOT, 'models', 'lfm', 'lfm-24a2b', 'LFM2.5-24B-A2B-UD-Q5_K_XL.gguf') },
   // Gemma 4 26B-A4B MoE (3.8B attivi): narratore Bandersketch consigliato —
   // qualità da 30B con mmproj F16 (1.2GB) e --cpu-moe
   // scende a ~4.5GB VRAM a 36-40 tok/s. Pesi: release Unsloth IQ3_S.
@@ -89,6 +103,41 @@ const TEXT_MODEL_DEFS = [
   { id: 'pocket-darwin-180b', name: 'POCKET-Darwin 180B · UD-Q4_K_XL', moe: true, asyncOffload: true, maxContext: 262144,
     mtpHead: join(ROOT, 'models', 'Pocket-Darwin-180B', 'mtp-Qwen3.8-Flash-Next-Q4_K_M.gguf'),
     file: join(ROOT, 'models', 'Pocket-Darwin-180B', 'POCKET-Darwin-180B-UD-Q4_K_XL-00001-of-00004.gguf') },
+  // NVIDIA Nemotron 3.5 Bolt 74B-A9B: ibrido SSM+attenzione (arch.
+  // `nemotron_h_moe`), 88 layer di cui 8 a attenzione piena, 40 SSM e 40 MoE a
+  // proiezione latente (moe_latent_size 1024). Solo testo (il template sa
+  // anche rendere immagini e video, ma senza mmproj gira text-only), ctx
+  // nativo 262144, ragionamento (<think>, enable_thinking nel template).
+  //
+  // Attenzione al numero di esperti: CAMBIA per layer (240/304/368/432/496,
+  // l'header dichiara 496 = il massimo). Serve llama.cpp >= b11707: su b11457
+  // il load muore con "tensor 'blk.8.ffn_gate_inp.weight' has wrong shape;
+  // expected 4096, 240, got 4096, 304" (un --override-kv sul singolo
+  // expert_count non serve: ne servirebbe uno per layer).
+  //
+  // Gli esperti NON si spostano con --n-cpu-moe (vedi NEMOTRON_EXPERTS_CPU):
+  // 3,6 t/s. Con -ot sui soli tensori per-experto: 17,6 t/s.
+  //
+  // draftHead: head dflash dedicato (1,1B, NVFP4, arch `dflash`), NON i
+  // tensori nextn.* (che qui non ci sono). Va in VRAM con -ngld all.
+  // Nella config veloce (NEMOTRON_EXPERTS_CPU) il draft E' un guadagno: la
+  // GPU ha tempo libero mentre la CPU lavora sugli esperti. A cache calda,
+  // 2 run per config: decode 17,4 → 23,7 t/s a prompt corto (+36%) e
+  // 21,5 → 27,0 t/s a 6204 token di prompt (+25%), prefill -4/-8%.
+  // Nella config lenta (--n-cpu-moe) era invece un danno: la CPU era gia'
+  // satura. Per questo mtp parte da ON solo per i modelli con expertsCpu.
+  { id: 'nemotron-bolt-74b', name: 'Nemotron 3.5 Bolt 74B-A9B · UD-Q3_K_XL',
+    moe: true, maxContext: 131072, specType: 'draft-dflash', expertsCpu: NEMOTRON_EXPERTS_CPU,
+    draftHead: join(ROOT, 'models', 'dflash-NVIDIA-Nemotron-3.5-Bolt-74B-A9B-NVFP4.gguf'),
+    file: join(ROOT, 'models', 'NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q3_K_XL.gguf') },
+  // Stessa architettura in Q2_K_XL: 26,8 GB invece di 36,3 (esperti in IQ3_XXS).
+  // Non e' piu' veloce (16,9-19,5 t/s, il collo e' sempre la CPU sugli esperti)
+  // e la qualita' cala: serve per chi non ha 40 GB di RAM liberi. Q3 resta il
+  // default misurato (IQ3_XXS sugli esperti e' aggressivo sul routing).
+  { id: 'nemotron-bolt-74b-q2', name: 'Nemotron 3.5 Bolt 74B-A9B · UD-Q2_K_XL',
+    moe: true, maxContext: 131072, specType: 'draft-dflash', expertsCpu: NEMOTRON_EXPERTS_CPU,
+    draftHead: join(ROOT, 'models', 'dflash-NVIDIA-Nemotron-3.5-Bolt-74B-A9B-NVFP4.gguf'),
+    file: join(ROOT, 'models', 'NVIDIA-Nemotron-3.5-Bolt-74B-A9B-UD-Q2_K_XL.gguf') },
 ]
 
 const SHARDED_GGUF = /^(.*?)-(\d+)-of-(\d+)\.gguf$/i
@@ -273,7 +322,11 @@ async function bootText(cfg) {
   if (mmproj) args.push('--mmproj', mmproj)
   // MoE su CPU: cpuMoe > 0 = primi N layer di esperti su RAM, cpuMoe === -1 =
   // tutti gli esperti su RAM (libera la VRAM per i modelli immagine).
-  if (model.moe && cpuMoe === -1) args.push('--cpu-moe')
+  // `expertsCpu` sul modello e' il caso speciale Nemotron: invece di
+  // --n-cpu-moe/-ot solo sugli esperti ROUTED, cosi' shared expert e tensori
+  // non-MoE restano in VRAM (vedi NEMOTRON_EXPERTS_CPU).
+  if (model.moe && model.expertsCpu && cpuMoe !== 0) args.push('-ot', model.expertsCpu)
+  else if (model.moe && cpuMoe === -1) args.push('--cpu-moe')
   else if (model.moe && cpuMoe > 0) args.push('--n-cpu-moe', String(cpuMoe))
   // MoVA (K2 Horizon): sposta il banco di esperti dell'attenzione (attn_v_exps)
   // su CPU per liberare VRAM. --n-cpu-moe non copre questo banco.
